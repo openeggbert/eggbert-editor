@@ -1,6 +1,6 @@
 # Eggbert Editor
 
-A desktop editor in development for 2D worlds from the Windows games Speedy Blupi and Speedy Blupi II, also released as Speedy Eggbert and Speedy Eggbert 2. The plan covers individual world files, installed world sets and manually authored campaigns.
+A desktop editor in development for 2D worlds from the Windows games Speedy Blupi and Speedy Blupi II, also released as Speedy Eggbert and Speedy Eggbert 2. Version 1.0 is intentionally scoped to lossless editing of individual world files. Installation deployment, campaigns and cross-game conversion are post-1.0 roadmap items.
 
 The Qt Widgets scaffold currently lets you select a file with **File → Inspect World File** and compare its size with the canonical v1.3 world size. This is a metadata-only inspection. The separate C++ world library can retain an arbitrary input byte sequence. Decoding, world editing and saving are planned. The format notes, compatibility matrix and implementation milestones are in [plan.md](plan.md). A fresh implementation session should also read [AGENTS.md](AGENTS.md) and continue from [NEXT.md](NEXT.md).
 
@@ -24,7 +24,7 @@ If CMake cannot find Qt, set `CMAKE_PREFIX_PATH` to your Qt kit directory when c
 | `src/world/` | Original byte storage, profile and revision types, v1.3 size constants. Independent of Qt. |
 | `src/app/` | Application entry point and Qt Widgets main window. |
 | `tests/` | Asset-free checks for the world library. |
-| `plan.md` | Binary layout, original game behavior, feature design and release criteria. |
+| `plan.md` | Fixed 1.0 scope, binary layout, feature design, release criteria and compact post-1.0 roadmap. |
 | `NEXT.md` | Current implementation state and the next bounded, testable slice. |
 | `AGENTS.md` | Engineering invariants and fresh-context handoff rules. |
 

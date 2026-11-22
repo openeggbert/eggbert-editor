@@ -2,7 +2,7 @@
 
 ## Current verified state
 
-Milestone 0 is a deliberately small scaffold. It configures as a C++23 CMake project with Qt 6 Widgets, builds a desktop executable and an asset-free CTest executable, and retains arbitrary input bytes in `WorldFile`. The GUI can choose a `.blp` or `.xch` file and report whether its byte count equals the canonical v1.3 size. It does not yet identify, decode, edit, render or save a world. Campaign, installation, minimap, statistics and export features exist only in `plan.md`.
+Milestone 0 is a deliberately small scaffold. It configures as a C++23 CMake project with Qt 6 Widgets, builds a desktop executable and an asset-free CTest executable, and retains arbitrary input bytes in `WorldFile`. The GUI can choose a `.blp` or `.xch` file and report whether its byte count equals the canonical v1.3 size. It does not yet identify, decode, edit, render or save a world. Minimap, statistics, validation and PNG export exist only in `plan.md`; campaign and installation workflows are explicitly deferred beyond 1.0.
 
 The initial scaffold was configured and built in Release mode and its CTest test passed. Re-run the commands in `README.md` on the current machine before relying on that result.
 
@@ -26,4 +26,4 @@ Acceptance evidence:
 
 ## Explicit non-goals for this slice
 
-Do not add header field editing, serialization, canvas rendering, game-asset loading, installation discovery, campaign support, ZIP handling or procedural generation. The following slice should decode a read-only header view with exact field offsets while retaining all original bytes.
+Do not add header field editing, serialization, canvas rendering, game-asset loading, installation discovery, campaign support, ZIP handling or procedural generation. The following slice should decode a read-only header view with exact field offsets while retaining all original bytes. Revisions 1.0 and 1.1 remain read-only throughout the 1.0 product plan; only 1.2 and 1.3 will later gain structured writes.
