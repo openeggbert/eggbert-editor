@@ -26,6 +26,8 @@ add_library(eggbert_world STATIC
     src/world/le_reader.hpp
     src/world/offset_map.cpp
     src/world/offset_map.hpp
+    src/world/tile_tools.cpp
+    src/world/tile_tools.hpp
     src/world/world_document.cpp
     src/world/world_document.hpp
     src/world/world_probe.cpp
@@ -75,14 +77,14 @@ set_target_properties(eggbert-editor PROPERTIES
 include(CTest)
 if(BUILD_TESTING)
     # Headless core tests: no Qt, no game assets.
-    foreach(name layout le_reader world_probe world_view world_document world_stats offset_map view_transform)
+    foreach(name layout le_reader world_probe world_view world_document world_stats offset_map tile_tools view_transform)
         add_executable(${name}-test tests/${name}_test.cpp)
         target_link_libraries(${name}-test PRIVATE eggbert_world)
         add_test(NAME ${name} COMMAND ${name}-test)
     endforeach()
 
     # Application tests run without a display.
-    foreach(name probe_report document_file world_renderer main_window docks)
+    foreach(name probe_report document_file world_renderer main_window docks tools)
         add_executable(${name}-test tests/${name}_test.cpp)
         target_link_libraries(${name}-test PRIVATE eggbert_app Qt6::Test)
         add_test(NAME ${name} COMMAND ${name}-test)

@@ -9,6 +9,7 @@
 
 #include "app/view_transform.hpp"
 #include "app/world_renderer.hpp"
+#include "world/tile_tools.hpp"
 #include "world/world_document.hpp"
 
 namespace eggbert {
@@ -54,8 +55,12 @@ public:
     [[nodiscard]] const std::vector<CellPos> &highlightedCells() const { return markedCells_; }
     [[nodiscard]] const std::vector<std::size_t> &highlightedSlots() const { return markedSlots_; }
 
-    // Optional highlighted cell rectangle (inclusive corners).
-    void setSelection(std::optional<std::pair<CellPos, CellPos>> selection);
+    // The selection shown as a tinted overlay.
+    void setSelectionMask(const CellMask &mask);
+    [[nodiscard]] const CellMask &selectionMask() const { return selection_; }
+    // Cells a pending gesture or paste would affect.
+    void setPreviewCells(std::vector<CellPos> cells);
+    [[nodiscard]] const std::vector<CellPos> &previewCells() const { return preview_; }
 
 signals:
     void hoveredCellChanged();
@@ -88,7 +93,8 @@ private:
     RenderOptions options_;
     CellPos cursor_{0, 0};
     std::optional<CellPos> hovered_;
-    std::optional<std::pair<CellPos, CellPos>> selection_;
+    CellMask selection_;
+    std::vector<CellPos> preview_;
     std::optional<CellPos> lastToolCell_;
     std::vector<CellPos> markedCells_;
     std::vector<std::size_t> markedSlots_;

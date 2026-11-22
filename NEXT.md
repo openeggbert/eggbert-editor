@@ -16,6 +16,8 @@ Implemented and covered by asset-free tests:
 - `src/app/world_renderer.cpp`: asset-free schematic renderer used by the canvas (and later minimap/PNG): background, `bigDecor` (2 × 2 cells from the anchor, 2 px down), starts, object bodies, foreground, then overlays (paths, outlines, labels, grid), with visibility options. Colours are fixed, 8-bit exact and stable per stored value; values below -1 get a warning colour.
 - `src/app/world_canvas.cpp`, `document_tab.cpp`, `main_window.cpp`: tabbed workspace. File: Open World, Open Recent, Save, Save As, Save All, Revert, Document Properties, Close, Quit. Edit: Undo/Redo with labels. View: Zoom In/Out, Actual Pixels, Fit World, grid, labels and layer/object/start/path visibility. Tool bar: Browse, raw Pencil, active layer, raw tile ID, per-tab game profile. Every modal question goes through `MainWindow::prompts` hooks. Read-only documents show a banner and refuse every edit path. Window geometry and recent files persist in `QSettings`.
 - `src/world/world_stats.hpp`: `computeWorldStats` (facts only: size, revision, per-layer occupied/empty/value counts/bounds, object slot usage and counts by stored type/channel/icon, starts, used bounds), `findCells`, `findActiveSlots`. `src/world/offset_map.hpp`: `locateOffset` maps any file offset to header field/element, layer cell, object slot/field or suffix; `cellByteRange`, `slotByteRange`.
+- `src/world/tile_tools.hpp`: `CellRect`, `CellMask` (selection), `lineCells`, `outlineCells`, `paintCells`, `fillRect`, `fillMask`, bounded 4-connected `floodFill`/`floodRegion`, `replaceValue`, `TilePatch` with holes, `copyPatch`, clipped `pastePatch`/`pasteFootprint`, flips. Every tool edits one layer through `EditBuilder` and returns the number of cells changed.
+- Tile tools in the UI (`document_tab.cpp`, `main_window.cpp`): Browse, Select, Pencil, Eraser, Eyedropper, Line, Rectangle, Fill; Edit menu Cut/Copy/Paste/Delete, Select All/None/Invert, Find; Layer menu active layer, lock, isolate, Fill Selection, Replace Value, Clear Selection, Flip. Selection limits tools; strokes interpolate between mouse samples; edits above 64 cells go through `prompts.confirmBroadEdit` with cell/byte/offset counts; the tile clipboard is refused across different or unknown profiles (same tab always allowed).
 - `src/app/minimap_widget.cpp`, `statistics_panel.cpp`: Minimap dock (composite/foreground/bigDecor, viewport outline, click/drag pans the canvas) and World Statistics dock (tree of the headless numbers plus unsaved and changed-since-opened byte ranges; activating a row calls `MainWindow::locateTileValue/locateObjects/locateStart/locateOffsetRange`, which move the view and mark results without touching the document). View menu toggles and Reset Layout. The canvas keeps the world fitted until the user changes the view.
 - `src/app/probe_report.cpp`: plain-text probe report plus decoded summary (name with escaped non-printable bytes, music/region/world, `posDecor`/`dimDecor`, four starts, non-zero reserved fields, per-layer count of cells that differ from -1, object slot counts). Shown by **File → Document Properties**.
 - Build: `eggbert_world` (no Qt) and `eggbert_app` (Qt Widgets, everything except `main`); `-Wall -Wextra -Wpedantic`; optional `-DEGGBERT_SANITIZE=ON`.
@@ -26,9 +28,9 @@ Verification on 2026-11-22, Ubuntu 24.04, GCC 13.3.0, CMake 3.28.3, Ninja, Qt 6.
 ```sh
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
 cmake --build build --parallel              # no warnings
-ctest --test-dir build --output-on-failure  # 13/13 passed: layout, le_reader, world_probe, world_view, world_document, world_stats, offset_map, view_transform, probe_report, document_file, world_renderer, main_window, docks
+ctest --test-dir build --output-on-failure  # 15/15 passed: layout, le_reader, world_probe, world_view, world_document, world_stats, offset_map, tile_tools, view_transform, probe_report, document_file, world_renderer, main_window, docks, tools
 cmake -S . -B build-asan -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DEGGBERT_SANITIZE=ON
-cmake --build build-asan --parallel && ctest --test-dir build-asan   # 13/13 passed under ASan/UBSan
+cmake --build build-asan --parallel && ctest --test-dir build-asan   # 15/15 passed under ASan/UBSan
 ```
 
 `main_window` drives the real window offscreen: open through the action, pencil click (exactly offsets 1608–1609 change), drag as one undo step, layer switch, keyboard cursor and Space, save, external-change conflict (cancel / Save As / reload), revert, close with unsaved changes, read-only refusal, zoom about the pointer and view toggles. A screenshot of a synthetic world under Xvfb was inspected manually. The earlier `WorldFile` class and its test were removed; `world_document` covers byte retention.
@@ -40,15 +42,14 @@ cmake --build build-asan --parallel && ctest --test-dir build-asan   # 13/13 pas
 - Background research notes compiled from `blupi_recon` (same commit) on object placement, adaptive borders and rendering are not yet reconciled or recorded here; they will be entered with citations when the slices that depend on them are implemented.
 - No original executable or retail sample has been tested in this repository yet.
 
-## Next task: layer tools (milestone 4a)
+## Next task: metadata and player starts (milestone 4b)
 
-Headless first, in `src/world/tile_tools.hpp/.cpp`, each producing one transaction through `EditBuilder` and touching only the selected layer:
+Evidence to record first (from `blupi_recon` at the pinned commit; verify each citation while implementing): `music` and `region` ranges per game, `dimDecor` zero/non-zero semantics per axis, `posDecor` as saved camera position, start positions in world pixels with the editor's `cell * 64 + (2, 6)` placement, direction constants (1 left, 2 right), title limits (40 typed bytes, `name[100]`, read only for revision ≥ 1.3).
 
-1. Shapes: line (Bresenham), filled and outlined rectangle, bounded flood fill (4-connected, replaces the contiguous region of the start cell's value, limited to an optional cell rectangle), replace-all of one value inside a rectangle, clear rectangle to -1. Everything is clipped to the map; results report cells changed.
-2. Clipboard: copy a rectangle of one layer to a `TilePatch` (width, height, values, source layer); paste at a target cell with clipping at map edges and an optional "skip -1" mode; cut = copy + clear as one transaction. Patches carry the profile they were copied under; pasting across profiles is refused in the UI.
-3. Selection transforms on a patch: flip horizontally/vertically (no tile remapping is claimed; it moves stored IDs only).
-4. UI: tools Eraser (raw, writes -1 to the active layer only), Eyedropper, Line, Rectangle, Fill, Select; Edit menu Cut/Copy/Paste/Delete/Select All/None; Layer menu fill/replace/clear with a before/after cell count preview when more than 64 cells change; Find by coordinate, tile value, object type or slot. Layer lock and isolate.
-5. Tests: exact changed-cell sets for every shape including edges and corners, fill boundaries and limits, paste clipping, cut/paste round trip, one undo step per operation, other layer and objects byte-identical, and offscreen gestures for each tool.
+1. Headless `src/world/metadata.hpp/.cpp`: profile-aware descriptions of the editable header fields (value ranges with provenance, what an out-of-range stored value means), `dimDecor` axis booleans that keep an unusual non-zero raw value until the user changes that axis, start cell ↔ pixel conversion that preserves sub-cell offsets when moving by whole cells, and name encoding helpers (Windows-1252 display, refusal of unrepresentable characters, 99-byte limit, warning above 40 bytes and for revision 1.2 where the title is not read by the game).
+2. Edit operations through `EditBuilder`: set name, music, region, scroll axes, start position/direction (single slot, or all four explicitly).
+3. UI: World menu with Metadata… and Player Starts; a Properties dock showing the fields with raw and interpreted values; a Start tool that places the selected start at a cell and toggles direction; starts drawn with slot number and direction.
+4. Tests: each operation changes only its field's bytes; unusual raw values survive unrelated edits; name padding survives; range handling per profile; offscreen UI gestures.
 
 ## Slice roadmap toward the 1.0 gate
 
@@ -62,7 +63,7 @@ Completed slices are ticked only when their tests are green and committed.
 - [x] 3a Tabbed workspace shell, schematic canvas, pan/zoom, layer visibility, raw pencil
 - [x] 3b Minimap and World Statistics
 - [ ] 3c Manual read-only asset directory and artwork rendering
-- [ ] 4a Layer tools: pencil, eraser, eyedropper, line, rectangle, fill, selection, clipboard, find
+- [x] 4a Layer tools: pencil, eraser, eyedropper, line, rectangle, fill, selection, clipboard, find
 - [ ] 4b Metadata and player starts
 - [ ] 4c Verified object catalogs, object panel, create/duplicate/delete/relocate, capacity budgets
 - [ ] 5 Verified adaptive brushes

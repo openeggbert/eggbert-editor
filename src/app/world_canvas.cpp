@@ -144,8 +144,16 @@ void WorldCanvas::ensureCursorVisible() {
     userViewChange();
 }
 
-void WorldCanvas::setSelection(std::optional<std::pair<CellPos, CellPos>> selection) {
-    selection_ = selection;
+void WorldCanvas::setSelectionMask(const CellMask &mask) {
+    selection_ = mask;
+    update();
+}
+
+void WorldCanvas::setPreviewCells(std::vector<CellPos> cells) {
+    if (cells.empty() && preview_.empty()) {
+        return;
+    }
+    preview_ = std::move(cells);
     update();
 }
 
@@ -181,15 +189,39 @@ void WorldCanvas::paintEvent(QPaintEvent *) {
             std::floor(transform_.toScreenY(static_cast<double>(last.y + 1) * cell));
         return QRectF(left, top, right - left, bottom - top);
     };
-    if (selection_) {
-        const CellPos first{std::min(selection_->first.x, selection_->second.x),
-                            std::min(selection_->first.y, selection_->second.y)};
-        const CellPos last{std::max(selection_->first.x, selection_->second.x),
-                           std::max(selection_->first.y, selection_->second.y)};
-        const auto area = cellRect(first, last);
-        painter.fillRect(area, QColor(80, 160, 255, 60));
-        painter.setPen(QPen(QColor(120, 190, 255), 1, Qt::DashLine));
-        painter.drawRect(area.adjusted(0, 0, -1, -1));
+    if (!selection_.empty()) {
+        // Tint selected cells in view and outline the selection's bounds.
+        const auto first = transform_.cellAtScreen(0, 0).value_or(CellPos{0, 0});
+        const auto visible = visibleWorldRect();
+        const auto lastX = std::min<std::size_t>(
+            layout::mapWidth - 1,
+            static_cast<std::size_t>(std::max(0.0, visible.right() / cell)));
+        const auto lastY = std::min<std::size_t>(
+            layout::mapHeight - 1,
+            static_cast<std::size_t>(std::max(0.0, visible.bottom() / cell)));
+        const auto firstX = visible.left() > 0 ? static_cast<std::size_t>(visible.left() / cell) : 0;
+        const auto firstY = visible.top() > 0 ? static_cast<std::size_t>(visible.top() / cell) : 0;
+        (void)first;
+        for (std::size_t x = firstX; x <= lastX; ++x) {
+            for (std::size_t y = firstY; y <= lastY; ++y) {
+                if (selection_.test({x, y})) {
+                    painter.fillRect(cellRect({x, y}, {x, y}), QColor(80, 160, 255, 70));
+                }
+            }
+        }
+        if (const auto bounds = selection_.bounds()) {
+            painter.setPen(QPen(QColor(120, 190, 255), 1, Qt::DashLine));
+            painter.drawRect(cellRect(bounds->min, bounds->max).adjusted(0, 0, -1, -1));
+        }
+    }
+    if (!preview_.empty()) {
+        const auto visible = QRectF(rect());
+        for (const auto &pending : preview_) {
+            const auto area = cellRect(pending, pending);
+            if (area.intersects(visible)) {
+                painter.fillRect(area, QColor(255, 255, 255, 90));
+            }
+        }
     }
     if (!markedCells_.empty() || !markedSlots_.empty()) {
         const QColor mark(255, 150, 0);

@@ -4,6 +4,8 @@
 #include <QMainWindow>
 
 #include <functional>
+#include <optional>
+#include <utility>
 
 #include "app/document_tab.hpp"
 #include "world/world_stats.hpp"
@@ -18,6 +20,14 @@ class QDockWidget;
 
 namespace eggbert {
 
+struct FindQuery {
+    enum class Kind { coordinate, tileValue, objectType, objectSlot };
+    Kind kind = Kind::coordinate;
+    // coordinate: x, y. tileValue/objectType/objectSlot: first only.
+    int first = 0;
+    int second = 0;
+};
+
 enum class UnsavedChoice { save, discard, cancel };
 enum class ConflictChoice { reload, saveAs, cancel };
 
@@ -30,6 +40,11 @@ struct Prompts {
     std::function<ConflictChoice(DocumentTab *, const SaveResult &)> saveConflict;
     std::function<bool(DocumentTab *)> confirmRevert;
     std::function<void(const QString &title, const QString &text)> error;
+    // Shown before an edit that changes many cells.
+    std::function<bool(DocumentTab *, const BroadEditPreview &)> confirmBroadEdit;
+    // Value to replace and its replacement, for Layer > Replace Value.
+    std::function<std::optional<std::pair<int, int>>(DocumentTab *)> replaceValues;
+    std::function<std::optional<FindQuery>(DocumentTab *)> findQuery;
 };
 
 class MinimapWidget;
@@ -63,6 +78,10 @@ public:
     std::size_t locateObjects(ObjectKey key, std::int16_t value);
     bool locateStart(std::size_t index);
     bool locateOffsetRange(std::size_t offset, std::size_t size);
+    bool locateCell(CellPos cell);
+    bool locateSlot(std::size_t slot);
+    // Runs a search; false when nothing matches.
+    bool find(const FindQuery &query);
 
     [[nodiscard]] MinimapWidget *minimap() const { return minimap_; }
     [[nodiscard]] StatisticsPanel *statistics() const { return statistics_; }

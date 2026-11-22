@@ -10,6 +10,8 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QFontDatabase>
+#include <QFormLayout>
+#include <QInputDialog>
 #include <QLabel>
 #include <QMenu>
 #include <QMenuBar>
@@ -159,10 +161,91 @@ void MainWindow::installDefaultPrompts() {
     prompts.error = [this](const QString &title, const QString &text) {
         QMessageBox::warning(this, title, text);
     };
+    prompts.confirmBroadEdit = [this](DocumentTab *, const BroadEditPreview &preview) {
+        QMessageBox box(QMessageBox::Question, preview.label,
+                        tr("%1 will change %n cell(s).", nullptr,
+                           static_cast<int>(preview.cellsChanged))
+                            .arg(preview.label),
+                        QMessageBox::Apply | QMessageBox::Cancel, this);
+        box.setInformativeText(
+            tr("%1 byte(s) in %2 range(s) between offsets %3 and %4 will be rewritten. "
+               "Nothing else in the file changes, and the edit is one undo step.")
+                .arg(preview.bytesChanged)
+                .arg(preview.byteRanges)
+                .arg(preview.firstOffset)
+                .arg(preview.lastOffset));
+        box.setDefaultButton(QMessageBox::Apply);
+        return box.exec() == QMessageBox::Apply;
+    };
+    prompts.replaceValues = [this](DocumentTab *tab) -> std::optional<std::pair<int, int>> {
+        QDialog dialog(this);
+        dialog.setWindowTitle(tr("Replace Value"));
+        auto *form = new QFormLayout(&dialog);
+        auto *from = new QSpinBox(&dialog);
+        auto *to = new QSpinBox(&dialog);
+        from->setRange(-32768, 32767);
+        to->setRange(-32768, 32767);
+        const auto cursor = tab->canvas()->cursorCell();
+        if (const auto layer = tab->document().view().layer(tab->activeLayer())) {
+            from->setValue(*layer->cell(cursor.x, cursor.y));
+        }
+        to->setValue(tab->tileId());
+        form->addRow(tr("Replace stored value"), from);
+        form->addRow(tr("With"), to);
+        form->addRow(new QLabel(tab->selection().empty()
+                                    ? tr("In the whole %1 layer").arg(layerDisplayName(tab->activeLayer()))
+                                    : tr("Inside the selection, %1 layer").arg(layerDisplayName(tab->activeLayer())),
+                                &dialog));
+        auto *buttons =
+            new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+        connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+        connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+        form->addRow(buttons);
+        if (dialog.exec() != QDialog::Accepted) {
+            return std::nullopt;
+        }
+        return std::pair{from->value(), to->value()};
+    };
+    prompts.findQuery = [this](DocumentTab *tab) -> std::optional<FindQuery> {
+        QDialog dialog(this);
+        dialog.setWindowTitle(tr("Find"));
+        auto *form = new QFormLayout(&dialog);
+        auto *kind = new QComboBox(&dialog);
+        kind->addItem(tr("Cell coordinate (x, y)"), static_cast<int>(FindQuery::Kind::coordinate));
+        kind->addItem(tr("Stored tile value in the active layer"),
+                      static_cast<int>(FindQuery::Kind::tileValue));
+        kind->addItem(tr("Stored object type"), static_cast<int>(FindQuery::Kind::objectType));
+        kind->addItem(tr("Object slot"), static_cast<int>(FindQuery::Kind::objectSlot));
+        auto *first = new QSpinBox(&dialog);
+        auto *second = new QSpinBox(&dialog);
+        first->setRange(-32768, 32767);
+        second->setRange(0, 99);
+        first->setValue(static_cast<int>(tab->canvas()->cursorCell().x));
+        second->setValue(static_cast<int>(tab->canvas()->cursorCell().y));
+        form->addRow(tr("Find"), kind);
+        form->addRow(tr("Value / x"), first);
+        form->addRow(tr("y (coordinates only)"), second);
+        connect(kind, &QComboBox::currentIndexChanged, &dialog,
+                [second](int index) { second->setEnabled(index == 0); });
+        auto *buttons =
+            new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+        connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+        connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+        form->addRow(buttons);
+        if (dialog.exec() != QDialog::Accepted) {
+            return std::nullopt;
+        }
+        return FindQuery{static_cast<FindQuery::Kind>(kind->currentData().toInt()),
+                         first->value(), second->value()};
+    };
 }
 
 void MainWindow::createActions() {
+    // Top-level menus in their fixed order.
     auto *fileMenu = menuBar()->addMenu(tr("&File"));
+    auto *editMenu = menuBar()->addMenu(tr("&Edit"));
+    auto *viewMenu = menuBar()->addMenu(tr("&View"));
+    auto *layerMenu = menuBar()->addMenu(tr("&Layer"));
     auto *open = addAction(fileMenu, QStringLiteral("fileOpen"), tr("&Open World..."),
                            QKeySequence::Open);
     connect(open, &QAction::triggered, this, [this] {
@@ -191,7 +274,6 @@ void MainWindow::createActions() {
     connect(addAction(fileMenu, QStringLiteral("fileQuit"), tr("&Quit"), QKeySequence::Quit),
             &QAction::triggered, this, &QWidget::close);
 
-    auto *editMenu = menuBar()->addMenu(tr("&Edit"));
     connect(addAction(editMenu, QStringLiteral("editUndo"), tr("&Undo"), QKeySequence::Undo),
             &QAction::triggered, this, [this] {
                 if (auto *tab = currentTab()) {
@@ -205,7 +287,125 @@ void MainWindow::createActions() {
                 }
             });
 
-    auto *viewMenu = menuBar()->addMenu(tr("&View"));
+    editMenu->addSeparator();
+    const auto tabCommand = [this](auto command) {
+        return [this, command] {
+            if (auto *tab = currentTab()) {
+                (tab->*command)();
+                updateUi();
+            }
+        };
+    };
+    connect(addAction(editMenu, QStringLiteral("editCut"), tr("Cu&t"), QKeySequence::Cut),
+            &QAction::triggered, this, tabCommand(&DocumentTab::cutSelection));
+    connect(addAction(editMenu, QStringLiteral("editCopy"), tr("&Copy"), QKeySequence::Copy),
+            &QAction::triggered, this, tabCommand(&DocumentTab::copySelection));
+    connect(addAction(editMenu, QStringLiteral("editPaste"), tr("&Paste"), QKeySequence::Paste),
+            &QAction::triggered, this, tabCommand(&DocumentTab::paste));
+    connect(addAction(editMenu, QStringLiteral("editDelete"), tr("&Delete"),
+                      QKeySequence::Delete),
+            &QAction::triggered, this, tabCommand(&DocumentTab::deleteSelection));
+    editMenu->addSeparator();
+    connect(addAction(editMenu, QStringLiteral("editSelectAll"), tr("Select &All"),
+                      QKeySequence::SelectAll),
+            &QAction::triggered, this, tabCommand(&DocumentTab::selectAll));
+    connect(addAction(editMenu, QStringLiteral("editSelectNone"), tr("Select &None"),
+                      QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_A)),
+            &QAction::triggered, this, tabCommand(&DocumentTab::selectNone));
+    connect(addAction(editMenu, QStringLiteral("editSelectInverse"), tr("&Invert Selection"),
+                      QKeySequence(Qt::CTRL | Qt::Key_I)),
+            &QAction::triggered, this, tabCommand(&DocumentTab::invertSelection));
+    editMenu->addSeparator();
+    connect(addAction(editMenu, QStringLiteral("editFind"), tr("&Find..."), QKeySequence::Find),
+            &QAction::triggered, this, [this] {
+                auto *tab = currentTab();
+                if (tab == nullptr) {
+                    return;
+                }
+                if (const auto query = prompts.findQuery(tab)) {
+                    if (!find(*query)) {
+                        statusBar()->showMessage(tr("Nothing found."), 6000);
+                    }
+                }
+            });
+
+    auto *layerGroup = new QActionGroup(this);
+    const auto addLayerChoice = [&](const QString &name, const QString &text, SectionKind layer,
+                                    const QKeySequence &shortcut) {
+        auto *item = addAction(layerMenu, name, text, shortcut);
+        item->setCheckable(true);
+        layerGroup->addAction(item);
+        connect(item, &QAction::triggered, this, [this, layer] {
+            if (auto *tab = currentTab()) {
+                tab->setActiveLayer(layer);
+            }
+        });
+    };
+    addLayerChoice(QStringLiteral("layerActiveForeground"), tr("Edit &Foreground"),
+                   SectionKind::foreground, QKeySequence(Qt::Key_1));
+    addLayerChoice(QStringLiteral("layerActiveBigDecor"), tr("Edit &bigDecor"),
+                   SectionKind::bigDecor, QKeySequence(Qt::Key_2));
+    layerMenu->addSeparator();
+    const auto addLock = [&](const QString &name, const QString &text, SectionKind layer) {
+        auto *item = addAction(layerMenu, name, text);
+        item->setCheckable(true);
+        connect(item, &QAction::toggled, this, [this, layer](bool locked) {
+            if (updating_) {
+                return;
+            }
+            if (auto *tab = currentTab()) {
+                tab->setLayerLocked(layer, locked);
+            }
+        });
+    };
+    addLock(QStringLiteral("layerLockForeground"), tr("Lock Foreground"),
+            SectionKind::foreground);
+    addLock(QStringLiteral("layerLockBigDecor"), tr("Lock bigDecor"), SectionKind::bigDecor);
+    auto *isolate = addAction(layerMenu, QStringLiteral("layerIsolate"),
+                              tr("&Isolate Active Layer"));
+    isolate->setCheckable(true);
+    connect(isolate, &QAction::toggled, this, [this](bool isolated) {
+        if (updating_) {
+            return;
+        }
+        if (auto *tab = currentTab()) {
+            tab->setIsolated(isolated);
+            updateUi();
+        }
+    });
+    layerMenu->addSeparator();
+    connect(addAction(layerMenu, QStringLiteral("layerFillSelection"),
+                      tr("Fill &Selection with Tile ID")),
+            &QAction::triggered, this, tabCommand(&DocumentTab::fillSelection));
+    connect(addAction(layerMenu, QStringLiteral("layerReplace"), tr("&Replace Value...")),
+            &QAction::triggered, this, [this] {
+                auto *tab = currentTab();
+                if (tab == nullptr) {
+                    return;
+                }
+                if (const auto values = prompts.replaceValues(tab)) {
+                    tab->replaceInSelection(static_cast<std::int16_t>(values->first),
+                                            static_cast<std::int16_t>(values->second));
+                }
+            });
+    connect(addAction(layerMenu, QStringLiteral("layerClearSelection"),
+                      tr("&Clear Selection to Empty (-1)")),
+            &QAction::triggered, this, tabCommand(&DocumentTab::deleteSelection));
+    connect(addAction(layerMenu, QStringLiteral("layerFlipHorizontal"),
+                      tr("Flip Selection &Horizontally")),
+            &QAction::triggered, this, [this] {
+                if (auto *tab = currentTab()) {
+                    tab->flipSelection(true);
+                }
+            });
+    connect(addAction(layerMenu, QStringLiteral("layerFlipVertical"),
+                      tr("Flip Selection &Vertically")),
+            &QAction::triggered, this, [this] {
+                if (auto *tab = currentTab()) {
+                    tab->flipSelection(false);
+                }
+            });
+
     const auto canvasCommand = [this](void (WorldCanvas::*command)()) {
         return [this, command] {
             if (auto *tab = currentTab()) {
@@ -285,9 +485,25 @@ void MainWindow::createActions() {
     };
     addTool(QStringLiteral("toolBrowse"), tr("Browse"), Tool::browse, QKeySequence(Qt::Key_H))
         ->setToolTip(tr("Browse: drag to pan, nothing is edited (H)"));
+    addTool(QStringLiteral("toolSelect"), tr("Select"), Tool::select, QKeySequence(Qt::Key_S))
+        ->setToolTip(tr("Select: drag a rectangle of cells; edits are then limited to it (S)"));
     addTool(QStringLiteral("toolPencil"), tr("Pencil"), Tool::pencil, QKeySequence(Qt::Key_B))
         ->setToolTip(tr("Raw pencil: writes exactly the tile ID into one cell of the active "
                         "layer, with no neighbour or object effects (B)"));
+    addTool(QStringLiteral("toolEraser"), tr("Eraser"), Tool::eraser, QKeySequence(Qt::Key_E))
+        ->setToolTip(tr("Raw eraser: writes -1 into cells of the active layer only; the other "
+                        "layer and all objects are untouched (E)"));
+    addTool(QStringLiteral("toolEyedropper"), tr("Eyedropper"), Tool::eyedropper,
+            QKeySequence(Qt::Key_I))
+        ->setToolTip(tr("Eyedropper: picks the stored value under the pointer as the tile ID (I)"));
+    addTool(QStringLiteral("toolLine"), tr("Line"), Tool::line, QKeySequence(Qt::Key_L))
+        ->setToolTip(tr("Line: drag to draw a straight line of the tile ID (L)"));
+    addTool(QStringLiteral("toolRectangle"), tr("Rectangle"), Tool::rectangle,
+            QKeySequence(Qt::Key_R))
+        ->setToolTip(tr("Rectangle: drag to fill a rectangle with the tile ID (R)"));
+    addTool(QStringLiteral("toolFill"), tr("Fill"), Tool::fill, QKeySequence(Qt::Key_F))
+        ->setToolTip(tr("Fill: replaces the connected region of equal values under the pointer, "
+                        "bounded by the selection (F)"));
     toolBar->addSeparator();
 
     layerCombo_ = new QComboBox(this);
@@ -502,11 +718,68 @@ bool MainWindow::locateOffsetRange(std::size_t offset, std::size_t size) {
     return true;
 }
 
+bool MainWindow::locateCell(CellPos cell) {
+    auto *tab = currentTab();
+    if (tab == nullptr || cell.x >= layout::mapWidth || cell.y >= layout::mapHeight) {
+        return false;
+    }
+    tab->canvas()->setCursorCell(cell);
+    tab->canvas()->centerOnCell(cell);
+    tab->canvas()->setHighlights({cell}, {});
+    updateStatus();
+    return true;
+}
+
+bool MainWindow::locateSlot(std::size_t slot) {
+    auto *tab = currentTab();
+    if (tab == nullptr) {
+        return false;
+    }
+    const auto objects = tab->document().view().objects();
+    const auto record = objects ? objects->record(slot) : std::nullopt;
+    if (!record) {
+        return false;
+    }
+    tab->canvas()->centerOnWorld(record->posCurrent.x, record->posCurrent.y);
+    tab->canvas()->setHighlights({}, {slot});
+    statusBar()->showMessage(record->isFree()
+                                 ? tr("Slot %1 is free (type 0)").arg(slot)
+                                 : tr("Slot %1: stored type %2").arg(slot).arg(record->type),
+                             8000);
+    return true;
+}
+
+bool MainWindow::find(const FindQuery &query) {
+    auto *tab = currentTab();
+    if (tab == nullptr) {
+        return false;
+    }
+    switch (query.kind) {
+    case FindQuery::Kind::coordinate:
+        if (query.first < 0 || query.second < 0) {
+            return false;
+        }
+        return locateCell({static_cast<std::size_t>(query.first),
+                           static_cast<std::size_t>(query.second)});
+    case FindQuery::Kind::tileValue:
+        return locateTileValue(tab->activeLayer(), static_cast<std::int16_t>(query.first)) != 0;
+    case FindQuery::Kind::objectType:
+        return locateObjects(ObjectKey::type, static_cast<std::int16_t>(query.first)) != 0;
+    case FindQuery::Kind::objectSlot:
+        return query.first >= 0 && locateSlot(static_cast<std::size_t>(query.first));
+    }
+    return false;
+}
+
 void MainWindow::connectTab(DocumentTab *tab) {
     connect(tab, &DocumentTab::documentChanged, tab,
             [tab] { tab->canvas()->clearHighlights(); });
     connect(tab, &DocumentTab::documentChanged, this, [this] { updateUi(); });
     connect(tab, &DocumentTab::toolStateChanged, this, [this] { updateUi(); });
+    connect(tab, &DocumentTab::selectionChanged, this, [this] { updateUi(); });
+    tab->confirmBroadEdit = [this, tab](const BroadEditPreview &preview) {
+        return prompts.confirmBroadEdit(tab, preview);
+    };
     connect(tab, &DocumentTab::profileChanged, this, [this] { updateUi(); });
     connect(tab, &DocumentTab::statusMessage, this,
             [this](const QString &message) { statusBar()->showMessage(message, 6000); });
@@ -762,7 +1035,31 @@ void MainWindow::updateUi() {
                              "viewObjects", "viewStarts", "viewPaths", "toolBrowse"}) {
         enable(name, hasTab);
     }
-    enable("toolPencil", writable);
+    for (const char *name : {"toolPencil", "toolEraser", "toolLine", "toolRectangle",
+                             "toolFill"}) {
+        enable(name, writable);
+    }
+    enable("toolSelect", hasTab);
+    enable("toolEyedropper", hasTab);
+    const bool hasSelection = hasTab && !tab->selection().empty();
+    enable("editCut", writable && hasSelection);
+    enable("editCopy", hasSelection);
+    enable("editPaste", writable && tab->canPaste());
+    enable("editDelete", writable && hasSelection);
+    enable("editSelectAll", hasTab);
+    enable("editSelectNone", hasSelection);
+    enable("editSelectInverse", hasTab);
+    enable("editFind", hasTab);
+    enable("layerFillSelection", writable && hasSelection);
+    enable("layerClearSelection", writable && hasSelection);
+    enable("layerReplace", writable);
+    enable("layerFlipHorizontal", writable && hasSelection);
+    enable("layerFlipVertical", writable && hasSelection);
+    enable("layerIsolate", hasTab);
+    enable("layerLockForeground", hasTab);
+    enable("layerLockBigDecor", hasTab && tab->document().view().bigDecor().has_value());
+    enable("layerActiveForeground", hasTab);
+    enable("layerActiveBigDecor", hasTab && tab->document().view().bigDecor().has_value());
 
     if (hasTab) {
         const auto &options = tab->canvas()->renderOptions();
@@ -778,8 +1075,25 @@ void MainWindow::updateUi() {
         for (const auto &[name, checked] : checks) {
             action(QString::fromLatin1(name))->setChecked(checked);
         }
-        action(tab->tool() == Tool::pencil ? QStringLiteral("toolPencil")
-                                           : QStringLiteral("toolBrowse"))
+        static constexpr std::pair<Tool, const char *> toolActions[] = {
+            {Tool::browse, "toolBrowse"},       {Tool::select, "toolSelect"},
+            {Tool::pencil, "toolPencil"},       {Tool::eraser, "toolEraser"},
+            {Tool::eyedropper, "toolEyedropper"}, {Tool::line, "toolLine"},
+            {Tool::rectangle, "toolRectangle"}, {Tool::fill, "toolFill"},
+        };
+        for (const auto &[tool, name] : toolActions) {
+            if (tab->tool() == tool) {
+                action(QString::fromLatin1(name))->setChecked(true);
+            }
+        }
+        action(QStringLiteral("layerLockForeground"))
+            ->setChecked(tab->isLayerLocked(SectionKind::foreground));
+        action(QStringLiteral("layerLockBigDecor"))
+            ->setChecked(tab->isLayerLocked(SectionKind::bigDecor));
+        action(QStringLiteral("layerIsolate"))->setChecked(tab->isIsolated());
+        action(tab->activeLayer() == SectionKind::bigDecor
+                   ? QStringLiteral("layerActiveBigDecor")
+                   : QStringLiteral("layerActiveForeground"))
             ->setChecked(true);
     }
 
