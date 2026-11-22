@@ -105,6 +105,10 @@ public:
     // The single mutation entry point for every tool, panel and command.
     // Returns false and reports why when the document refuses the change.
     bool applyTransaction(Transaction transaction);
+    // Makes the current bytes equal to `wanted` (same length) as one undo
+    // step; the document's own validation applies, so protected ranges and
+    // read-only documents refuse. False when nothing differs or it fails.
+    bool replaceBytes(std::span<const std::byte> wanted, const QString &label);
     bool undo();
     bool redo();
     // Call after the file was saved or otherwise changed outside apply().

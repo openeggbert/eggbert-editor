@@ -53,5 +53,7 @@ int main(int argc, char **argv) {
             mainWindow.openPath(arguments.at(index));
         }
     }
+    // Unsaved changes kept from a session that did not end normally.
+    mainWindow.checkRecovery();
     return app.exec();
 }

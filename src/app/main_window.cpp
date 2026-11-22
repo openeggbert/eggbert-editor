@@ -7,6 +7,7 @@
 #include <QCheckBox>
 #include <QCloseEvent>
 #include <QComboBox>
+#include <QCryptographicHash>
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QFileDialog>
@@ -17,6 +18,8 @@
 #include <QGuiApplication>
 #include <QInputDialog>
 #include <QLabel>
+#include <QLineEdit>
+#include <QLocale>
 #include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
@@ -40,6 +43,7 @@
 #include <QMimeData>
 #include <QSlider>
 #include <QStackedWidget>
+#include <QTimer>
 #include <QUrl>
 
 #include <cmath>
@@ -162,6 +166,11 @@ MainWindow::MainWindow() {
     connect(tabs_, &QTabWidget::tabCloseRequested, this,
             [this](int index) { closeTab(tabAt(index)); });
     connect(tabs_, &QTabWidget::currentChanged, this, [this] { updateUi(); });
+    // Unsaved changes are copied to the recovery store shortly after an edit.
+    autosaveTimer_ = new QTimer(this);
+    autosaveTimer_->setSingleShot(true);
+    autosaveTimer_->setInterval(3000);
+    connect(autosaveTimer_, &QTimer::timeout, this, [this] { flushAutosave(); });
 
     cellLabel_ = new QLabel(this);
     zoomLabel_ = new QLabel(this);
@@ -288,6 +297,68 @@ void MainWindow::installDefaultPrompts() {
             return ConflictChoice::reload;
         }
         return ConflictChoice::cancel;
+    };
+    prompts.recover = [this](const RecoveryEntry &entry, bool canRestore, const QString &detail) {
+        QMessageBox box(QMessageBox::Question, tr("Unsaved Changes Found"),
+                        tr("Unsaved changes to %1 from %2 were kept when the editor last "
+                           "stopped.\n%3")
+                            .arg(QFileInfo(entry.originalPath).fileName(),
+                                 QLocale().toString(entry.saved, QLocale::ShortFormat), detail),
+                        QMessageBox::NoButton, this);
+        auto *restore = canRestore ? box.addButton(tr("Restore"), QMessageBox::AcceptRole) : nullptr;
+        auto *copy = box.addButton(tr("Save a Copy As..."), QMessageBox::ActionRole);
+        auto *discard = box.addButton(tr("Discard"), QMessageBox::DestructiveRole);
+        box.addButton(tr("Ask Again Later"), QMessageBox::RejectRole);
+        box.exec();
+        if (restore != nullptr && box.clickedButton() == restore) {
+            return RecoveryChoice::restore;
+        }
+        if (box.clickedButton() == copy) {
+            return RecoveryChoice::saveCopy;
+        }
+        return box.clickedButton() == discard ? RecoveryChoice::discard : RecoveryChoice::keep;
+    };
+    prompts.snapshotName = [this](DocumentTab *) -> std::optional<QString> {
+        bool accepted = false;
+        const auto name = QInputDialog::getText(this, tr("Take Snapshot"),
+                                                tr("Name of this snapshot:"), QLineEdit::Normal,
+                                                QString(), &accepted);
+        return accepted ? std::optional<QString>(name) : std::nullopt;
+    };
+    prompts.chooseSnapshot =
+        [this](DocumentTab *tab, const std::vector<RecoveryEntry> &entries)
+        -> std::optional<std::pair<RecoveryEntry, SnapshotAction>> {
+        QDialog dialog(this);
+        dialog.setWindowTitle(tr("Snapshots of %1").arg(QFileInfo(tab->file().path()).fileName()));
+        auto *layout = new QVBoxLayout(&dialog);
+        auto *list = new QListWidget(&dialog);
+        for (const auto &entry : entries) {
+            list->addItem(tr("%1 - %2")
+                              .arg(QLocale().toString(entry.saved, QLocale::ShortFormat),
+                                   entry.name.isEmpty() ? tr("(unnamed)") : entry.name));
+        }
+        list->setCurrentRow(entries.empty() ? -1 : 0);
+        layout->addWidget(list);
+        auto *buttons = new QDialogButtonBox(&dialog);
+        auto *restore = buttons->addButton(tr("Restore"), QDialogButtonBox::AcceptRole);
+        auto *remove = buttons->addButton(tr("Delete"), QDialogButtonBox::DestructiveRole);
+        buttons->addButton(QDialogButtonBox::Close);
+        layout->addWidget(buttons);
+        std::optional<SnapshotAction> chosen;
+        connect(restore, &QPushButton::clicked, &dialog, [&] {
+            chosen = SnapshotAction::restore;
+            dialog.accept();
+        });
+        connect(remove, &QPushButton::clicked, &dialog, [&] {
+            chosen = SnapshotAction::remove;
+            dialog.accept();
+        });
+        connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+        dialog.resize(460, 320);
+        if (dialog.exec() != QDialog::Accepted || !chosen || list->currentRow() < 0) {
+            return std::nullopt;
+        }
+        return std::make_pair(entries[static_cast<std::size_t>(list->currentRow())], *chosen);
     };
     prompts.confirmRevert = [this](DocumentTab *tab) {
         return QMessageBox::question(
@@ -547,6 +618,10 @@ void MainWindow::createActions() {
             &QAction::triggered, this, [this] { saveAll(); });
     connect(addAction(fileMenu, QStringLiteral("fileRevert"), tr("Re&vert")),
             &QAction::triggered, this, [this] { revertTab(currentTab()); });
+    connect(addAction(fileMenu, QStringLiteral("fileSnapshot"), tr("Take S&napshot...")),
+            &QAction::triggered, this, [this] { takeSnapshot(currentTab()); });
+    connect(addAction(fileMenu, QStringLiteral("fileSnapshots"), tr("Snaps&hots...")),
+            &QAction::triggered, this, [this] { manageSnapshots(currentTab()); });
     fileMenu->addSeparator();
     connect(addAction(fileMenu, QStringLiteral("fileExportPng"), tr("&Export World PNG..."),
                       QKeySequence(Qt::CTRL | Qt::Key_E)),
@@ -1913,6 +1988,7 @@ void MainWindow::connectTab(DocumentTab *tab) {
     connect(tab, &DocumentTab::documentChanged, tab,
             [tab] { tab->canvas()->clearHighlights(); });
     connect(tab, &DocumentTab::documentChanged, this, [this] { updateUi(); });
+    connect(tab, &DocumentTab::documentChanged, autosaveTimer_, qOverload<>(&QTimer::start));
     connect(tab, &DocumentTab::toolStateChanged, this, [this] { updateUi(); });
     connect(tab, &DocumentTab::selectionChanged, this, [this] { updateUi(); });
     connect(tab, &DocumentTab::objectSelectionChanged, this, [this] { updateUi(); });
@@ -1987,6 +2063,7 @@ bool MainWindow::saveTab(DocumentTab *tab) {
     const auto result = tab->file().save();
     if (result.ok()) {
         tab->notifyDocumentChanged();
+        flushAutosave();
         // A full audit runs with every save; it informs and never blocks.
         const auto report = runDoctor(tab->document().view(), tab->profile());
         statusBar()->showMessage(tr("Saved %1 - World Doctor: %2 error(s), %3 warning(s)")
@@ -2022,7 +2099,8 @@ bool MainWindow::saveTabAs(DocumentTab *tab) {
     if (tab == nullptr) {
         return false;
     }
-    const auto path = prompts.saveAsPath(tab->file().path());
+    const auto previousPath = tab->file().path();
+    const auto path = prompts.saveAsPath(previousPath);
     if (path.isEmpty()) {
         return false;
     }
@@ -2035,6 +2113,8 @@ bool MainWindow::saveTabAs(DocumentTab *tab) {
     addRecentFile(tab->file().path());
     tabs_->setTabToolTip(tabs_->indexOf(tab), tab->file().path());
     tab->notifyDocumentChanged();
+    recovery_.removeAutosave(previousPath);
+    flushAutosave();
     // As with Save: a full audit that informs and never blocks.
     const auto report = runDoctor(tab->document().view(), tab->profile());
     statusBar()->showMessage(tr("Saved %1 - World Doctor: %2 error(s), %3 warning(s)")
@@ -2070,6 +2150,159 @@ bool MainWindow::revertTab(DocumentTab *tab) {
         return false;
     }
     tab->replaceFile(std::move(loaded.value()));
+    flushAutosave();
+    return true;
+}
+
+void MainWindow::flushAutosave() {
+    autosaveTimer_->stop();
+    for (int index = 0; index < tabCount(); ++index) {
+        auto *tab = tabAt(index);
+        const auto &document = tab->document();
+        if (document.isModified()) {
+            recovery_.writeAutosave(tab->file().path(), document.savedBytes(),
+                                    document.currentBytes());
+        } else {
+            recovery_.removeAutosave(tab->file().path());
+        }
+    }
+}
+
+int MainWindow::checkRecovery() {
+    int restored = 0;
+    const auto damaged = recovery_.damagedFiles();
+    if (!damaged.isEmpty()) {
+        prompts.error(tr("Recovery"),
+                      tr("%n file(s) in the recovery folder are damaged and were not used:\n%1",
+                         nullptr, static_cast<int>(damaged.size()))
+                          .arg(damaged.join(QLatin1Char('\n'))));
+    }
+    for (const auto &entry : recovery_.autosaves()) {
+        const auto payload = recovery_.read(entry);
+        if (!payload) {
+            continue;
+        }
+        // Restoring is offered only onto the very bytes the copy was made from.
+        QString detail = tr("The world file is unchanged since then.");
+        bool canRestore = false;
+        {
+            QFile file(entry.originalPath);
+            if (!file.exists()) {
+                detail = tr("The world file no longer exists; the changes can be saved as a copy.");
+            } else if (!file.open(QIODevice::ReadOnly)) {
+                detail = tr("The world file cannot be read; the changes can be saved as a copy.");
+            } else {
+                const auto onDisk = file.readAll();
+                canRestore = onDisk.size() == entry.baseSize &&
+                             QCryptographicHash::hash(onDisk, QCryptographicHash::Sha256) ==
+                                 entry.baseSha256 &&
+                             onDisk.size() == payload->size();
+                if (!canRestore) {
+                    detail = tr("The world file has changed since then; the changes can be saved "
+                                "as a copy.");
+                }
+            }
+        }
+        const auto wanted = std::span<const std::byte>(
+            reinterpret_cast<const std::byte *>(payload->constData()),
+            static_cast<std::size_t>(payload->size()));
+        switch (prompts.recover(entry, canRestore, detail)) {
+        case RecoveryChoice::restore: {
+            if (!canRestore) {
+                break;
+            }
+            auto *tab = openPath(entry.originalPath);
+            if (tab != nullptr &&
+                tab->replaceBytes(wanted, tr("Restore Unsaved Changes"))) {
+                ++restored;
+                recovery_.remove(entry);
+                flushAutosave(); // the restored state is unsaved again
+            } else {
+                prompts.error(tr("Recovery"),
+                              tr("The changes to %1 could not be restored; they are kept in the "
+                                 "recovery folder.")
+                                  .arg(entry.originalPath));
+            }
+            break;
+        }
+        case RecoveryChoice::saveCopy: {
+            const auto target = prompts.saveAsPath(entry.originalPath + QStringLiteral(".recovered"));
+            if (target.isEmpty()) {
+                break;
+            }
+            QSaveFile file(target);
+            file.setDirectWriteFallback(false);
+            if (file.open(QIODevice::WriteOnly) && file.write(*payload) == payload->size() &&
+                file.commit()) {
+                recovery_.remove(entry);
+            } else {
+                prompts.error(tr("Recovery"), tr("%1 was not written.").arg(target));
+            }
+            break;
+        }
+        case RecoveryChoice::discard:
+            recovery_.remove(entry);
+            break;
+        case RecoveryChoice::keep:
+            break;
+        }
+    }
+    return restored;
+}
+
+bool MainWindow::takeSnapshot(DocumentTab *tab) {
+    if (tab == nullptr) {
+        return false;
+    }
+    const auto name = prompts.snapshotName(tab);
+    if (!name) {
+        return false;
+    }
+    const auto &document = tab->document();
+    if (!recovery_.writeSnapshot(tab->file().path(), *name, document.savedBytes(),
+                                 document.currentBytes())) {
+        prompts.error(tr("Take Snapshot"), tr("The snapshot could not be stored in %1.")
+                                               .arg(recovery_.directory()));
+        return false;
+    }
+    statusBar()->showMessage(tr("Snapshot taken."), 5000);
+    return true;
+}
+
+bool MainWindow::manageSnapshots(DocumentTab *tab) {
+    if (tab == nullptr) {
+        return false;
+    }
+    const auto entries = recovery_.snapshots(tab->file().path());
+    if (entries.empty()) {
+        statusBar()->showMessage(tr("This world has no snapshots."), 5000);
+        return false;
+    }
+    const auto choice = prompts.chooseSnapshot(tab, entries);
+    if (!choice) {
+        return false;
+    }
+    if (choice->second == SnapshotAction::remove) {
+        return recovery_.remove(choice->first);
+    }
+    const auto payload = recovery_.read(choice->first);
+    if (!payload) {
+        prompts.error(tr("Snapshots"), tr("The snapshot %1.").arg(payload.error()));
+        return false;
+    }
+    const auto wanted = std::span<const std::byte>(
+        reinterpret_cast<const std::byte *>(payload->constData()),
+        static_cast<std::size_t>(payload->size()));
+    if (wanted.size() != tab->document().currentBytes().size()) {
+        prompts.error(tr("Snapshots"), tr("The snapshot has another size than this world."));
+        return false;
+    }
+    if (!tab->replaceBytes(wanted, tr("Restore Snapshot"))) {
+        statusBar()->showMessage(tr("The world already equals this snapshot, or it cannot be "
+                                    "edited."),
+                                 6000);
+        return false;
+    }
     return true;
 }
 
@@ -2091,6 +2324,8 @@ bool MainWindow::closeTab(DocumentTab *tab) {
             return false;
         }
     }
+    // Whatever was chosen (saved or discarded), nothing is left to recover.
+    recovery_.removeAutosave(tab->file().path());
     tabs_->removeTab(tabs_->indexOf(tab));
     tab->deleteLater();
     updateUi();
@@ -2281,6 +2516,8 @@ void MainWindow::updateUi() {
     enable("fileSaveAs", hasTab);
     enable("fileSaveAll", anyModified);
     enable("fileRevert", hasTab);
+    enable("fileSnapshot", hasTab);
+    enable("fileSnapshots", hasTab);
     enable("fileProperties", hasTab);
     enable("fileExportPng", hasTab);
     if (auto *toggle = action(QStringLiteral("viewArtwork"))) {

@@ -123,6 +123,14 @@ Each tab has its own Undo/Redo history (Ctrl+Z, Ctrl+Shift+Z); every stroke, sha
 
 Read-only documents can be copied with Save As; the copy is byte-identical.
 
+### If the editor stops unexpectedly
+
+A few seconds after an edit, the unsaved state of every modified world is copied to a recovery folder in your user profile (never next to the world file). The copy is removed when you save, revert or close the world. If the editor or the computer stops before that, the next start asks what to do with each copy: **Restore** opens the world and puts the changes back as one undo step, still unsaved; **Save a Copy As** writes them to a file of your choice; **Discard** deletes them; **Ask Again Later** keeps them. Restore is offered only when the world file is byte for byte what it was when the copy was made; if the file changed or vanished, the changes can still be saved as a copy. A damaged copy is reported and never used.
+
+### Snapshots
+
+**File → Take Snapshot** stores the current state of the world under a name you give, in the same folder in your user profile. **File → Snapshots** lists the snapshots of the world, newest first; restoring one is a single undo step and does not touch the file on disk, and a snapshot can be deleted there. The twenty newest snapshots of each world file are kept.
+
 ## Minimap and statistics
 
 The **Minimap** shows the whole world and outlines the part visible on the canvas; click or drag in it to move the canvas. It can show both layers or one.

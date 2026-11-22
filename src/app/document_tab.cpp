@@ -150,6 +150,28 @@ bool DocumentTab::setActiveLayer(SectionKind layer) {
     return true;
 }
 
+bool DocumentTab::replaceBytes(std::span<const std::byte> wanted, const QString &label) {
+    const auto current = document().currentBytes();
+    if (wanted.size() != current.size()) {
+        return false;
+    }
+    Transaction transaction;
+    transaction.label = label.toStdString();
+    for (const auto &range : differingRanges(current, wanted)) {
+        ByteChange change;
+        change.offset = range.offset;
+        change.before.assign(current.begin() + static_cast<std::ptrdiff_t>(range.offset),
+                             current.begin() + static_cast<std::ptrdiff_t>(range.offset + range.size));
+        change.after.assign(wanted.begin() + static_cast<std::ptrdiff_t>(range.offset),
+                            wanted.begin() + static_cast<std::ptrdiff_t>(range.offset + range.size));
+        transaction.changes.push_back(std::move(change));
+    }
+    if (transaction.changes.empty()) {
+        return false;
+    }
+    return applyTransaction(std::move(transaction));
+}
+
 bool DocumentTab::applyTransaction(Transaction transaction) {
     const auto result = document().apply(std::move(transaction));
     if (!result) {

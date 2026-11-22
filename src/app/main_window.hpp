@@ -6,7 +6,11 @@
 #include <functional>
 #include <optional>
 #include <utility>
+#include <vector>
+#include <optional>
+#include <utility>
 
+#include "app/recovery_store.hpp"
 #include "app/document_tab.hpp"
 #include "app/png_export.hpp"
 #include "world/world_stats.hpp"
@@ -22,6 +26,7 @@ class QDockWidget;
 class QListWidget;
 class QSlider;
 class QStackedWidget;
+class QTimer;
 
 namespace eggbert {
 
@@ -38,7 +43,19 @@ enum class ConflictChoice { reload, saveAs, cancel };
 
 // Every modal question the window asks goes through these hooks, so tests
 // can answer without opening dialogs. The defaults show native dialogs.
+// What to do with unsaved changes found from an earlier session.
+enum class RecoveryChoice { restore, saveCopy, discard, keep };
+enum class SnapshotAction { restore, remove };
+
 struct Prompts {
+    // `canRestore` is false when the world file changed or vanished since
+    // the copy was made; `detail` says so.
+    std::function<RecoveryChoice(const RecoveryEntry &, bool canRestore, const QString &detail)>
+        recover;
+    std::function<std::optional<QString>(DocumentTab *)> snapshotName;
+    std::function<std::optional<std::pair<RecoveryEntry, SnapshotAction>>(
+        DocumentTab *, const std::vector<RecoveryEntry> &)>
+        chooseSnapshot;
     std::function<QStringList()> openPaths;
     std::function<QString(const QString &suggestedPath)> saveAsPath;
     std::function<UnsavedChoice(DocumentTab *)> unsavedChanges;
@@ -170,6 +187,19 @@ public:
     // Looks up a menu or toolbar command by its stable object name.
     [[nodiscard]] QAction *action(const QString &objectName) const;
 
+    // Crash recovery and snapshots. The store is a per-user directory; no
+    // file is ever written beside a world.
+    [[nodiscard]] RecoveryStore &recoveryStore() { return recovery_; }
+    // Writes the unsaved bytes of every modified tab to the store and drops
+    // the copies of unmodified ones (a timer does this a few seconds after
+    // an edit).
+    void flushAutosave();
+    // Offers the unsaved changes of earlier sessions; returns how many were
+    // restored into tabs. Called once after start.
+    int checkRecovery();
+    bool takeSnapshot(DocumentTab *tab);
+    bool manageSnapshots(DocumentTab *tab);
+
     // The page shown while no world is open (open, recent worlds, game
     // directory).
     [[nodiscard]] QWidget *welcomePage() const { return welcome_; }
@@ -212,6 +242,8 @@ private:
     StatisticsPanel *statistics_ = nullptr;
     ObjectsPanel *objects_ = nullptr;
     PalettePanel *palette_ = nullptr;
+    RecoveryStore recovery_;
+    QTimer *autosaveTimer_ = nullptr;
     QStackedWidget *central_ = nullptr;
     QWidget *welcome_ = nullptr;
     QListWidget *welcomeRecent_ = nullptr;
