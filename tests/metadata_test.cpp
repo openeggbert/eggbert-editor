@@ -200,6 +200,34 @@ int main() {
         CHECK_EQ(readMetadata(rejected.view())->name.size(), std::size_t{99});
     }
 
+    // A title that fills the field without a terminator is kept while other
+    // fields are edited; only a *new* title has to be storable.
+    {
+        auto full = blankWorld(fxRevision13);
+        for (std::size_t offset = 376; offset < 476; ++offset) {
+            put8(full, offset, 'T');
+        }
+        WorldDocument document(full);
+        auto metadata = readMetadata(document.view()).value();
+        CHECK_EQ(metadata.name.size(), std::size_t{100});
+        metadata.music = 6;
+        EditBuilder builder(document);
+        CHECK(applyMetadata(builder, metadata));
+        CHECK(document.apply(builder.build("Edit Metadata")).has_value());
+        CHECK(within(diffPositions(document.currentBytes(), full), 222, 2));
+        CHECK(!document.view().header()->nameTerminated());
+        // Changing it to another unstorable title is still refused.
+        auto other = metadata;
+        other.name = Bytes(100, std::byte{'U'});
+        EditBuilder rejected(document);
+        CHECK(!applyMetadata(rejected, other));
+        CHECK(!rejected.hasChanges());
+        // Shortening it is fine.
+        other.name = ascii("Short");
+        CHECK(applyMetadata(rejected, other));
+        CHECK(readMetadata(rejected.view())->name == ascii("Short"));
+    }
+
     // Start helpers.
     {
         WorldDocument document(input);

@@ -9,6 +9,7 @@
 
 #include "app/document_file.hpp"
 #include "app/world_canvas.hpp"
+#include "world/doctor.hpp"
 #include "world/metadata.hpp"
 #include "world/object_ops.hpp"
 #include "world/tile_tools.hpp"
@@ -175,6 +176,9 @@ public:
     bool fillSelection();
     bool replaceInSelection(std::int16_t from, std::int16_t to);
     bool flipSelection(bool horizontally);
+
+    // Applies a World Doctor proposal as one named undo step.
+    bool applyFix(const DoctorFix &fix);
 
     // Offsets the user marked in the binary inspector (view state only).
     [[nodiscard]] const std::vector<std::size_t> &bookmarks() const { return bookmarks_; }

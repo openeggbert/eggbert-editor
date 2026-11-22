@@ -125,9 +125,14 @@ int main(int argc, char **argv) {
     // modes, hidden in bigDecor-only mode.
     {
         const auto area = minimap->worldArea();
+        // First pixel of a cell exactly as the renderer snaps it: the image
+        // starts at the integer world area and cell x begins at
+        // floor(x * scale).
+        const auto origin = area.toRect().topLeft();
+        const auto scale = area.toRect().width() / 100.0;
         const auto cellPoint = [&](int x, int y) {
-            return QPoint(static_cast<int>(area.left() + (x + 0.5) * area.width() / 100.0),
-                          static_cast<int>(area.top() + (y + 0.5) * area.height() / 100.0));
+            return origin + QPoint(static_cast<int>(std::floor(x * scale)),
+                                   static_cast<int>(std::floor(y * scale)));
         };
         canvas->fitWorld(); // viewport outline moves to the border
         QApplication::processEvents();

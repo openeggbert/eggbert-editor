@@ -79,11 +79,16 @@ std::optional<Metadata> readMetadata(const WorldView &world) {
 
 bool applyMetadata(EditBuilder &builder, const Metadata &wanted) {
     const auto current = readMetadata(builder.view());
-    if (!current || wanted.name.size() > storedTitleLimit ||
-        std::ranges::find(wanted.name, std::byte{0}) != wanted.name.end()) {
+    if (!current) {
         return false;
     }
+    // An unchanged title is kept whatever it is (even one that fills the
+    // field without a terminator); only a new title must be storable.
     if (wanted.name != current->name) {
+        if (wanted.name.size() > storedTitleLimit ||
+            std::ranges::find(wanted.name, std::byte{0}) != wanted.name.end()) {
+            return false;
+        }
         builder.setName(wanted.name);
     }
     if (wanted.music != current->music) {

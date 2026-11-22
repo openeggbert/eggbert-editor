@@ -144,6 +144,27 @@ int main(int argc, char **argv) {
                    .contains("ignore its stored title"));
     }
 
+    // A stored title without a terminator does not block other edits: it is
+    // kept as long as the title text is untouched.
+    {
+        auto full = bytes;
+        putText(full, 376, std::string(100, 'T'));
+        const WorldView world(full);
+        MetadataDialog dialog(world, GameProfile::speedyBlupi1);
+        CHECK(dialog.isValid());
+        CHECK(dialog.messages().contains("without a terminator"));
+        dialog.findChild<QSpinBox *>("musicSpin")->setValue(5);
+        const auto edited = dialog.metadata().value();
+        CHECK_EQ(edited.name.size(), std::size_t{100});
+        CHECK_EQ(edited.music, std::int16_t{5});
+        // Typing a different over-long title is refused; a short one is fine.
+        dialog.findChild<QLineEdit *>("nameEdit")->setText(QString(100, 'U'));
+        CHECK(!dialog.isValid());
+        dialog.findChild<QLineEdit *>("nameEdit")->setText("Short");
+        CHECK(dialog.isValid());
+        CHECK_EQ(dialog.metadata()->name.size(), std::size_t{5});
+    }
+
     // Through the window.
     QTemporaryDir dir;
     const auto path = dir.filePath("meta.blp");

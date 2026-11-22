@@ -148,11 +148,15 @@ void MetadataDialog::setPage(Page page) {
 
 std::optional<Metadata> MetadataDialog::metadata() const {
     auto result = original_;
-    const auto name = encodeTitle(name_->text());
-    if (!name || name->size() > storedTitleLimit) {
-        return std::nullopt;
+    // An untouched title keeps its stored bytes even when they could not be
+    // typed (for example a title without a terminator).
+    if (name_->text() != decodeTitle(original_.name)) {
+        const auto name = encodeTitle(name_->text());
+        if (!name || name->size() > storedTitleLimit) {
+            return std::nullopt;
+        }
+        result.name = *name;
     }
-    result.name = *name;
     const auto *info = profileInfo(profile_);
     // A changed music or region must be a value the chosen game offers; an
     // unchanged stored value is kept whatever it is.
@@ -179,7 +183,10 @@ std::optional<Metadata> MetadataDialog::metadata() const {
 QString MetadataDialog::messages() const {
     QStringList lines;
     const auto name = encodeTitle(name_->text());
-    if (!name) {
+    if (name_->text() == decodeTitle(original_.name) && original_.name.size() > storedTitleLimit) {
+        lines << tr("Note: the stored title fills the whole field without a terminator; it is "
+                    "kept as it is unless you change it.");
+    } else if (!name) {
         lines << tr("The title contains a character that cannot be stored as one Windows-1252 "
                     "byte.");
     } else if (name->size() > storedTitleLimit) {

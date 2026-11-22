@@ -6,6 +6,7 @@
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QLabel>
+#include <QScrollArea>
 #include <QSpinBox>
 #include <QTreeWidget>
 #include <QVBoxLayout>
@@ -130,7 +131,15 @@ ObjectsPanel::ObjectsPanel(QWidget *parent) : QWidget(parent) {
             form->addRow(fieldLabel(descriptor.field), scalar_[index]);
         }
     }
-    layout->addWidget(form_);
+    // The editors scroll so the dock can be short and leave room for the
+    // other panels.
+    auto *scroll = new QScrollArea(this);
+    scroll->setObjectName(QStringLiteral("objectEditorsScroll"));
+    scroll->setWidget(form_);
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
+    scroll->setMinimumHeight(90);
+    layout->addWidget(scroll, 1);
     setMinimumWidth(340);
     refresh();
 }

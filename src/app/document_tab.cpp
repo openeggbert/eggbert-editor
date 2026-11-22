@@ -981,6 +981,16 @@ void DocumentTab::onToolReleased() {
     }
 }
 
+bool DocumentTab::applyFix(const DoctorFix &fix) {
+    if (!requireWritable() || fix.changes.empty()) {
+        return false;
+    }
+    Transaction transaction;
+    transaction.label = fix.label;
+    transaction.changes = fix.changes;
+    return applyTransaction(std::move(transaction));
+}
+
 void DocumentTab::toggleBookmark(std::size_t offset) {
     const auto found = std::ranges::find(bookmarks_, offset);
     if (found != bookmarks_.end()) {

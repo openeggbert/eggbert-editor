@@ -47,8 +47,13 @@ struct Prompts {
     std::function<std::optional<FindQuery>(DocumentTab *)> findQuery;
     // Edited header values; page 0 is the world page, 1 the starts page.
     std::function<std::optional<Metadata>(DocumentTab *, int page)> editMetadata;
+    // Shown with the exact byte diff before a World Doctor fix is applied.
+    std::function<bool(DocumentTab *, const QString &description)> confirmFix;
+    // Displays a read-only text report (byte differences).
+    std::function<void(const QString &title, const QString &text)> showReport;
 };
 
+class DiagnosticsPanel;
 class InspectorPanel;
 class MinimapWidget;
 class ObjectsPanel;
@@ -93,6 +98,11 @@ public:
     [[nodiscard]] StatisticsPanel *statistics() const { return statistics_; }
     [[nodiscard]] ObjectsPanel *objectsPanel() const { return objects_; }
     [[nodiscard]] InspectorPanel *inspector() const { return inspector_; }
+    [[nodiscard]] DiagnosticsPanel *diagnostics() const { return diagnostics_; }
+    // Synchronises canvas, objects and inspector with a finding.
+    bool locateFinding(const Finding &finding);
+    // Shows a fix's byte diff and applies it when confirmed.
+    bool reviewFix(const Finding &finding);
     // Chooses a verified preset of the current tab's profile and switches to
     // the place tool. False when the profile has no such preset.
     bool choosePreset(const QString &id);
@@ -136,6 +146,8 @@ private:
     StatisticsPanel *statistics_ = nullptr;
     ObjectsPanel *objects_ = nullptr;
     InspectorPanel *inspector_ = nullptr;
+    DiagnosticsPanel *diagnostics_ = nullptr;
+    QDockWidget *diagnosticsDock_ = nullptr;
     QDockWidget *inspectorDock_ = nullptr;
     bool syncing_ = false;
     QDockWidget *objectsDock_ = nullptr;

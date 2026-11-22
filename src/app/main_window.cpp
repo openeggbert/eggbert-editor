@@ -27,6 +27,7 @@
 
 #include <QDockWidget>
 
+#include "app/diagnostics_panel.hpp"
 #include "app/inspector_panel.hpp"
 #include "app/metadata_dialog.hpp"
 #include "app/minimap_widget.hpp"
@@ -221,6 +222,28 @@ void MainWindow::installDefaultPrompts() {
         }
         return dialog.metadata();
     };
+    prompts.confirmFix = [this](DocumentTab *, const QString &description) {
+        QMessageBox box(QMessageBox::Question, tr("Proposed Fix"),
+                        tr("Apply this change? It is one undo step and nothing else is touched."),
+                        QMessageBox::Apply | QMessageBox::Cancel, this);
+        box.setInformativeText(description);
+        box.setDefaultButton(QMessageBox::Cancel);
+        return box.exec() == QMessageBox::Apply;
+    };
+    prompts.showReport = [this](const QString &title, const QString &text) {
+        QDialog dialog(this);
+        dialog.setWindowTitle(title);
+        auto *layout = new QVBoxLayout(&dialog);
+        auto *view = new QPlainTextEdit(text, &dialog);
+        view->setReadOnly(true);
+        view->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
+        layout->addWidget(view);
+        auto *buttons = new QDialogButtonBox(QDialogButtonBox::Close, &dialog);
+        connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+        layout->addWidget(buttons);
+        dialog.resize(760, 520);
+        dialog.exec();
+    };
     prompts.findQuery = [this](DocumentTab *tab) -> std::optional<FindQuery> {
         QDialog dialog(this);
         dialog.setWindowTitle(tr("Find"));
@@ -346,6 +369,33 @@ void MainWindow::createActions() {
                 }
             });
 
+    connect(addAction(worldMenu, QStringLiteral("worldValidate"),
+                      tr("&Validate (World Doctor)"), QKeySequence(Qt::Key_F8)),
+            &QAction::triggered, this, [this] {
+                diagnosticsDock_->show();
+                diagnosticsDock_->raise();
+                diagnostics_->validate();
+                statusBar()->showMessage(diagnostics_->summaryText().section(QLatin1Char('.'), 0, 0) +
+                                             QLatin1Char('.'),
+                                         8000);
+            });
+    connect(addAction(worldMenu, QStringLiteral("worldCompareOriginal"),
+                      tr("Compare with &Original...")),
+            &QAction::triggered, this, [this] {
+                if (auto *tab = currentTab()) {
+                    prompts.showReport(tr("Differences from the File as Opened"),
+                                       formatByteDifferences(tab->document(), true));
+                }
+            });
+    connect(addAction(worldMenu, QStringLiteral("worldCompareSaved"),
+                      tr("Compare with &Saved...")),
+            &QAction::triggered, this, [this] {
+                if (auto *tab = currentTab()) {
+                    prompts.showReport(tr("Unsaved Differences"),
+                                       formatByteDifferences(tab->document(), false));
+                }
+            });
+    worldMenu->addSeparator();
     connect(addAction(worldMenu, QStringLiteral("worldMetadata"), tr("&Metadata...")),
             &QAction::triggered, this, [this] { editMetadata(MetadataDialog::worldPage); });
     connect(addAction(worldMenu, QStringLiteral("worldStarts"), tr("Player &Starts...")),
@@ -730,6 +780,29 @@ void MainWindow::createDocks(QMenu *viewMenu) {
     inspectorToggle->setText(tr("&Binary Inspector"));
     inspectorToggle->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_B));
 
+    diagnosticsDock_ = new QDockWidget(tr("Diagnostics"), this);
+    diagnosticsDock_->setObjectName(QStringLiteral("diagnosticsDock"));
+    diagnostics_ = new DiagnosticsPanel(diagnosticsDock_);
+    diagnosticsDock_->setWidget(diagnostics_);
+    addDockWidget(Qt::BottomDockWidgetArea, diagnosticsDock_);
+    tabifyDockWidget(inspectorDock_, diagnosticsDock_);
+    diagnosticsDock_->hide();
+    connect(diagnostics_, &DiagnosticsPanel::findingActivated, this, [this](int index) {
+        const auto &findings = diagnostics_->report().findings;
+        if (index >= 0 && static_cast<std::size_t>(index) < findings.size()) {
+            locateFinding(findings[static_cast<std::size_t>(index)]);
+        }
+    });
+    connect(diagnostics_, &DiagnosticsPanel::fixRequested, this, [this](int index) {
+        const auto findings = diagnostics_->report().findings; // copy: applying revalidates
+        if (index >= 0 && static_cast<std::size_t>(index) < findings.size()) {
+            reviewFix(findings[static_cast<std::size_t>(index)]);
+        }
+    });
+    auto *diagnosticsToggle = diagnosticsDock_->toggleViewAction();
+    diagnosticsToggle->setObjectName(QStringLiteral("viewDiagnostics"));
+    diagnosticsToggle->setText(tr("&Diagnostics"));
+
     auto *minimapToggle = minimapDock_->toggleViewAction();
     minimapToggle->setObjectName(QStringLiteral("viewMinimap"));
     minimapToggle->setText(tr("&Minimap"));
@@ -740,6 +813,7 @@ void MainWindow::createDocks(QMenu *viewMenu) {
     viewMenu->addAction(statisticsToggle);
     viewMenu->addAction(objectsToggle);
     viewMenu->addAction(inspectorToggle);
+    viewMenu->addAction(diagnosticsToggle);
     connect(addAction(viewMenu, QStringLiteral("viewResetLayout"), tr("&Reset Layout")),
             &QAction::triggered, this, [this] { resetLayout(); });
 }
@@ -750,6 +824,7 @@ void MainWindow::resetLayout() {
     statisticsDock_->show();
     objectsDock_->show();
     inspectorDock_->hide();
+    diagnosticsDock_->hide();
 }
 
 std::size_t MainWindow::locateTileValue(SectionKind layer, std::int16_t value) {
@@ -898,6 +973,45 @@ bool MainWindow::locateSlot(std::size_t slot) {
     return true;
 }
 
+bool MainWindow::locateFinding(const Finding &finding) {
+    auto *tab = currentTab();
+    if (tab == nullptr) {
+        return false;
+    }
+    if (!finding.cells.empty() && finding.layer) {
+        tab->setActiveLayer(*finding.layer);
+        tab->canvas()->setCursorCell(finding.cells.front());
+        tab->canvas()->centerOnCell(finding.cells.front());
+        tab->canvas()->setHighlights(finding.cells, {});
+    } else if (finding.slot) {
+        locateSlot(*finding.slot);
+        tab->setSelectedSlot(*finding.slot);
+    } else if (finding.headerField == HeaderField::blupiPos ||
+               finding.headerField == HeaderField::blupiDir) {
+        locateStart(finding.elementIndex);
+    }
+    // Missing bytes cannot be shown; everything else is selected in the
+    // inspector.
+    const auto size = tab->document().currentBytes().size();
+    if (finding.range.offset < size) {
+        showInInspector(finding.range.offset,
+                        std::min(finding.range.size, size - finding.range.offset));
+    }
+    statusBar()->showMessage(QString::fromStdString(finding.message), 10000);
+    return true;
+}
+
+bool MainWindow::reviewFix(const Finding &finding) {
+    auto *tab = currentTab();
+    if (tab == nullptr || !finding.fix || !tab->document().isWritable()) {
+        return false;
+    }
+    if (!prompts.confirmFix(tab, formatFix(tab->document(), *finding.fix))) {
+        return false;
+    }
+    return tab->applyFix(*finding.fix);
+}
+
 bool MainWindow::editMetadata(int page) {
     auto *tab = currentTab();
     if (tab == nullptr || !tab->document().isWritable()) {
@@ -998,7 +1112,13 @@ bool MainWindow::saveTab(DocumentTab *tab) {
     const auto result = tab->file().save();
     if (result.ok()) {
         tab->notifyDocumentChanged();
-        statusBar()->showMessage(tr("Saved %1").arg(tab->file().path()), 4000);
+        // A full audit runs with every save; it informs and never blocks.
+        const auto report = runDoctor(tab->document().view(), tab->profile());
+        statusBar()->showMessage(tr("Saved %1 - World Doctor: %2 error(s), %3 warning(s)")
+                                     .arg(tab->file().path())
+                                     .arg(report.count(Severity::error))
+                                     .arg(report.count(Severity::warning)),
+                                 8000);
         return true;
     }
     if (result.error == SaveError::conflict) {
@@ -1275,6 +1395,9 @@ void MainWindow::updateUi() {
     }
     enable("objectProperties", hasTab);
     enable("toolStart", writable);
+    enable("worldValidate", hasTab);
+    enable("worldCompareOriginal", hasTab);
+    enable("worldCompareSaved", hasTab);
     enable("worldMetadata", writable);
     enable("worldStarts", writable);
     enable("worldCopyStart", writable);
@@ -1364,6 +1487,7 @@ void MainWindow::updateUi() {
     statistics_->setTab(tab);
     objects_->setTab(tab);
     inspector_->setTab(tab);
+    diagnostics_->setTab(tab);
     updateStatus();
 }
 

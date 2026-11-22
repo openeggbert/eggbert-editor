@@ -70,8 +70,9 @@ struct Metadata {
 // Writes every field of `wanted` that differs from the builder's current
 // state. A dimDecor axis is rewritten (to 100 or 0) only when its
 // scroll/no-scroll meaning changes, so an unusual non-zero stored value
-// survives edits to other fields. Returns false, changing nothing, when the
-// header is missing or the name is too long or contains a NUL.
+// survives edits to other fields. An unchanged title is always kept; a new
+// one must fit in 99 bytes and contain no NUL. Returns false, changing
+// nothing, when the header is missing or a new title cannot be stored.
 bool applyMetadata(EditBuilder &builder, const Metadata &wanted);
 
 // Single-field helpers used by tools.

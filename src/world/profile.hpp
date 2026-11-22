@@ -31,6 +31,12 @@ struct ProfileInfo {
     VerifiedRange region;
     // Foreground tile numbers that have collision data in the engine.
     VerifiedRange foregroundTiles;
+    // Tile numbers the game's tile sheet table has entries for; a larger
+    // number draws nothing.
+    VerifiedRange foregroundAtlas;
+    // bigDecor numbers the game's big-decor sheet table has entries for.
+    // The value 203 is additionally drawn as an animated plant (reported).
+    VerifiedRange bigDecorAtlas;
     // True when the game's loader rewrites stored foreground values 48..67
     // to 215 in memory. The file is never changed by that.
     bool loaderRemaps48To67 = false;
@@ -47,6 +53,8 @@ inline constexpr ProfileInfo speedyBlupi1Info{
             "WM_BUTTON1)"},
     {0, 23, "blupi_recon e05e22b src/event.cpp:3093: WM_BUTTON1..WM_BUTTON24"},
     {0, 236, "blupi_recon e05e22b src/decor.h:13 MAXQUART 237"},
+    {0, 245, "blupi_recon e05e22b src/pixtables.h:314-315 (246 entries)"},
+    {0, 53, "blupi_recon e05e22b src/pixtables.h:755-756 (54 entries)"},
     false,
     8,
     "Estimate: explosions, splashes, projectiles and dropped vehicles each take one slot while "
@@ -60,11 +68,16 @@ inline constexpr ProfileInfo speedyBlupi2Info{
     {0, 10, "blupi_recon e05e22b games/sb2/src/event.cpp:448-458 (11 music buttons)"},
     {0, 31, "blupi_recon e05e22b games/sb2/src/event.cpp:3679: WM_BUTTON1..WM_BUTTON32"},
     {0, 440, "blupi_recon e05e22b games/sb2/src/decor.h:13 MAXQUART 441"},
+    {0, 440, "blupi_recon e05e22b games/sb2/src/pixtables.h:137 (441 entries)"},
+    {0, 99, "blupi_recon e05e22b games/sb2/src/pixtables.h:390 (100 entries)"},
     true,
     16,
     "Estimate: one slime splash takes 7 slots at once and one dynamite starts 9 explosions "
     "(blupi_recon e05e22b games/sb2/src/decnet.cpp:20-43, games/sb2/src/decmove.cpp:778-810).",
 };
+
+// bigDecor value both games draw from the tile sheet as an animated plant.
+inline constexpr std::int16_t bigDecorAnimatedPlant = 203;
 
 // nullptr for GameProfile::unknown.
 [[nodiscard]] constexpr const ProfileInfo *profileInfo(GameProfile profile) {
