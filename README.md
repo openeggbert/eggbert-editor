@@ -19,7 +19,9 @@ What works today:
 - **Save / Save As / Save All / Revert** with atomic replacement. Save refuses to overwrite a file that changed, shrank, grew or disappeared on disk since it was read and offers Reload or Save As instead. Only edited bytes change: unknown and reserved fields, inactive object slots, name padding and trailing data are preserved exactly.
 - Revisions 1.0 and 1.1, truncated files and unknown content open **read-only** with the reason shown.
 
-Every part of the fixed 1.0 scope is implemented. Not yet done: verification against original game data (artwork drawing and real stock worlds); see `NEXT.md`. The format notes, compatibility matrix and implementation milestones are in [plan.md](plan.md). A fresh implementation session should also read [AGENTS.md](AGENTS.md) and continue from [NEXT.md](NEXT.md).
+Version 1.0.0 implements the whole fixed 1.0 scope.
+
+**Verification status.** Everything is tested with independent synthetic worlds, generated sprite sheets and 11 worlds produced by the archived generator project. No original world, sprite sheet or executable of either game has been read by this project yet: the project owner decided on 2026-11-22 to release 1.0 on that basis. In practice: saving is lossless by construction and by test, so an original world cannot be damaged by opening and saving it; World Doctor findings on original worlds and the placement of game artwork are the two places where a difference from the games may still show up. The steps to check them are in `NEXT.md`. The format notes, compatibility matrix and implementation milestones are in [plan.md](plan.md). A fresh implementation session should also read [AGENTS.md](AGENTS.md) and continue from [NEXT.md](NEXT.md).
 
 Claude Code Cloud development is supported. Configure Qt and the optional research-data domain using [the cloud setup guide](docs/claude-code-cloud.md); retail data is never required by the normal build or tests.
 

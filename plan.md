@@ -185,6 +185,8 @@ Maintain an opt-in local-sample matrix by game, edition, locale, revision, size 
 
 Version 1.0 ships only when both profiles can open, edit and reopen supported 1.2/1.3 samples; 1.0/1.1 stay read-only; unknown data survives; file conflicts/failures do not destroy input; object hard caps are enforced; and the application works without proprietary assets.
 
+Release decision, 2026-11-22: original game data could not be obtained in the development environment. The project owner accepted this gate for 1.0.0 with "samples" meaning independent synthetic worlds of both revisions under both profiles plus 11 worlds written by the archived generator, and with artwork rendering verified on generated sheets only. Verification against original worlds, sheets and executables is the first follow-up after the release and is tracked in `NEXT.md`; it is not post-1.0 feature work.
+
 ## Post-1.0 roadmap
 
 Deferred work, not part of current implementation scope:

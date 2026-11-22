@@ -2,7 +2,7 @@
 
 ## Current verified state
 
-Every part of the fixed 1.0 scope in `plan.md` is implemented and covered by asset-free tests. What is missing for the 1.0 gate is evidence from original game data, which this project has not yet been able to read (see **Open questions for the user**). The version stays `0.1.0` until that is settled.
+Version 1.0.0. Every part of the fixed 1.0 scope in `plan.md` is implemented and covered by asset-free tests. On 2026-11-22 the project owner decided to release 1.0 without verification against original game data (the download was refused in the development session): the release gate is accepted on synthetic fixtures, generated sprite sheets and the generator's 11 worlds. The UI, guide and README keep saying that artwork is verified with generated sheets only. Verification against original data remains the next task below; it is evidence work, not a release blocker.
 
 Implemented and covered by asset-free tests:
 
@@ -48,7 +48,7 @@ Commit `c8f7a77` (binary inspector) was pushed green in Release but with a use-a
 
 CI evidence: `.github/workflows/ci.yml` runs only for pushes and pull requests targeting `main` or `develop`, so it has never run for the task branch `claude/bold-faraday-1x0ueo` (GitHub lists no workflow runs for it on 2026-11-22). Its steps are the commands above; the first hosted run will happen with a pull request.
 
-Packaging evidence (2026-11-22, this container): `cpack -G "TGZ;DEB"` produced `eggbert-editor-0.1.0-Linux.tar.gz` and `eggbert-editor_0.1.0_amd64.deb` (program, desktop entry, icon, five documents; dependencies libc6, libgcc-s1, libqt6core6t64, libqt6gui6t64, libqt6widgets6t64, libstdc++6). The DEB was installed with `dpkg -i`, `/usr/bin/eggbert-editor --smoke-test` passed, the GUI stayed up under Xvfb (timeout exit 124), and the package was removed again. This machine has the Qt development packages, so it is not a clean-machine test.
+Packaging evidence (2026-11-22, this container, version 1.0.0): `cpack -G "TGZ;DEB"` produced `eggbert-editor-1.0.0-Linux.tar.gz` and `eggbert-editor_1.0.0_amd64.deb` (program, desktop entry, icon, five documents; dependencies libc6, libgcc-s1, libqt6core6t64, libqt6gui6t64, libqt6widgets6t64, libstdc++6). The DEB was installed with `dpkg -i`; `/usr/bin/eggbert-editor --version` printed `Eggbert Editor 1.0.0`, `--smoke-test` passed, the GUI stayed up under Xvfb (timeout exit 124), and the package was removed again. This machine has the Qt development packages, so it is not a clean-machine test.
 
 Local-sample evidence (opt-in, not retail): `EGGBERT_SAMPLE_DIRS=sb2=<generator bundle>/examples` over the 11 worlds produced by the archived `eggbert-generator` (all revision 1.3, 50,468 bytes): 11 of 11 byte-identical on untouched Save As, exactly two bytes changed after a one-cell edit, save and reopen, original bytes back after undo and save; World Doctor under the Speedy Blupi 2 profile reported 0 errors and 0 warnings for each. No retail world of either game has been tested.
 
@@ -56,19 +56,19 @@ Local-sample evidence (opt-in, not retail): `EGGBERT_SAMPLE_DIRS=sb2=<generator 
 
 ## Research evidence log
 
-Verified and reported observations are recorded with citations in `docs/research/evidence.md` (sources: `blupi_recon` at `e05e22b990abb782c37a0d9fafa864d86a27e29f`; archived `eggbert-generator` bundle at `069c409611eb779e9066e8d492faed4550dac9a8`). Uncommitted background notes on object placement, adaptive borders and rendering exist only in the development scratch area; each fact must be re-read at its citation and entered in `evidence.md` when the slice that depends on it is implemented. No original executable or retail sample has been tested yet; the research-data host `drive.openeggbert.com` is on the environment allowlist, but the automated download was refused by the session's permission layer and awaits the user's decision.
+Verified and reported observations are recorded with citations in `docs/research/evidence.md` (sources: `blupi_recon` at `e05e22b990abb782c37a0d9fafa864d86a27e29f`; archived `eggbert-generator` bundle at `069c409611eb779e9066e8d492faed4550dac9a8`). Uncommitted background notes on object placement, adaptive borders and rendering exist only in the development scratch area; each fact must be re-read at its citation and entered in `evidence.md` when the slice that depends on it is implemented. No original executable or retail sample has been tested yet; the research-data host `drive.openeggbert.com` is on the environment allowlist, but the automated download was refused by the session's permission layer.
 
-## Next task: verification against original game data, then the 1.0 gate review
+## Next task: verification against original game data (post-release follow-up)
 
-No further feature work is planned for 1.0. The remaining slice is evidence, and it needs original game data that must stay outside the repository:
+No further feature work is planned for 1.0. The remaining slice is evidence for a 1.0.x update, and it needs original game data that must stay outside the repository:
 
 1. Obtain one edition of each game under the rules in `plan.md` (**Development game-data acquisition**) and `docs/claude-code-cloud.md`; record source, date, size and checksum in local notes only.
 2. Run the opt-in matrix on the stock worlds: `EGGBERT_SAMPLE_DIRS="sb1=<dir>/DATA;sb2=<dir>/DATA" ctest --test-dir build -R sample_matrix --output-on-failure`. Expected: every complete 1.2/1.3 world is byte-identical after an untouched Save As, changes exactly two bytes after a one-cell edit, and returns to the original after undo; 1.0/1.1 worlds stay read-only. Record counts per game, revision and size here (no file contents).
 3. Run World Doctor on the stock worlds and review every error or warning: a finding on an original world is more likely a wrong rule than a broken world. Correct rules with evidence, never by loosening tests.
 4. Load each game directory through View → Game Artwork Directory: confirm that all four tables are located in the executable (Game Artwork Report), then compare an asymmetric stock scene with the same scene in the game or with `blupi_recon`'s draw code for sheet geometry, offsets, transparency and draw order. Fix differences in `world_renderer.cpp` with a generated-sheet test for each; then remove the "verified with generated sheets only" wording from the UI, guide and README. If a table is not found in an edition's executable, record that edition as schematic-only rather than guessing.
-5. Re-check each sentence of the release gate in `plan.md` against recorded evidence, set the version to `1.0.0` in `CMakeLists.txt`, rebuild the packages and repeat the install smoke test.
+5. Record the results here and in `README.md` (**Verification status**); release corrections as 1.0.x.
 
-Release-gate status on 2026-11-22 (evidence in this file and the tests named above):
+Release-gate status on 2026-11-22, as accepted by the project owner for 1.0.0 (evidence in this file and the tests named above):
 
 | Gate sentence | Status |
 | --- | --- |
@@ -81,7 +81,7 @@ Release-gate status on 2026-11-22 (evidence in this file and the tests named abo
 
 ## Open questions for the user
 
-- The automated download of the research archives from `drive.openeggbert.com` was refused by this session's permission layer although the host is on the environment allowlist and `plan.md` designates it. Without real game data, milestone 3's evidence ("verify tile size, object anchors, offsets, alpha and draw order against asymmetric owned samples") and the release gate's "both profiles can open, edit and reopen supported 1.2/1.3 samples" cannot be completed with retail files; they are covered only by synthetic fixtures, generated sprite sheets and the generator's 11 example worlds. Decision needed: allow the download, provide the `DATA`/`IMAGE08` folders and executables another way, or accept those gates as verified on synthetic and generator data only.
+None blocking. Answered on 2026-11-22: release 1.0 without original game data (see above). Still useful whenever convenient: run the next task on a machine that has the games, or make the data available to a development session.
 
 ## Slice roadmap toward the 1.0 gate
 
@@ -95,7 +95,8 @@ Completed slices are ticked only when their tests are green and committed.
 - [x] 3a Tabbed workspace shell, schematic canvas, pan/zoom, layer visibility, raw pencil
 - [x] 3b Minimap and World Statistics
 - [x] 3c Manual read-only asset directory and artwork rendering (verified with generated sheets only)
-- [ ] 8 Verification against original game data and 1.0 gate review (blocked on data, see open questions)
+- [x] 8 1.0 gate review and version 1.0.0 (gate accepted by the owner on synthetic and generator data)
+- [ ] 9 Verification against original game data (follow-up, needs the data)
 - [x] 4a Layer tools: pencil, eraser, eyedropper, line, rectangle, fill, selection, clipboard, find
 - [x] 4b Metadata and player starts
 - [x] 4c Verified object catalogs, object panel, create/duplicate/delete/relocate, capacity budgets
