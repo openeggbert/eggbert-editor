@@ -6,6 +6,7 @@
 #include <functional>
 
 #include "app/document_tab.hpp"
+#include "world/world_stats.hpp"
 
 class QAction;
 class QComboBox;
@@ -13,6 +14,7 @@ class QLabel;
 class QMenu;
 class QSpinBox;
 class QTabWidget;
+class QDockWidget;
 
 namespace eggbert {
 
@@ -29,6 +31,9 @@ struct Prompts {
     std::function<bool(DocumentTab *)> confirmRevert;
     std::function<void(const QString &title, const QString &text)> error;
 };
+
+class MinimapWidget;
+class StatisticsPanel;
 
 class MainWindow final : public QMainWindow {
     Q_OBJECT
@@ -51,6 +56,18 @@ public:
     // Asks about unsaved changes; false when the user cancels.
     bool closeTab(DocumentTab *tab);
 
+    // Locate commands used by statistics and search: they move the view and
+    // mark results, and never modify the document. Each returns the number
+    // of results.
+    std::size_t locateTileValue(SectionKind layer, std::int16_t value);
+    std::size_t locateObjects(ObjectKey key, std::int16_t value);
+    bool locateStart(std::size_t index);
+    bool locateOffsetRange(std::size_t offset, std::size_t size);
+
+    [[nodiscard]] MinimapWidget *minimap() const { return minimap_; }
+    [[nodiscard]] StatisticsPanel *statistics() const { return statistics_; }
+    void resetLayout();
+
     [[nodiscard]] QStringList recentFiles() const;
     // Probe report and decoded summary of a tab's current bytes.
     [[nodiscard]] static QString propertiesText(const DocumentTab &tab);
@@ -62,6 +79,7 @@ protected:
 
 private:
     void createActions();
+    void createDocks(QMenu *viewMenu);
     void installDefaultPrompts();
     void connectTab(DocumentTab *tab);
     void updateUi();
@@ -80,6 +98,11 @@ private:
     QLabel *cellLabel_ = nullptr;
     QLabel *zoomLabel_ = nullptr;
     QLabel *accessLabel_ = nullptr;
+    MinimapWidget *minimap_ = nullptr;
+    StatisticsPanel *statistics_ = nullptr;
+    QDockWidget *minimapDock_ = nullptr;
+    QDockWidget *statisticsDock_ = nullptr;
+    QByteArray defaultState_;
     bool updating_ = false;
 };
 

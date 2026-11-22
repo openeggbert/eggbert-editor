@@ -61,6 +61,14 @@ struct Point {
     friend constexpr bool operator==(const Point &, const Point &) = default;
 };
 
+// A cell of the 100 x 100 map.
+struct CellPos {
+    std::size_t x = 0;
+    std::size_t y = 0;
+
+    friend constexpr bool operator==(const CellPos &, const CellPos &) = default;
+};
+
 enum class WireType { int16, int32, point, bytes };
 
 [[nodiscard]] constexpr std::size_t wireBytes(WireType type) {

@@ -23,7 +23,12 @@
 #include <QToolBar>
 #include <QVBoxLayout>
 
+#include <QDockWidget>
+
+#include "app/minimap_widget.hpp"
 #include "app/probe_report.hpp"
+#include "app/statistics_panel.hpp"
+#include "world/offset_map.hpp"
 
 namespace eggbert {
 
@@ -65,6 +70,7 @@ MainWindow::MainWindow() {
     installDefaultPrompts();
     createActions();
 
+    defaultState_ = saveState();
     QSettings settings;
     restoreGeometry(settings.value(QStringLiteral("window/geometry")).toByteArray());
     restoreState(settings.value(QStringLiteral("window/state")).toByteArray());
@@ -255,6 +261,9 @@ void MainWindow::createActions() {
         });
     }
 
+    viewMenu->addSeparator();
+    createDocks(viewMenu);
+
     // Tool bar: tool, active layer, raw tile ID and the game profile.
     auto *toolBar = addToolBar(tr("Tools"));
     toolBar->setObjectName(QStringLiteral("toolsToolBar"));
@@ -330,7 +339,172 @@ void MainWindow::createActions() {
     });
 }
 
+void MainWindow::createDocks(QMenu *viewMenu) {
+    minimapDock_ = new QDockWidget(tr("Minimap"), this);
+    minimapDock_->setObjectName(QStringLiteral("minimapDock"));
+    auto *minimapHost = new QWidget(minimapDock_);
+    auto *minimapLayout = new QVBoxLayout(minimapHost);
+    minimapLayout->setContentsMargins(4, 4, 4, 4);
+    auto *modeCombo = new QComboBox(minimapHost);
+    modeCombo->setObjectName(QStringLiteral("minimapModeCombo"));
+    modeCombo->addItem(tr("Composite"), static_cast<int>(MinimapWidget::Mode::composite));
+    modeCombo->addItem(tr("Foreground only"), static_cast<int>(MinimapWidget::Mode::foreground));
+    modeCombo->addItem(tr("bigDecor only"), static_cast<int>(MinimapWidget::Mode::bigDecor));
+    minimap_ = new MinimapWidget(minimapHost);
+    minimapLayout->addWidget(modeCombo);
+    minimapLayout->addWidget(minimap_, 1);
+    connect(modeCombo, &QComboBox::currentIndexChanged, this, [this, modeCombo](int index) {
+        minimap_->setMode(static_cast<MinimapWidget::Mode>(modeCombo->itemData(index).toInt()));
+    });
+    minimapDock_->setWidget(minimapHost);
+    addDockWidget(Qt::RightDockWidgetArea, minimapDock_);
+
+    statisticsDock_ = new QDockWidget(tr("World Statistics"), this);
+    statisticsDock_->setObjectName(QStringLiteral("statisticsDock"));
+    statistics_ = new StatisticsPanel(statisticsDock_);
+    statisticsDock_->setWidget(statistics_);
+    addDockWidget(Qt::RightDockWidgetArea, statisticsDock_);
+    connect(statistics_, &StatisticsPanel::tileValueActivated, this,
+            [this](SectionKind layer, int value) {
+                locateTileValue(layer, static_cast<std::int16_t>(value));
+            });
+    connect(statistics_, &StatisticsPanel::objectKeyActivated, this,
+            [this](ObjectKey key, int value) {
+                locateObjects(key, static_cast<std::int16_t>(value));
+            });
+    connect(statistics_, &StatisticsPanel::startActivated, this,
+            [this](int index) { locateStart(static_cast<std::size_t>(index)); });
+    connect(statistics_, &StatisticsPanel::byteRangeActivated, this,
+            [this](qulonglong offset, qulonglong size) {
+                locateOffsetRange(static_cast<std::size_t>(offset),
+                                  static_cast<std::size_t>(size));
+            });
+
+    auto *minimapToggle = minimapDock_->toggleViewAction();
+    minimapToggle->setObjectName(QStringLiteral("viewMinimap"));
+    minimapToggle->setText(tr("&Minimap"));
+    viewMenu->addAction(minimapToggle);
+    auto *statisticsToggle = statisticsDock_->toggleViewAction();
+    statisticsToggle->setObjectName(QStringLiteral("viewStatistics"));
+    statisticsToggle->setText(tr("World S&tatistics"));
+    viewMenu->addAction(statisticsToggle);
+    connect(addAction(viewMenu, QStringLiteral("viewResetLayout"), tr("&Reset Layout")),
+            &QAction::triggered, this, [this] { resetLayout(); });
+}
+
+void MainWindow::resetLayout() {
+    restoreState(defaultState_);
+    minimapDock_->show();
+    statisticsDock_->show();
+}
+
+std::size_t MainWindow::locateTileValue(SectionKind layer, std::int16_t value) {
+    auto *tab = currentTab();
+    if (tab == nullptr) {
+        return 0;
+    }
+    auto cells = findCells(tab->document().view(), layer, value);
+    const auto count = cells.size();
+    if (tab->setActiveLayer(layer)) {
+        tab->setTileId(value);
+    }
+    if (count != 0) {
+        tab->canvas()->setCursorCell(cells.front());
+        tab->canvas()->centerOnCell(cells.front());
+    }
+    tab->canvas()->setHighlights(std::move(cells), {});
+    updateUi();
+    statusBar()->showMessage(
+        tr("%n cell(s) store value %1 in the %2 layer", nullptr, static_cast<int>(count))
+            .arg(value)
+            .arg(layer == SectionKind::foreground ? tr("foreground") : tr("bigDecor")),
+        8000);
+    return count;
+}
+
+std::size_t MainWindow::locateObjects(ObjectKey key, std::int16_t value) {
+    auto *tab = currentTab();
+    if (tab == nullptr) {
+        return 0;
+    }
+    const auto view = tab->document().view();
+    auto matches = findActiveSlots(view, key, value);
+    const auto count = matches.size();
+    if (count != 0) {
+        const auto record = *view.objects()->record(matches.front());
+        tab->canvas()->centerOnWorld(record.posCurrent.x, record.posCurrent.y);
+    }
+    tab->canvas()->setHighlights({}, std::move(matches));
+    statusBar()->showMessage(tr("%n active object record(s) match", nullptr,
+                                static_cast<int>(count)),
+                             8000);
+    return count;
+}
+
+bool MainWindow::locateStart(std::size_t index) {
+    auto *tab = currentTab();
+    if (tab == nullptr) {
+        return false;
+    }
+    const auto header = tab->document().view().header();
+    if (!header || index >= 4) {
+        return false;
+    }
+    const auto position = *header->blupiPos(index);
+    tab->canvas()->centerOnWorld(position.x + 30, position.y + 30);
+    return true;
+}
+
+bool MainWindow::locateOffsetRange(std::size_t offset, std::size_t size) {
+    auto *tab = currentTab();
+    if (tab == nullptr) {
+        return false;
+    }
+    const auto view = tab->document().view();
+    const auto location = locateOffset(view.probe(), offset);
+    QString where;
+    switch (location.area) {
+    case OffsetArea::foreground:
+    case OffsetArea::bigDecor:
+        tab->canvas()->setCursorCell(location.cell);
+        tab->canvas()->centerOnCell(location.cell);
+        tab->canvas()->setHighlights({location.cell}, {});
+        where = tr("%1 cell (%2, %3)")
+                    .arg(location.area == OffsetArea::foreground ? tr("foreground")
+                                                                 : tr("bigDecor"))
+                    .arg(location.cell.x)
+                    .arg(location.cell.y);
+        break;
+    case OffsetArea::objects:
+        if (const auto record = view.objects() ? view.objects()->record(location.slot)
+                                               : std::nullopt) {
+            tab->canvas()->centerOnWorld(record->posCurrent.x, record->posCurrent.y);
+        }
+        tab->canvas()->setHighlights({}, {location.slot});
+        where = tr("object slot %1").arg(location.slot);
+        break;
+    case OffsetArea::header:
+        where = location.headerField
+                    ? tr("header field %1")
+                          .arg(QString::fromUtf8(headerField(*location.headerField).name.data(),
+                                                 static_cast<qsizetype>(
+                                                     headerField(*location.headerField).name.size())))
+                    : tr("header");
+        break;
+    case OffsetArea::suffix:
+        where = tr("opaque suffix");
+        break;
+    case OffsetArea::unmapped:
+        return false;
+    }
+    statusBar()->showMessage(tr("Offset %1, %2 byte(s): %3").arg(offset).arg(size).arg(where),
+                             8000);
+    return true;
+}
+
 void MainWindow::connectTab(DocumentTab *tab) {
+    connect(tab, &DocumentTab::documentChanged, tab,
+            [tab] { tab->canvas()->clearHighlights(); });
     connect(tab, &DocumentTab::documentChanged, this, [this] { updateUi(); });
     connect(tab, &DocumentTab::toolStateChanged, this, [this] { updateUi(); });
     connect(tab, &DocumentTab::profileChanged, this, [this] { updateUi(); });
@@ -627,6 +801,8 @@ void MainWindow::updateUi() {
     tileSpin_->setEnabled(writable);
     profileCombo_->setEnabled(hasTab);
     updating_ = false;
+    minimap_->setTab(tab);
+    statistics_->setTab(tab);
     updateStatus();
 }
 

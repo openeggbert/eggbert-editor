@@ -10,13 +10,6 @@
 
 namespace eggbert {
 
-struct CellPos {
-    std::size_t x = 0;
-    std::size_t y = 0;
-
-    friend constexpr bool operator==(const CellPos &, const CellPos &) = default;
-};
-
 // Cell containing a world-pixel position, or nullopt outside the map.
 [[nodiscard]] inline std::optional<CellPos> cellAtWorld(double worldX, double worldY) {
     const auto cellX = std::floor(worldX / layout::cellPixels);

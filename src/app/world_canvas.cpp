@@ -56,9 +56,15 @@ void WorldCanvas::applyViewChange() {
     emit viewChanged();
 }
 
+void WorldCanvas::userViewChange() {
+    // Any explicit view change stops the automatic fit on resize.
+    autoFit_ = false;
+    applyViewChange();
+}
+
 void WorldCanvas::setZoom(double scale) {
     transform_.zoomAbout(width() / 2.0, height() / 2.0, scale);
-    applyViewChange();
+    userViewChange();
 }
 
 void WorldCanvas::zoomIn() {
@@ -75,7 +81,7 @@ void WorldCanvas::actualPixels() {
 
 void WorldCanvas::fitWorld() {
     transform_.fit(0, 0, layout::worldPixelWidth, layout::worldPixelHeight, width(), height(), 8);
-    fitted_ = true;
+    autoFit_ = true;
     applyViewChange();
 }
 
@@ -87,13 +93,13 @@ void WorldCanvas::fitCells(CellPos topLeft, CellPos bottomRight) {
     transform_.fit(static_cast<double>(left) * cell, static_cast<double>(top) * cell,
                    static_cast<double>(right - left + 1) * cell,
                    static_cast<double>(bottom - top + 1) * cell, width(), height(), 24);
-    applyViewChange();
+    userViewChange();
 }
 
 void WorldCanvas::centerOnWorld(double worldX, double worldY) {
     transform_.originX = worldX - width() / (2 * transform_.scale);
     transform_.originY = worldY - height() / (2 * transform_.scale);
-    applyViewChange();
+    userViewChange();
 }
 
 void WorldCanvas::centerOnCell(CellPos target) {
@@ -135,11 +141,17 @@ void WorldCanvas::ensureCursorVisible() {
     } else if (cursorRect.bottom() > visible.bottom()) {
         transform_.originY = cursorRect.bottom() - visible.height();
     }
-    applyViewChange();
+    userViewChange();
 }
 
 void WorldCanvas::setSelection(std::optional<std::pair<CellPos, CellPos>> selection) {
     selection_ = selection;
+    update();
+}
+
+void WorldCanvas::setHighlights(std::vector<CellPos> cells, std::vector<std::size_t> objectSlots) {
+    markedCells_ = std::move(cells);
+    markedSlots_ = std::move(objectSlots);
     update();
 }
 
@@ -179,6 +191,30 @@ void WorldCanvas::paintEvent(QPaintEvent *) {
         painter.setPen(QPen(QColor(120, 190, 255), 1, Qt::DashLine));
         painter.drawRect(area.adjusted(0, 0, -1, -1));
     }
+    if (!markedCells_.empty() || !markedSlots_.empty()) {
+        const QColor mark(255, 150, 0);
+        painter.setPen(QPen(mark, 2));
+        const auto visible = QRectF(rect());
+        for (const auto &marked : markedCells_) {
+            const auto area = cellRect(marked, marked);
+            if (area.intersects(visible)) {
+                painter.drawRect(area.adjusted(1, 1, -2, -2));
+            }
+        }
+        if (const auto objects = document_->view().objects()) {
+            for (const auto slot : markedSlots_) {
+                const auto record = objects->record(slot);
+                if (!record) {
+                    continue;
+                }
+                const auto size = schematicSpriteSize(record->channel);
+                const QRectF area(transform_.toScreenX(record->posCurrent.x),
+                                  transform_.toScreenY(record->posCurrent.y),
+                                  size * transform_.scale, size * transform_.scale);
+                painter.drawEllipse(area.adjusted(-3, -3, 3, 3));
+            }
+        }
+    }
     if (hovered_) {
         painter.setPen(QPen(QColor(255, 255, 255, 200), 1));
         painter.drawRect(cellRect(*hovered_, *hovered_).adjusted(0, 0, -1, -1));
@@ -194,7 +230,9 @@ void WorldCanvas::paintEvent(QPaintEvent *) {
 }
 
 void WorldCanvas::resizeEvent(QResizeEvent *) {
-    if (!fitted_ && width() > 0 && height() > 0) {
+    // Until the user changes the view, keep the whole world fitted while
+    // the surrounding layout settles.
+    if (autoFit_ && width() > 0 && height() > 0) {
         fitWorld();
     } else {
         applyViewChange();
@@ -232,7 +270,7 @@ void WorldCanvas::mouseMoveEvent(QMouseEvent *event) {
         const auto delta = event->position() - lastPanPosition_;
         lastPanPosition_ = event->position();
         transform_.panByScreen(delta.x(), delta.y());
-        applyViewChange();
+        userViewChange();
         return;
     }
     const auto target = transform_.cellAtScreen(event->position().x(), event->position().y());
@@ -268,14 +306,14 @@ void WorldCanvas::wheelEvent(QWheelEvent *event) {
             const auto factor = std::pow(zoomStep, delta.y() / 120.0);
             transform_.zoomAbout(event->position().x(), event->position().y(),
                                  transform_.scale * factor);
-            applyViewChange();
+            userViewChange();
         }
     } else if (event->modifiers() & Qt::ShiftModifier) {
         transform_.panByScreen(delta.y() != 0 ? delta.y() : delta.x(), 0);
-        applyViewChange();
+        userViewChange();
     } else {
         transform_.panByScreen(delta.x(), delta.y());
-        applyViewChange();
+        userViewChange();
     }
     setHovered(transform_.cellAtScreen(event->position().x(), event->position().y()));
     event->accept();
@@ -287,7 +325,7 @@ void WorldCanvas::keyPressEvent(QKeyEvent *event) {
     const auto moveCursor = [&](int dx, int dy) {
         if (pan) {
             transform_.panByScreen(-dx * 64.0, -dy * 64.0);
-            applyViewChange();
+            userViewChange();
             return;
         }
         const auto clampAxis = [](std::size_t value, int delta, std::size_t limit) {

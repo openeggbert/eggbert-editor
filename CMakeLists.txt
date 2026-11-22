@@ -24,10 +24,14 @@ endif()
 add_library(eggbert_world STATIC
     src/world/layout.hpp
     src/world/le_reader.hpp
+    src/world/offset_map.cpp
+    src/world/offset_map.hpp
     src/world/world_document.cpp
     src/world/world_document.hpp
     src/world/world_probe.cpp
     src/world/world_probe.hpp
+    src/world/world_stats.cpp
+    src/world/world_stats.hpp
     src/world/world_view.cpp
     src/world/world_view.hpp
 )
@@ -40,6 +44,10 @@ qt_add_library(eggbert_app STATIC
     src/app/document_tab.cpp
     src/app/document_tab.hpp
     src/app/main_window.cpp
+    src/app/minimap_widget.cpp
+    src/app/minimap_widget.hpp
+    src/app/statistics_panel.cpp
+    src/app/statistics_panel.hpp
     src/app/main_window.hpp
     src/app/probe_report.cpp
     src/app/probe_report.hpp
@@ -67,14 +75,14 @@ set_target_properties(eggbert-editor PROPERTIES
 include(CTest)
 if(BUILD_TESTING)
     # Headless core tests: no Qt, no game assets.
-    foreach(name layout le_reader world_probe world_view world_document view_transform)
+    foreach(name layout le_reader world_probe world_view world_document world_stats offset_map view_transform)
         add_executable(${name}-test tests/${name}_test.cpp)
         target_link_libraries(${name}-test PRIVATE eggbert_world)
         add_test(NAME ${name} COMMAND ${name}-test)
     endforeach()
 
     # Application tests run without a display.
-    foreach(name probe_report document_file world_renderer main_window)
+    foreach(name probe_report document_file world_renderer main_window docks)
         add_executable(${name}-test tests/${name}_test.cpp)
         target_link_libraries(${name}-test PRIVATE eggbert_app Qt6::Test)
         add_test(NAME ${name} COMMAND ${name}-test)

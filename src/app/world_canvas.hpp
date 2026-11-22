@@ -4,6 +4,8 @@
 #include <QWidget>
 
 #include <optional>
+#include <utility>
+#include <vector>
 
 #include "app/view_transform.hpp"
 #include "app/world_renderer.hpp"
@@ -46,6 +48,12 @@ public:
     // When false, left-button gestures pan instead of invoking the tool.
     void setToolActive(bool active) { toolActive_ = active; }
 
+    // Cells and object slots marked as search or statistics results.
+    void setHighlights(std::vector<CellPos> cells, std::vector<std::size_t> objectSlots);
+    void clearHighlights() { setHighlights({}, {}); }
+    [[nodiscard]] const std::vector<CellPos> &highlightedCells() const { return markedCells_; }
+    [[nodiscard]] const std::vector<std::size_t> &highlightedSlots() const { return markedSlots_; }
+
     // Optional highlighted cell rectangle (inclusive corners).
     void setSelection(std::optional<std::pair<CellPos, CellPos>> selection);
 
@@ -71,6 +79,7 @@ protected:
 
 private:
     void applyViewChange();
+    void userViewChange();
     void setHovered(std::optional<CellPos> cell);
     void ensureCursorVisible();
 
@@ -81,10 +90,12 @@ private:
     std::optional<CellPos> hovered_;
     std::optional<std::pair<CellPos, CellPos>> selection_;
     std::optional<CellPos> lastToolCell_;
+    std::vector<CellPos> markedCells_;
+    std::vector<std::size_t> markedSlots_;
     bool toolActive_ = true;
     bool toolGesture_ = false;
     bool panning_ = false;
-    bool fitted_ = false;
+    bool autoFit_ = true;
     QPointF lastPanPosition_;
 };
 
