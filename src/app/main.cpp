@@ -19,7 +19,10 @@ int main(int argc, char **argv) {
         if (argument == "--help") {
             std::printf("Usage: eggbert-editor [world files...]\n"
                         "       eggbert-editor --version\n"
-                        "       eggbert-editor --smoke-test   (self check, needs no game data)\n");
+                        "       eggbert-editor --smoke-test   (self check, needs no game data)\n"
+                        "       eggbert-editor --smoke-test --game-data DIR\n"
+                        "                      (self check that also draws with the game in DIR;\n"
+                        "                       DIR is only read)\n");
             return 0;
         }
     }
@@ -34,7 +37,12 @@ int main(int argc, char **argv) {
     if (arguments.contains(QStringLiteral("--smoke-test"))) {
         // Keep the self check away from the user's settings.
         QApplication::setOrganizationName("eggbert-editor-smoke-test");
-        return eggbert::runSmokeTest();
+        const auto option = arguments.indexOf(QStringLiteral("--game-data"));
+        if (option >= 0 && option + 1 >= arguments.size()) {
+            std::fprintf(stderr, "--game-data needs a directory\n");
+            return 2;
+        }
+        return eggbert::runSmokeTest(option >= 0 ? arguments.at(option + 1) : QString());
     }
 
     eggbert::MainWindow mainWindow;

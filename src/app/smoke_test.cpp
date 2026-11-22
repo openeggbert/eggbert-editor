@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "app/document_file.hpp"
+#include "app/game_assets.hpp"
 #include "app/main_window.hpp"
 #include "app/png_export.hpp"
 #include "world/doctor.hpp"
@@ -42,7 +43,7 @@ bool step(bool passed, const char *what) {
 
 } // namespace
 
-int runSmokeTest() {
+int runSmokeTest(const QString &gameDirectory) {
     QTemporaryDir dir;
     if (!step(dir.isValid(), "create a temporary directory")) {
         return 1;
@@ -100,6 +101,40 @@ int runSmokeTest() {
     if (!step(exported.ok && QImageReader(pngPath).size() == QSize(400, 400),
               "export a PNG of the world")) {
         return 1;
+    }
+
+    // Optional artwork path: a game directory named by the caller.
+    if (!gameDirectory.isEmpty()) {
+        const auto detected = detectGameProfile(gameDirectory);
+        if (!step(detected.profile != GameProfile::unknown, "recognise the game directory")) {
+            return 1;
+        }
+        const auto assets = GameAssets::load(gameDirectory, detected.profile);
+        if (!step(assets->usable(), "load the game's tile artwork") ||
+            !step(assets->sprite(1, 153).has_value(), "find the picture of tile 153")) {
+            for (const auto &line : assets->report()) {
+                std::fprintf(stderr, "  %s\n", line.toLocal8Bit().constData());
+            }
+            return 1;
+        }
+        PngExportOptions artworkOptions;
+        artworkOptions.pixelsPerCell = 64;
+        artworkOptions.render.artwork = assets;
+        PngExportOptions schematicOptions;
+        schematicOptions.pixelsPerCell = 64;
+        const auto &view = reloaded.value()->document().view();
+        const QRect cell(3 * 64, 70 * 64, 64, 64);
+        const auto withArtwork = renderWorldForExport(view, artworkOptions).copy(cell);
+        const auto schematic = renderWorldForExport(view, schematicOptions).copy(cell);
+        const auto artworkPath = dir.filePath(QStringLiteral("smoke-artwork.png"));
+        if (!step(!withArtwork.isNull() && withArtwork != schematic,
+                  "draw the edited cell with the game's artwork") ||
+            !step(exportWorldPng(view, detected.profile, artworkOptions, artworkPath).ok,
+                  "export a PNG drawn with artwork")) {
+            return 1;
+        }
+        std::printf("Game artwork: %s recognised, tiles drawn from its sheets\n",
+                    detected.profile == GameProfile::speedyBlupi1 ? "first game" : "second game");
     }
 
     // Window path: open the document in the real main window and close it.

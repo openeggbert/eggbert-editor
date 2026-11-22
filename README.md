@@ -46,7 +46,7 @@ ctest --test-dir build --output-on-failure
 
 If CMake cannot find Qt, set `CMAKE_PREFIX_PATH` to your Qt kit directory when configuring. For a multi-configuration generator such as Visual Studio, build with `--config Release` and pass `-C Release` to CTest. On macOS, launch the generated application bundle. Only Linux is tested and packaged.
 
-`eggbert-editor world.blp ...` opens files given on the command line. `eggbert-editor --version` and `--help` work without a display. `eggbert-editor --smoke-test` runs an end-to-end self check that needs no game data.
+`eggbert-editor world.blp ...` opens files given on the command line. `eggbert-editor --version` and `--help` work without a display. `eggbert-editor --smoke-test` runs an end-to-end self check that needs no game data; `--smoke-test --game-data DIR` additionally recognises the game in `DIR` (read only) and draws with its artwork.
 
 The tests need no game installation, no game assets and no network. Add `-DEGGBERT_SANITIZE=ON` to build with the address and undefined-behavior sanitizers.
 

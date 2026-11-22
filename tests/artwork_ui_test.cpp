@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "app/main_window.hpp"
 #include "app/png_export_dialog.hpp"
+#include "app/smoke_test.hpp"
 
 #include "check.hpp"
 #include "fixture.hpp"
@@ -161,6 +162,16 @@ int main(int argc, char **argv) {
         MainWindow missing;
         CHECK(missing.artworkFor(GameProfile::speedyBlupi2) == nullptr);
         CHECK(missing.artworkFor(GameProfile::speedyBlupi1) != nullptr);
+    }
+
+    // The self check with a game directory: passes for a recognisable game,
+    // fails for a directory that is none or whose tiles cannot be drawn.
+    CHECK_EQ(runSmokeTest(game.root), 0);
+    CHECK_EQ(runSmokeTest(dir.filePath("not-a-game")), 1);
+    {
+        const auto broken = makeGame(dir.filePath("broken-game"));
+        CHECK(QFile::remove(broken.root + "/GAME.EXE"));
+        CHECK_EQ(runSmokeTest(broken.root), 1);
     }
 
     // Nothing was written into the game directory.
