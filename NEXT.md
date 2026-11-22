@@ -72,7 +72,7 @@ Verified and reported observations are recorded with citations in `docs/research
 1. Other editions: repeat the two commands above and View → Game Artwork Report with Speedy Blupi I/II and a localized or demo release, if available. Expected: the same tables are found; if an edition's executable lacks one, record it as schematic-only for that sheet.
 2. Compare one asymmetric scene with the running game on a machine that has it (the cloud session cannot run the games): sprite placement to the pixel, lift order, the second game's raised tiles.
 3. Start the installed package once on a real desktop (native file dialogs, fonts, high DPI); the clean-system check above ran with the offscreen platform.
-4. Open a pull request so the hosted CI workflow runs for the first time.
+4. Hosted CI: the owner decided on 2026-11-22 not to open a pull request yet, so the workflow has still never run; it will run with the first pull request to `develop` or `main`.
 5. World Doctor "blocked start" rule: needs per-tile collision data; could be read from the user's executable like the sprite tables, but only with evidence for the table's layout. Not part of the fixed scope's verified rules.
 
 Release-gate status on 2026-11-22 (evidence in this file and the tests named above):
@@ -88,7 +88,7 @@ Release-gate status on 2026-11-22 (evidence in this file and the tests named abo
 
 ## Open questions for the user
 
-None blocking.
+- Asked on 2026-11-22 whether 1.0 is complete with the documented gaps (other editions, no original 1.0/1.1 worlds, no comparison with the running games, 25 eggs stored four pixels higher than the editors place them), the owner answered that something is still missing, without naming it yet. Find out what before doing further work; do not guess.
 
 ## Slice roadmap toward the 1.0 gate
 
