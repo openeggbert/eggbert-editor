@@ -5,10 +5,13 @@
 
 #include "app/cli.hpp"
 #include "app/png_export.hpp"
+#include "world/revision_convert.hpp"
 #include "world/world_view.hpp"
 
 #include "check.hpp"
 #include "fixture.hpp"
+
+#include <algorithm>
 
 #include <QFile>
 #include <QGuiApplication>
@@ -177,6 +180,59 @@ int main(int argc, char **argv) {
         const auto noGame = run({"export-png", path, cropped, "--game-data", dir.path()});
         CHECK_EQ(noGame.code, 2);
         CHECK(noGame.err.contains("not recognised"));
+    }
+    // convert
+    {
+        CHECK(isCommandLineCommand("convert") && !commandNeedsGraphics("convert"));
+        CHECK(commandLineUsage().contains("convert FILE OUT --to"));
+        // Up: the output is exactly what the library produces.
+        const auto oldWorld = blankWorld(fxRevision10);
+        const auto oldPath = dir.filePath("old.blp");
+        writeAll(oldPath, oldWorld);
+        const auto upPath = dir.filePath("up.blp");
+        const auto up = run({"convert", oldPath, upPath, "--to", "1.3"});
+        CHECK_EQ(up.code, 0);
+        CHECK(up.out.contains("revision 1.3, 50468 bytes"));
+        CHECK(up.out.contains("empty bigDecor layer was added"));
+        const auto expected = convertRevision(oldWorld, FormatRevision::v1_3);
+        CHECK(expected.has_value());
+        const auto written = readAll(upPath);
+        CHECK_EQ(written.size(), qsizetype{50'468});
+        CHECK(std::equal(written.begin(), written.end(),
+                         reinterpret_cast<const char *>(expected->bytes.data())));
+        CHECK_EQ(run({"validate", upPath}).code, 0);
+        // An existing output is never replaced.
+        const auto again = run({"convert", oldPath, upPath, "--to", "1.2"});
+        CHECK_EQ(again.code, 2);
+        CHECK(again.err.contains("already exists"));
+        CHECK(readAll(upPath) == written);
+        // Down with something the target cannot store: refused, nothing
+        // written, unless the loss is accepted.
+        auto full = world;
+        put16(full, fxSlotOffset(fxRevision13, 150), 5);
+        const auto fullPath = dir.filePath("full.blp");
+        writeAll(fullPath, full);
+        const auto downPath = dir.filePath("down.blp");
+        const auto refused = run({"convert", fullPath, downPath, "--to", "1.1"});
+        CHECK_EQ(refused.code, 1);
+        CHECK(refused.err.contains("slots 100 to 199"));
+        CHECK(refused.err.contains("--allow-loss"));
+        CHECK(!QFile::exists(downPath));
+        const auto forced = run({"convert", fullPath, downPath, "--to", "1.1", "--allow-loss"});
+        CHECK_EQ(forced.code, 0);
+        CHECK(forced.out.contains("Lost:"));
+        CHECK_EQ(readAll(downPath).size(), qsizetype{45'668});
+        // Usage and file errors.
+        const auto unused = dir.filePath("unused.blp");
+        CHECK_EQ(run({"convert", path, unused}).code, 2);
+        CHECK_EQ(run({"convert", path, unused, "--to", "2.0"}).code, 2);
+        CHECK_EQ(run({"convert", path, unused, "--to", "1.3"}).code, 2); // already 1.3
+        CHECK_EQ(run({"convert", brokenPath, unused, "--to", "1.2"}).code, 2);
+        CHECK_EQ(run({"convert", dir.filePath("missing.blp"), unused, "--to", "1.2"}).code, 2);
+        CHECK_EQ(run({"convert", path, dir.filePath("no/such/dir/x.blp"), "--to", "1.2"}).code, 2);
+        CHECK(!QFile::exists(unused));
+        CHECK(readAll(oldPath) == QByteArray(reinterpret_cast<const char *>(oldWorld.data()),
+                                              static_cast<qsizetype>(oldWorld.size())));
     }
     CHECK_EQ(run({}).code, 2);
     CHECK_EQ(run({"frobnicate"}).code, 2);

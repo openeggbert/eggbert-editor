@@ -19,6 +19,7 @@ Unless stated otherwise nothing below has been tested in an original executable.
 | --- | --- | --- |
 | 868-byte `DescFile` header with the field order in `plan.md`; `Cellule` is one `short`; `MoveObject` is 48 bytes | `src/decor.h:27-51`, `:99-115` | read |
 | Reader skips `bigDecor` only when the revision is exactly 1.0; reads 100 object records when `majRev == 1 && minRev <= 1`, else 200; copies the title only when `majRev >= 1 && minRev >= 3` | `src/decor.cpp:360-433` | read |
+| Before reading a world the games fill both layers with `0xFFFF` and zero every object type; the reader for revisions 1.0 and 1.1 zeroes all 200 records before reading 100. So a 1.0 world in memory has an empty `bigDecor` layer and a 1.0 or 1.1 world has slots 100–199 all zero — the image `convertRevision` writes when upgrading | `src/decblock.cpp:863-888`; `src/decor.cpp:371`, `:409-425`; `games/sb2/src/decor.cpp:686-703` | read (first game); second-game branch conditions read at `:686`, `:692` |
 | Writer zero-fills the header, writes revision 1.3 (1.2 and `reserve1[0] = 1` in the June 1998 demo build), then both layers and all 200 records | `src/decor.cpp:297-357` | read |
 | Stock SB1 worlds are revision 1.2 with an all-zero title; stock SB2 worlds are 1.3; demo and Valueware editions use a non-zero `reserve1[0]` (256 in shipped demo worlds); `world` is 0 in all measured files | generator `docs/formats/BLP_SB1_WORLD.md` | reported |
 | An empty cell is stored as -1 | `src/decblock.cpp:878-879` (cited by research notes); generator format notes | reported |

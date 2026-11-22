@@ -123,6 +123,12 @@ Each tab has its own Undo/Redo history (Ctrl+Z, Ctrl+Shift+Z); every stroke, sha
 
 Read-only documents can be copied with Save As; the copy is byte-identical.
 
+### Converting to another revision
+
+**File → Convert Revision** writes a copy of the current world (with its unsaved changes) in revision 1.0, 1.1, 1.2 or 1.3 to a new file and opens it. The file you started from is not changed, and the copy can never be written over it. This is also how a revision 1.0 or 1.1 world is edited: convert it to 1.2 or 1.3, edit the copy, and convert back if the old revision is needed.
+
+The header, the tiles and the object records are copied byte for byte; only the revision number changes. Going up, what the older revision does not store is added the way the games fill it when they load such a world: an empty back layer for 1.0, a hundred free object slots for 1.0 and 1.1. Going down, the dialog lists what the target cannot store — back-layer tiles in 1.0, objects or leftover bytes in slots 100 to 199 in 1.0 and 1.1 — and converts only after you tick **Convert anyway and lose what the target cannot store**. A back layer that is empty and slots that are completely zero are simply left out, so an upgrade can always be undone exactly. Bytes after the end of the world are carried over. Between 1.2 and 1.3 only the number differs; the games read the title only from revision 1.3. Truncated files and unknown revisions cannot be converted.
+
 ### If the editor stops unexpectedly
 
 A few seconds after an edit, the unsaved state of every modified world is copied to a recovery folder in your user profile (never next to the world file). The copy is removed when you save, revert or close the world. If the editor or the computer stops before that, the next start asks what to do with each copy: **Restore** opens the world and puts the changes back as one undo step, still unsaved; **Save a Copy As** writes them to a file of your choice; **Discard** deletes them; **Ask Again Later** keeps them. Restore is offered only when the world file is byte for byte what it was when the copy was made; if the file changed or vanished, the changes can still be saved as a copy. A damaged copy is reported and never used.
@@ -169,15 +175,16 @@ Panels can be moved, floated, stacked and closed; **View** lists them. **View �
 
 ## Command line
 
-Besides opening files (`eggbert-editor world.blp ...`), the program has commands that open no window and never change a world file:
+Besides opening files (`eggbert-editor world.blp ...`), the program has commands that open no window and never change the world file they read:
 
 - `eggbert-editor info FILE` prints the structural report and the decoded summary.
 - `eggbert-editor validate FILE [--game 1|2]` prints the World Doctor findings, one per line with rule, byte range and message; the exit code is 1 when there are errors.
 - `eggbert-editor diff FILE OTHER` lists the differing byte ranges with their structural names and old and new bytes; the exit code is 1 when the files differ.
 - `eggbert-editor export-png FILE OUT.png` writes the picture **File → Export World PNG** writes. Options: `--scale N` (pixels per cell, 1 to 64), `--crop x,y,width,height` (in cells), `--game 1|2`, `--game-data DIR` (draw with that game's artwork), `--no-foreground`, `--no-bigdecor`, `--no-objects`, `--no-starts`, `--no-paths`, `--no-backdrop`, `--grid`, `--labels`, `--transparent`.
+- `eggbert-editor convert FILE OUT --to 1.0|1.1|1.2|1.3 [--allow-loss]` writes a copy in another revision, as **File → Convert Revision** does. `OUT` must not exist. When the target cannot store everything, nothing is written and the exit code is 1 unless `--allow-loss` is given.
 
-Exit codes: 0 success, 1 findings or differences, 2 wrong usage or a file that cannot be read or written. `eggbert-editor --help` lists everything.
+Exit codes: 0 success, 1 findings, differences or a refused loss, 2 wrong usage or a file that cannot be read or written. `eggbert-editor --help` lists everything.
 
 ## What the editor does not do
 
-It does not edit revisions 1.0 and 1.1, does not edit bytes in the hex view, does not offer objects, border brushes or music and region values it has no evidence for (raw tile numbers and an object's numeric fields are yours to type), does not create or renumber campaigns, does not copy worlds into a game installation, does not launch a game, and does not convert between Speedy Blupi 1 and 2 or to the Mobile Eggbert format.
+It does not edit revisions 1.0 and 1.1 in place (convert a copy instead), does not edit bytes in the hex view, does not offer objects, border brushes or music and region values it has no evidence for (raw tile numbers and an object's numeric fields are yours to type), does not create or renumber campaigns, does not copy worlds into a game installation, does not launch a game, and does not convert between Speedy Blupi 1 and 2 or to the Mobile Eggbert format.

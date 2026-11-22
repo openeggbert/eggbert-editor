@@ -59,6 +59,7 @@
 #include "app/palette_panel.hpp"
 #include "app/sprite_icons.hpp"
 #include "app/tool_icons.hpp"
+#include "world/revision_convert.hpp"
 #include "app/png_export_dialog.hpp"
 #include "app/probe_report.hpp"
 #include "app/statistics_panel.hpp"
@@ -317,6 +318,70 @@ void MainWindow::installDefaultPrompts() {
             return RecoveryChoice::saveCopy;
         }
         return box.clickedButton() == discard ? RecoveryChoice::discard : RecoveryChoice::keep;
+    };
+    prompts.convertRevision =
+        [this](DocumentTab *tab) -> std::optional<std::pair<FormatRevision, bool>> {
+        QDialog dialog(this);
+        dialog.setWindowTitle(tr("Convert Revision"));
+        auto *layout = new QVBoxLayout(&dialog);
+        layout->addWidget(new QLabel(
+            tr("A copy of %1 is written in another revision; this file is not changed.")
+                .arg(QFileInfo(tab->file().path()).fileName()),
+            &dialog));
+        auto *target = new QComboBox(&dialog);
+        const auto *own = tab->document().probe().descriptor;
+        for (const auto &revision : knownRevisions) {
+            if (own == nullptr || revision.revision != own->revision) {
+                target->addItem(tr("Revision %1.%2").arg(revision.major).arg(revision.minor),
+                                static_cast<int>(revision.revision));
+            }
+        }
+        layout->addWidget(target);
+        auto *outcome = new QLabel(&dialog);
+        outcome->setWordWrap(true);
+        layout->addWidget(outcome);
+        auto *allowLoss = new QCheckBox(tr("Convert anyway and lose what the target cannot store"),
+                                        &dialog);
+        layout->addWidget(allowLoss);
+        auto *buttons =
+            new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+        layout->addWidget(buttons);
+        connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+        connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+        const auto refresh = [&] {
+            const auto revision = static_cast<FormatRevision>(target->currentData().toInt());
+            const auto result = convertRevision(tab->document().currentBytes(), revision,
+                                                allowLoss->isChecked());
+            QStringList lines;
+            bool possible = result.has_value();
+            if (result) {
+                for (const auto &note : result->notes) {
+                    lines << QString::fromStdString(note);
+                }
+                if (lines.isEmpty()) {
+                    lines << tr("Nothing is added or dropped.");
+                }
+            } else {
+                lines << QString::fromStdString(result.error().detail);
+            }
+            const bool lossQuestion =
+                !result && result.error().error == ConversionError::wouldLoseData;
+            allowLoss->setEnabled(lossQuestion || allowLoss->isChecked());
+            outcome->setText(lines.join(QLatin1Char('\n')));
+            buttons->button(QDialogButtonBox::Ok)->setEnabled(possible);
+        };
+        connect(target, &QComboBox::currentIndexChanged, &dialog, [&] {
+            allowLoss->setChecked(false);
+            refresh();
+        });
+        connect(allowLoss, &QCheckBox::toggled, &dialog, refresh);
+        refresh();
+        dialog.resize(520, 260);
+        if (dialog.exec() != QDialog::Accepted) {
+            return std::nullopt;
+        }
+        return std::make_pair(static_cast<FormatRevision>(target->currentData().toInt()),
+                              allowLoss->isChecked());
     };
     prompts.snapshotName = [this](DocumentTab *) -> std::optional<QString> {
         bool accepted = false;
@@ -619,6 +684,9 @@ void MainWindow::createActions() {
             &QAction::triggered, this, [this] { saveAll(); });
     connect(addAction(fileMenu, QStringLiteral("fileRevert"), tr("Re&vert")),
             &QAction::triggered, this, [this] { revertTab(currentTab()); });
+    connect(addAction(fileMenu, QStringLiteral("fileConvertRevision"),
+                      tr("Convert Re&vision...")),
+            &QAction::triggered, this, [this] { convertRevisionOf(currentTab()); });
     connect(addAction(fileMenu, QStringLiteral("fileSnapshot"), tr("Take S&napshot...")),
             &QAction::triggered, this, [this] { takeSnapshot(currentTab()); });
     connect(addAction(fileMenu, QStringLiteral("fileSnapshots"), tr("Snaps&hots...")),
@@ -2251,6 +2319,56 @@ int MainWindow::checkRecovery() {
     return restored;
 }
 
+DocumentTab *MainWindow::convertRevisionOf(DocumentTab *tab) {
+    if (tab == nullptr) {
+        return nullptr;
+    }
+    const auto choice = prompts.convertRevision(tab);
+    if (!choice) {
+        return nullptr;
+    }
+    // The current state is converted, saved or not; the result is a new file.
+    const auto converted =
+        convertRevision(tab->document().currentBytes(), choice->first, choice->second);
+    if (!converted) {
+        prompts.error(tr("Convert Revision"), QString::fromStdString(converted.error().detail));
+        return nullptr;
+    }
+    const auto *descriptor = findRevision(choice->first);
+    const QFileInfo source(tab->file().path());
+    const auto suggested = source.dir().filePath(
+        QStringLiteral("%1-rev%2.%3.%4")
+            .arg(source.completeBaseName())
+            .arg(descriptor->major)
+            .arg(descriptor->minor)
+            .arg(source.suffix().isEmpty() ? QStringLiteral("blp") : source.suffix()));
+    const auto path = prompts.saveAsPath(suggested);
+    if (path.isEmpty()) {
+        return nullptr;
+    }
+    if (samePathKey(path) == samePathKey(tab->file().path())) {
+        prompts.error(tr("Convert Revision"),
+                      tr("Choose another file: the conversion never replaces its source."));
+        return nullptr;
+    }
+    QSaveFile file(path);
+    file.setDirectWriteFallback(false);
+    const auto size = static_cast<qint64>(converted->bytes.size());
+    if (!file.open(QIODevice::WriteOnly) ||
+        file.write(reinterpret_cast<const char *>(converted->bytes.data()), size) != size ||
+        !file.commit()) {
+        prompts.error(tr("Convert Revision"), tr("%1 was not written.").arg(path));
+        return nullptr;
+    }
+    const auto profile = tab->profile();
+    auto *opened = openPath(path);
+    if (opened != nullptr && opened->profile() == GameProfile::unknown) {
+        opened->setProfile(profile);
+    }
+    statusBar()->showMessage(tr("Converted copy written to %1").arg(path), 8000);
+    return opened;
+}
+
 bool MainWindow::takeSnapshot(DocumentTab *tab) {
     if (tab == nullptr) {
         return false;
@@ -2518,6 +2636,7 @@ void MainWindow::updateUi() {
     enable("fileSaveAll", anyModified);
     enable("fileRevert", hasTab);
     enable("fileSnapshot", hasTab);
+    enable("fileConvertRevision", hasTab);
     enable("fileSnapshots", hasTab);
     enable("fileProperties", hasTab);
     enable("fileExportPng", hasTab);

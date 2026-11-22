@@ -6,8 +6,9 @@
 
 namespace eggbert {
 
-// Headless commands: `info`, `validate`, `diff` and `export-png`. They read
-// world files and never change them (export-png writes only its output).
+// Headless commands: `info`, `validate`, `diff`, `export-png` and `convert`.
+// They read world files and never change them (export-png and convert write
+// only their output file).
 //
 // Exit codes: 0 success (validate: no error finding; diff: files equal),
 // 1 the command ran and found something (validate: errors; diff: files

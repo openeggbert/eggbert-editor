@@ -3,6 +3,7 @@
 
 #include <QFile>
 #include <QFileInfo>
+#include <QSaveFile>
 
 #include <algorithm>
 #include <optional>
@@ -14,6 +15,7 @@
 #include "world/doctor.hpp"
 #include "world/hex_model.hpp"
 #include "world/offset_map.hpp"
+#include "world/revision_convert.hpp"
 
 namespace eggbert {
 
@@ -269,11 +271,67 @@ int exportPng(const QStringList &arguments, QTextStream &out, QTextStream &err) 
     return exitOk;
 }
 
+int convert(const QStringList &arguments, QTextStream &out, QTextStream &err) {
+    const auto parsed = parse(arguments, {QStringLiteral("--to")}, {QStringLiteral("--allow-loss")});
+    if (!parsed.error.isEmpty() || parsed.positional.size() != 2 ||
+        !parsed.values.contains(QStringLiteral("--to"))) {
+        return usageError(err, parsed.error.isEmpty()
+                                   ? QStringLiteral("convert needs a world file, an output file "
+                                                    "and --to 1.0|1.1|1.2|1.3")
+                                   : parsed.error);
+    }
+    const auto wanted = parsed.values[QStringLiteral("--to")];
+    auto target = FormatRevision::unknown;
+    for (const auto &revision : knownRevisions) {
+        if (wanted == QStringLiteral("%1.%2").arg(revision.major).arg(revision.minor)) {
+            target = revision.revision;
+        }
+    }
+    if (target == FormatRevision::unknown) {
+        return usageError(err, QStringLiteral("--to takes 1.0, 1.1, 1.2 or 1.3"));
+    }
+    const auto source = readFile(parsed.positional[0]);
+    if (!source) {
+        err << parsed.positional[0] << ": cannot be read\n";
+        return exitUsage;
+    }
+    if (QFileInfo::exists(parsed.positional[1])) {
+        err << parsed.positional[1] << ": already exists; convert never overwrites a file\n";
+        return exitUsage;
+    }
+    const auto converted = convertRevision(
+        std::span<const std::byte>(reinterpret_cast<const std::byte *>(source->constData()),
+                                   static_cast<std::size_t>(source->size())),
+        target, parsed.flags.contains(QStringLiteral("--allow-loss")));
+    if (!converted) {
+        err << parsed.positional[0] << ": " << QString::fromStdString(converted.error().detail)
+            << (converted.error().error == ConversionError::wouldLoseData
+                    ? " Use --allow-loss to convert anyway.\n"
+                    : "\n");
+        return converted.error().error == ConversionError::wouldLoseData ? exitFound : exitUsage;
+    }
+    QSaveFile file(parsed.positional[1]);
+    file.setDirectWriteFallback(false);
+    const auto size = static_cast<qint64>(converted->bytes.size());
+    if (!file.open(QIODevice::WriteOnly) ||
+        file.write(reinterpret_cast<const char *>(converted->bytes.data()), size) != size ||
+        !file.commit()) {
+        err << parsed.positional[1] << ": cannot be written\n";
+        return exitUsage;
+    }
+    out << parsed.positional[1] << ": revision " << wanted << ", " << size << " bytes\n";
+    for (const auto &note : converted->notes) {
+        out << "  " << QString::fromStdString(note) << "\n";
+    }
+    return exitOk;
+}
+
 } // namespace
 
 bool isCommandLineCommand(const QString &name) {
     return name == QLatin1String("info") || name == QLatin1String("validate") ||
-           name == QLatin1String("diff") || name == QLatin1String("export-png");
+           name == QLatin1String("diff") || name == QLatin1String("export-png") ||
+           name == QLatin1String("convert");
 }
 
 bool commandNeedsGraphics(const QString &name) {
@@ -294,7 +352,11 @@ QString commandLineUsage() {
         "      [--no-objects] [--no-starts] [--no-paths] [--no-backdrop] [--grid]\n"
         "      [--labels] [--transparent]\n"
         "      picture of the world, or of a crop given in cells\n"
-        "Exit codes: 0 success, 1 findings or differences, 2 usage or file error.\n");
+        "  eggbert-editor convert FILE OUT --to 1.0|1.1|1.2|1.3 [--allow-loss]\n"
+        "      a copy of the world in another revision; OUT must not exist; exit 1 when\n"
+        "      the target cannot store everything and --allow-loss is not given\n"
+        "Exit codes: 0 success, 1 findings, differences or refused loss, 2 usage or file\n"
+        "error.\n");
 }
 
 int runCommandLine(const QStringList &arguments, QTextStream &out, QTextStream &err) {
@@ -309,6 +371,8 @@ int runCommandLine(const QStringList &arguments, QTextStream &out, QTextStream &
         code = validate(rest, out, err);
     } else if (arguments[0] == QLatin1String("diff")) {
         code = diff(rest, out, err);
+    } else if (arguments[0] == QLatin1String("convert")) {
+        code = convert(rest, out, err);
     } else {
         code = exportPng(rest, out, err);
     }

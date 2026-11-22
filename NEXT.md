@@ -45,9 +45,9 @@ Verification on 2026-11-22, Ubuntu 24.04, GCC 13.3.0, CMake 3.28.3, Ninja, Qt 6.
 ```sh
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
 cmake --build build --parallel              # no warnings
-ctest --test-dir build --output-on-failure  # 43/43 passed (44 registered): layout, le_reader, world_probe, world_view, world_document, world_stats, offset_map, tile_tools, metadata, object_ops, hex_model, doctor, adaptive, animation, atlas_table, editor_groups, view_transform, probe_report, document_file, recovery_store, cli, world_renderer, png_export, game_assets, main_window, docks, tools, metadata_ui, objects_ui, inspector, doctor_ui, adaptive_ui, workspace, artwork_ui, palette, music_player, animation_ui, interface_ui, recovery_ui, cli_usage, smoke, version, install_smoke; sample_matrix skipped without EGGBERT_SAMPLE_DIRS
+ctest --test-dir build --output-on-failure  # 45/45 passed (46 registered): layout, le_reader, world_probe, world_view, world_document, world_stats, offset_map, tile_tools, metadata, object_ops, hex_model, doctor, adaptive, animation, atlas_table, editor_groups, revision_convert, view_transform, probe_report, document_file, recovery_store, cli, world_renderer, png_export, game_assets, main_window, docks, tools, metadata_ui, objects_ui, inspector, doctor_ui, adaptive_ui, workspace, artwork_ui, palette, music_player, animation_ui, interface_ui, recovery_ui, convert_ui, cli_usage, smoke, version, install_smoke; sample_matrix skipped without EGGBERT_SAMPLE_DIRS
 cmake -S . -B build-asan -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DEGGBERT_SANITIZE=ON
-cmake --build build-asan --parallel && ctest --test-dir build-asan   # 43/43 passed under ASan/UBSan, sample_matrix skipped
+cmake --build build-asan --parallel && ctest --test-dir build-asan   # 45/45 passed under ASan/UBSan, sample_matrix skipped
 ```
 
 Commit `c8f7a77` (binary inspector) was pushed green in Release but with a use-after-free that the sanitizer run reported in `main_window` (the hex views kept a pointer to the document replaced by Revert/Reload); the next commit fixes it with `DocumentTab::documentReplaced` and a regression check in `inspector`. Always run the sanitizer suite to completion before committing.
@@ -82,14 +82,23 @@ Verified and reported observations are recorded with citations in `docs/research
 - **CI steps in a clean system.** A minimal Ubuntu 24.04 system (`debootstrap --variant=minbase`, then `cmake ninja-build g++ dpkg-dev` as a hosted runner has them, then the workflow's `qt6-base-dev`: CMake 3.28.3, GCC 13.3.0, Qt 6.4.2) ran every step of `.github/workflows/ci.yml` on commit `5a5f3d8`: job *build-and-test* — configure, build (0 warnings), `ctest` exit 0 (sample test skipped), `cpack` producing the TGZ and DEB; job *sanitizers* — configure, build (0 warnings), `ctest` exit 0. The sanitizer needs `/proc`, which a bare chroot lacks; with it mounted the job passes. The hosted workflow itself has still not run (no pull request, owner's decision).
 - **Independent documentation audit.** A second reviewer compared `docs/user-guide.md`, `README.md` and `docs/format-notes.md` with the code and reported 23 mismatches (none in the format notes). Six were fixed in the code because the documented behaviour was the better one: second-game tiles 384/385 are now drawn before objects; picking a bigDecor picture while the adaptive tile brush is active switches to the Pencil; music plays from a chosen game directory even when its pictures are unusable (`MainWindow::gameDirectoryFor`); the PNG dialog has a backdrop option recorded in `EggbertSettings`; Save As shows the World Doctor summary like Save; the 1/2 path badges are drawn down to five pixels per cell, so they show when the whole world is in view. The rest were wording corrections in the guide and README. The reviewer could not check statements about the games themselves (it had no access to the research sources); those rest on `docs/research/evidence.md`.
 
-## Next task: slice D of the promoted roadmap (writing revisions 1.0/1.1 and upgrading them)
+## Next task: slice E of the promoted roadmap (loss-aware conversion between the two games)
 
 See `plan.md`, **Promotion of the roadmap**. Design to implement:
 
-1. Evidence first: how the games load revisions 1.0 and 1.1 (which sections they read, how they fill what a file lacks) — re-read the loader in `blupi_recon` (`src/decor.cpp` read path) and record it in `docs/research/evidence.md`. The current write policy for 1.0/1.1 is read-only; change it only for what the evidence covers.
-2. Headless `src/world/revision_convert.hpp`: `convertRevision(bytes, target)` producing a new byte image of the target revision — header copied with only the revision field rewritten, layers copied (a missing bigDecor filled with -1), the object pool copied (100 slots padded with free slots, or 200 truncated only when slots 100–199 are all free; otherwise refused with a reason), the suffix carried over; a report lists what had no place or was filled in. Never in place: the result is a new document saved through Save As.
-3. Editing 1.0/1.1 directly: allow it when the file is complete, with the same transaction rules (their layouts are fully described by `RevisionDescriptor`).
-4. UI: File → Convert Revision… (target chooser, report, opens the result in a new unsaved tab). Tests: round trip per revision, upgrade and downgrade byte checks, refusals, original never touched.
+1. Evidence first: which stored values mean the same thing in both games and which do not — tile numbers (the second game's sheets extend the first game's; check with both catalogs and the sprite tables), object types and their icons (`object_catalog` has 31 and 42 verified presets), music and region ranges, header fields either game ignores. Record every mapping with its citation in `docs/research/evidence.md`; a value without evidence is reported, never translated by guess.
+2. Headless `src/world/game_convert.hpp`: `planGameConversion(view, from, to)` returning a report (per kind: kept, translated, without counterpart — with cell or slot lists) and `convertGame(bytes, from, to, policy)` producing a new byte image; revision follows the target game (1.2 for the first, 1.3 for the second) through `convertRevision`. Never in place.
+3. UI: File → Convert to Other Game… with the report shown before anything is written; the result is a new file. CLI: `convert-game`.
+4. Tests: synthetic worlds per mapping class, refusal without acceptance, source untouched; with the opt-in samples, every stock world converts there and the report totals are stable.
+
+### Slice D result (2026-11-22)
+
+- `src/world/revision_convert.hpp` (Qt-free): `convertRevision(bytes, target, allowLoss)` builds a new image in revision 1.0, 1.1, 1.2 or 1.3. Header bytes are copied except the minor revision; layers and records are copied; an upgrade adds what the games' loader leaves in memory for an older file (empty `bigDecor`, zeroed slots 100–199; evidence row added under **File layout**); a downgrade refuses with `wouldLoseData` when `bigDecor` has a cell (target 1.0) or slots 100–199 hold an object or any non-zero byte (targets 1.0/1.1), unless the loss is accepted; a suffix is carried over; truncated or unknown sources are refused.
+- Decision (owner offline; recorded here): revisions 1.0 and 1.1 **stay read-only in place**. The 1.0 gate and many tests rest on that guarantee, and no original 1.0/1.1 world exists to check direct edits against. They are written only by conversion, always to a new file, so "writing 1.0/1.1" is: convert up, edit, convert down.
+- `eggbert-editor convert FILE OUT --to R [--allow-loss]`: refuses an existing `OUT`; exit 1 on a refused loss with nothing written.
+- **File → Convert Revision…**: dialog with target, outcome text recomputed per choice and the acceptance box; converts the current (possibly unsaved) state; suggests `<name>-rev<R>.blp`; never the source path; opens the copy and carries the chosen game over.
+- Tests: `revision_convert` (byte-exact upgrade, all six upgrade pairs undone exactly with a suffix, refusals, lossy override, non-convertible inputs), `cli` (output equals the library's, existing output kept, exit codes), `convert_ui` (file written and opened, source file and tab unchanged, unsaved state converted, source path refused, loss refused then accepted, cancel paths, and the real dialog driven offscreen).
+- Not covered: an original 1.0 or 1.1 world (none available); whether the games accept a converted 1.0/1.1 file was not tried in a running game — the claim rests on the loader source cited in the evidence.
 
 Release-gate status on 2026-11-22 (evidence in this file and the tests named above):
 
@@ -140,7 +149,7 @@ Order and acceptance are in `plan.md`, **Promotion of the roadmap**. Tick a slic
 - [x] A Interface: icon tool bar, welcome page, drag and drop, zoom control, per-file game memory, game recognised from the folder
 - [x] B Autosave recovery and snapshots
 - [x] C Headless command line; PNG layers and crops
-- [ ] D Writing revisions 1.0/1.1 and upgrading them
+- [x] D Revision conversion (1.0/1.1 written and upgraded through converted copies)
 - [ ] E Loss-aware SB1↔SB2 conversion
 - [ ] F Installation workspace: world list, deploy with backup and rollback, playtest command
 - [ ] G Campaign workspace and packs
