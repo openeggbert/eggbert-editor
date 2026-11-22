@@ -10,8 +10,9 @@
 
 namespace eggbert {
 
-PngExportDialog::PngExportDialog(const RenderOptions &initial, QWidget *parent)
-    : QDialog(parent) {
+PngExportDialog::PngExportDialog(const RenderOptions &initial,
+                                 std::shared_ptr<const GameAssets> available, QWidget *parent)
+    : QDialog(parent), available_(std::move(available)) {
     setWindowTitle(tr("Export World PNG"));
     auto *layout = new QVBoxLayout(this);
     auto *form = new QFormLayout;
@@ -44,6 +45,9 @@ PngExportDialog::PngExportDialog(const RenderOptions &initial, QWidget *parent)
     labels_ = addBox(QStringLiteral("pngLabels"), tr("Value labels (large sizes only)"),
                      initial.showLabels);
     transparent_ = addBox(QStringLiteral("pngTransparent"), tr("Transparent background"), false);
+    artwork_ = addBox(QStringLiteral("pngArtwork"), tr("Draw with game artwork"),
+                      available_ != nullptr && initial.artwork != nullptr);
+    artwork_->setEnabled(available_ != nullptr && available_->usable());
 
     estimate_ = new QLabel(this);
     estimate_->setObjectName(QStringLiteral("pngEstimate"));
@@ -69,6 +73,9 @@ PngExportOptions PngExportDialog::options() const {
     options.render.showGrid = grid_->isChecked();
     options.render.showLabels = labels_->isChecked();
     options.render.transparentBackground = transparent_->isChecked();
+    if (artwork_->isChecked() && artwork_->isEnabled()) {
+        options.render.artwork = available_;
+    }
     return options;
 }
 
@@ -78,13 +85,19 @@ QString PngExportDialog::estimateText() const {
 
 void PngExportDialog::refresh() {
     const auto estimate = estimatePngExport(options());
-    estimate_->setText(
-        tr("The image will be %1 x %2 pixels and needs about %3 MiB of memory while it is "
-           "written. It is drawn with the schematic renderer, which uses no game artwork.")
-            .arg(estimate.width)
-            .arg(estimate.height)
-            .arg(QString::number(static_cast<double>(estimate.imageBytes) / (1024.0 * 1024.0),
-                                 'f', 1)));
+    auto text = tr("The image will be %1 x %2 pixels and needs about %3 MiB of memory while it "
+                   "is written.")
+                    .arg(estimate.width)
+                    .arg(estimate.height)
+                    .arg(QString::number(
+                        static_cast<double>(estimate.imageBytes) / (1024.0 * 1024.0), 'f', 1));
+    text += QLatin1Char(' ') +
+            (options().render.artwork != nullptr
+                 ? tr("It will contain artwork from your game directory. That artwork is "
+                      "copyrighted by its owners: keep such pictures for your own use unless you "
+                      "have permission to share them.")
+                 : tr("It is drawn with the schematic renderer, which uses no game artwork."));
+    estimate_->setText(text);
 }
 
 } // namespace eggbert

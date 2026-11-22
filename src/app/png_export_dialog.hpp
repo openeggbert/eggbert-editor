@@ -17,7 +17,11 @@ class PngExportDialog final : public QDialog {
     Q_OBJECT
 
 public:
-    explicit PngExportDialog(const RenderOptions &initial, QWidget *parent = nullptr);
+    // `available` is the artwork that may be used for this document (null
+    // when none is loaded for its game).
+    explicit PngExportDialog(const RenderOptions &initial,
+                             std::shared_ptr<const GameAssets> available = nullptr,
+                             QWidget *parent = nullptr);
 
     [[nodiscard]] PngExportOptions options() const;
     [[nodiscard]] QString estimateText() const;
@@ -34,6 +38,8 @@ private:
     QCheckBox *grid_ = nullptr;
     QCheckBox *labels_ = nullptr;
     QCheckBox *transparent_ = nullptr;
+    QCheckBox *artwork_ = nullptr;
+    std::shared_ptr<const GameAssets> available_;
     QLabel *estimate_ = nullptr;
 };
 

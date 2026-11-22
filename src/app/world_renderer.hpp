@@ -5,6 +5,9 @@
 #include <QImage>
 #include <QRectF>
 
+#include <memory>
+
+#include "app/game_assets.hpp"
 #include "app/view_transform.hpp"
 #include "world/world_view.hpp"
 
@@ -21,6 +24,9 @@ struct RenderOptions {
     bool showGrid = false;
     bool showLabels = true;
     bool transparentBackground = false;
+    // Game artwork to draw with; null draws everything schematically.
+    // Sprites the artwork cannot provide fall back to their placeholder.
+    std::shared_ptr<const GameAssets> artwork;
 
     friend bool operator==(const RenderOptions &, const RenderOptions &) = default;
 };
@@ -39,9 +45,12 @@ struct RenderOptions {
 [[nodiscard]] int schematicSpriteSize(std::int16_t channel);
 
 // Draws the part of the world visible in `viewport` (screen coordinates of
-// the painter) without any game assets. Draw order follows the engines:
-// background, bigDecor, starts, objects, foreground, then editor overlays
-// (paths, outlines, labels, grid).
+// the painter). Draw order follows the engines: background, bigDecor,
+// starts, objects, foreground, lifts (with artwork), then editor overlays
+// (paths, outlines, labels, grid). Without artwork, or for any sprite the
+// artwork lacks, a schematic placeholder is drawn. Animated tiles are drawn
+// with the frame that is stored, and the scrolling backdrop picture is not
+// drawn.
 void renderWorld(QPainter &painter, const WorldView &world, const ViewTransform &transform,
                  const QRectF &viewport, const RenderOptions &options);
 

@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <vector>
 
 namespace eggbert {
 
@@ -133,6 +134,26 @@ void renderWorld(QPainter &painter, const WorldView &world, const ViewTransform 
     const double cellScreen = cell * transform.scale;
     const bool labels = options.showLabels && cellScreen >= 26.0;
 
+    const GameAssets *art =
+        options.artwork && options.artwork->usable() ? options.artwork.get() : nullptr;
+    const bool secondGame = art != nullptr && art->profile() == GameProfile::speedyBlupi2;
+    // Draws one sprite at a world position with nearest-neighbour scaling;
+    // false when the artwork has no such sprite.
+    const auto drawSprite = [&](int channel, int icon, double worldX, double worldY) {
+        if (art == nullptr) {
+            return false;
+        }
+        const auto sprite = art->sprite(channel, icon);
+        if (!sprite) {
+            return false;
+        }
+        const auto target =
+            screenRect(transform, worldX + sprite->offset.x(), worldY + sprite->offset.y(),
+                       sprite->source.width(), sprite->source.height());
+        painter.drawImage(target, *sprite->sheet, sprite->source);
+        return true;
+    };
+
     // bigDecor: each stored value covers 2 x 2 cells from its anchor cell.
     if (const auto layer = world.bigDecor(); layer && options.showBigDecor) {
         const auto range = visibleCells(transform, viewport, 1);
@@ -141,6 +162,19 @@ void renderWorld(QPainter &painter, const WorldView &world, const ViewTransform 
                 const auto id = *layer->cell(x, y);
                 if (id == layout::emptyCell) {
                     continue;
+                }
+                {
+                    // The plant 203 comes from the tile sheet; two groups of
+                    // the second game's pictures sit a little higher.
+                    double spriteY = y * cell + bigDecorYOffset;
+                    if (secondGame && id >= 66 && id <= 68) {
+                        spriteY -= 13;
+                    } else if (secondGame && id >= 87 && id <= 89) {
+                        spriteY -= 2;
+                    }
+                    if (drawSprite(id == 203 ? 1 : 9, id, x * cell, spriteY)) {
+                        continue;
+                    }
                 }
                 const auto rect = screenRect(transform, x * cell, y * cell + bigDecorYOffset,
                                              bigDecorSize, bigDecorSize);
@@ -163,6 +197,11 @@ void renderWorld(QPainter &painter, const WorldView &world, const ViewTransform 
     if (header && options.showStarts) {
         for (int index = 3; index >= 0; --index) {
             const auto position = *header->blupiPos(index);
+            // Player sheets 2, 11, 12, 13; picture 4 faces left, 0 right.
+            if (drawSprite(index == 0 ? 2 : 10 + index, *header->blupiDir(index) == 2 ? 0 : 4,
+                           position.x, position.y)) {
+                continue;
+            }
             const auto rect = screenRect(transform, position.x, position.y, 60, 60);
             const auto color = schematicStartColor(index);
             painter.setRenderHint(QPainter::Antialiasing, cellScreen >= 16.0);
@@ -187,20 +226,42 @@ void renderWorld(QPainter &painter, const WorldView &world, const ViewTransform 
         return screenRect(transform, position.x, position.y, size, size);
     };
 
+    // With artwork, lifts are drawn after the foreground as in the games.
+    const auto isLift = [&](std::int16_t type) {
+        return art != nullptr && (type == 1 || (secondGame && (type == 47 || type == 48)));
+    };
+    std::vector<bool> drawnWithArtwork(objects ? objects->slotCount() : 0, false);
+    const auto drawObjectBody = [&](std::size_t slot, const ObjectRecord &record) {
+        const auto rect = objectRect(record, record.posCurrent);
+        if (!QRectF(rect).adjusted(-64, -64, 64, 64).intersects(viewport)) {
+            return;
+        }
+        // Three types are drawn slightly lower and to the right; one more
+        // in the second game.
+        double worldX = record.posCurrent.x;
+        double worldY = record.posCurrent.y;
+        if (record.type == 4 || record.type == 32 || record.type == 33) {
+            worldX += 2;
+            worldY += 6;
+        } else if (secondGame && record.type == 54) {
+            worldY += 6;
+        }
+        if (drawSprite(record.channel, record.icon, worldX, worldY)) {
+            drawnWithArtwork[slot] = true;
+            return;
+        }
+        auto color = schematicObjectColor(record.type);
+        color.setAlpha(150);
+        painter.fillRect(rect, color);
+    };
+
     // Object bodies, highest slot first as the engines iterate.
     if (objects && options.showObjects) {
         for (std::size_t remaining = objects->slotCount(); remaining > 0; --remaining) {
             const auto record = *objects->record(remaining - 1);
-            if (record.isFree()) {
-                continue;
+            if (!record.isFree() && !isLift(record.type)) {
+                drawObjectBody(remaining - 1, record);
             }
-            const auto rect = objectRect(record, record.posCurrent);
-            if (!QRectF(rect).intersects(viewport)) {
-                continue;
-            }
-            auto color = schematicObjectColor(record.type);
-            color.setAlpha(150);
-            painter.fillRect(rect, color);
         }
     }
 
@@ -211,6 +272,14 @@ void renderWorld(QPainter &painter, const WorldView &world, const ViewTransform 
             for (int y = range.y0; y <= range.y1; ++y) {
                 const auto id = *layer->cell(x, y);
                 if (id == layout::emptyCell) {
+                    continue;
+                }
+                // Grass pictures (107 to 109, 157) are drawn seven pixels up,
+                // and picture 364 of the second game two pixels up.
+                const int lift = (id >= 107 && id <= 109) || id == 157 ? 7
+                                 : secondGame && id == 364             ? 2
+                                                                       : 0;
+                if (drawSprite(1, id, x * cell, y * cell - lift)) {
                     continue;
                 }
                 const auto rect = screenRect(transform, x * cell, y * cell, cell, cell);
@@ -224,6 +293,15 @@ void renderWorld(QPainter &painter, const WorldView &world, const ViewTransform 
                 if (labels) {
                     drawLabel(painter, rect, QString::number(id), readableOn(color));
                 }
+            }
+        }
+    }
+
+    if (objects && options.showObjects && art != nullptr) {
+        for (std::size_t slot = 0; slot < objects->slotCount(); ++slot) {
+            const auto record = *objects->record(slot);
+            if (!record.isFree() && isLift(record.type)) {
+                drawObjectBody(slot, record);
             }
         }
     }
@@ -250,7 +328,7 @@ void renderWorld(QPainter &painter, const WorldView &world, const ViewTransform 
                 painter.drawRect(end.adjusted(1, 1, -2, -2));
                 painter.setRenderHint(QPainter::Antialiasing, false);
             }
-            if (options.showObjects) {
+            if (options.showObjects && !drawnWithArtwork[slot]) {
                 const auto rect = objectRect(record, record.posCurrent);
                 if (!QRectF(rect).intersects(viewport)) {
                     continue;

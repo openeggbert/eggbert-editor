@@ -70,3 +70,19 @@ Eggbert Editor does not copy two side effects of the games' editors: placing an 
 | SB2 lightning: an emitter (304) fills up to four empty cells below with 305; a cell that ends empty clears up to four consecutive 305 cells below | `games/sb2/src/decor.cpp:435-469` | read |
 
 Deliberate differences from the games' editors, so that an adaptive edit never removes unrelated content: Eggbert Editor does not delete objects standing on a cell that becomes solid, and it does not reproduce the source quirk by which a freshly written four-cell lightning beam also clears beam cells five to eight rows below the emitter. Every cell an adaptive stroke would change is previewed before the click.
+
+## Drawing
+
+| Observation | Where | How |
+| --- | --- | --- |
+| A sprite is found through a table per sheet: a count, then six 16-bit values per sprite `{srcX, srcY, offsetX, offsetY, width, height}`; the sprite is drawn at the requested position plus the offset; a number at or beyond the count is not drawn | `src/pixmap.cpp:781-800` | read |
+| Channel 1 uses the tile sheet table, 10 the element table, 9 the explosion/bigDecor table, 2 and 11–13 the player table | `src/pixmap.cpp:788-830` (first branches read; the rest per research notes) | read / reported |
+| Table sizes: first game tiles 246, elements 187, bigDecor/effects 54 (its last record lacks the height), player 291; second game 441, 289, 100, 336 | `src/pixtables.h:19-20`, `:314-315`, `:564-565`, `:755-756`, `:809-811`; `games/sb2/src/pixtables.h:20-21`, `:137`, `:289-290`, `:390` | read (counts only; the tables themselves are not copied) |
+| Sprite sheets are loaded as ordinary bitmaps from `image08\` (`object.blp`, `element.blp`, `explo.blp`, `blupi000.blp`–`blupi003.blp`) and drawn with pure blue RGB(0, 0, 255) as the transparent colour | `src/blupi.cpp:760-858` (transparency lines read; file names per research notes) | read / reported |
+| bigDecor cell (x, y) is drawn from channel 9 at `(x * 64, y * 64 + 2)`; value 203 is drawn from channel 1 instead; second game: values 66–68 are drawn 13 pixels higher and 87–89 two pixels higher | `src/decblock.cpp:1209-1231`; `games/sb2/src/decblock.cpp:1643-1647` | read |
+| Objects are drawn at `posCurrent` with their stored channel and icon, highest slot first, before the foreground; types 4, 32 and 33 are shifted by (2, 6); second game also type 54 by (0, 6); lifts (type 1) are drawn after the foreground | `src/decblock.cpp:1359-1377`; `games/sb2/src/decblock.cpp:1809-1817` | read (lift pass and second-game lift types 47/48: reported) |
+| Foreground cell (x, y) is drawn from channel 1 at `(x * 64, y * 64)`; values 107–109 and 157 seven pixels higher; second game value 364 two pixels higher | `src/decblock.cpp:1378-1410`; `games/sb2/src/decblock.cpp:1846` | read |
+| In the games' editors a start is drawn with player sheet 2, 11, 12 or 13 by slot, picture 0 when facing right and 4 otherwise | `src/decblock.cpp:1234-1250` | read |
+| Attract-mode recordings are `data\demo2NN.blp` in the first game and `data\demo3NN.blp` in the second | `src/event.cpp:3723`; `games/sb2/src/event.cpp:4372` | read |
+
+Eggbert Editor does not ship the sprite tables. At run time it searches the executable in the user's chosen game directory for a table with the expected count whose every rectangle fits the sprite sheet found there, and uses it only then. This mechanism has been exercised with generated sheets and a generated stand-in executable only; no original installation has been read by this project yet, so real sheet sizes, the tables' presence in each edition's executable, and the visual result are **untested**.

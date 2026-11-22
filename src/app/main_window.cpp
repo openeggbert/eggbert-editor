@@ -35,6 +35,7 @@
 
 #include "app/appearance.hpp"
 #include "app/diagnostics_panel.hpp"
+#include "app/game_assets.hpp"
 #include "app/inspector_panel.hpp"
 #include "app/metadata_dialog.hpp"
 #include "app/minimap_widget.hpp"
@@ -54,6 +55,15 @@ constexpr int maximumRecentFiles = 10;
 const char *const worldFilter =
     QT_TRANSLATE_NOOP("eggbert::MainWindow",
                       "Blupi world files (*.blp *.BLP *.xch *.XCH);;All files (*)");
+
+int artworkIndex(GameProfile profile) {
+    return profile == GameProfile::speedyBlupi1 ? 0 : profile == GameProfile::speedyBlupi2 ? 1 : -1;
+}
+
+QString artworkSettingKey(GameProfile profile) {
+    return profile == GameProfile::speedyBlupi1 ? QStringLiteral("artwork/directory-game1")
+                                                : QStringLiteral("artwork/directory-game2");
+}
 
 QString samePathKey(const QString &path) {
     const QFileInfo info(path);
@@ -91,6 +101,18 @@ MainWindow::MainWindow() {
 
     defaultState_ = saveState();
     rebuildPresets(GameProfile::unknown);
+    {
+        // Remembered artwork directories are read again; a directory that
+        // disappeared simply leaves the schematic drawing.
+        const QSettings stored;
+        for (const auto profile : {GameProfile::speedyBlupi1, GameProfile::speedyBlupi2}) {
+            const auto directory = stored.value(artworkSettingKey(profile)).toString();
+            if (!directory.isEmpty()) {
+                artwork_[artworkIndex(profile)] = GameAssets::load(directory, profile);
+            }
+        }
+        artworkEnabled_ = stored.value(QStringLiteral("artwork/enabled"), false).toBool();
+    }
     setWindowIcon(applicationIcon());
     applyPreferences();
     QSettings settings;
@@ -236,7 +258,7 @@ void MainWindow::installDefaultPrompts() {
     };
     prompts.exportPng =
         [this](DocumentTab *tab) -> std::optional<std::pair<PngExportOptions, QString>> {
-        PngExportDialog dialog(tab->canvas()->renderOptions(), this);
+        PngExportDialog dialog(tab->canvas()->renderOptions(), artworkFor(tab->profile()), this);
         if (dialog.exec() != QDialog::Accepted) {
             return std::nullopt;
         }
@@ -249,6 +271,40 @@ void MainWindow::installDefaultPrompts() {
             return std::nullopt;
         }
         return std::pair{dialog.options(), path};
+    };
+    prompts.chooseArtworkDirectory =
+        [this](GameProfile suggested) -> std::optional<std::pair<QString, GameProfile>> {
+        const auto directory = QFileDialog::getExistingDirectory(
+            this, tr("Choose the Game Directory (it is only read)"));
+        if (directory.isEmpty()) {
+            return std::nullopt;
+        }
+        const auto detection = detectGameProfile(directory);
+        QDialog dialog(this);
+        dialog.setWindowTitle(tr("Game Artwork Directory"));
+        auto *form = new QFormLayout(&dialog);
+        auto *evidence = new QLabel(detection.evidence.join(QLatin1Char('\n')), &dialog);
+        evidence->setWordWrap(true);
+        form->addRow(new QLabel(directory, &dialog));
+        form->addRow(evidence);
+        auto *game = new QComboBox(&dialog);
+        game->addItem(profileDisplayName(GameProfile::speedyBlupi1),
+                      static_cast<int>(GameProfile::speedyBlupi1));
+        game->addItem(profileDisplayName(GameProfile::speedyBlupi2),
+                      static_cast<int>(GameProfile::speedyBlupi2));
+        const auto preselected =
+            detection.profile != GameProfile::unknown ? detection.profile : suggested;
+        game->setCurrentIndex(std::max(0, game->findData(static_cast<int>(preselected))));
+        form->addRow(tr("This directory belongs to"), game);
+        auto *buttons =
+            new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+        connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+        connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+        form->addRow(buttons);
+        if (dialog.exec() != QDialog::Accepted) {
+            return std::nullopt;
+        }
+        return std::pair{directory, static_cast<GameProfile>(game->currentData().toInt())};
     };
     prompts.confirmFix = [this](DocumentTab *, const QString &description) {
         QMessageBox box(QMessageBox::Question, tr("Proposed Fix"),
@@ -725,6 +781,30 @@ void MainWindow::createActions() {
         });
     }
 
+    viewMenu->addSeparator();
+    auto *artworkToggle = addAction(viewMenu, QStringLiteral("viewArtwork"),
+                                    tr("Draw with Game &Artwork"));
+    artworkToggle->setCheckable(true);
+    connect(artworkToggle, &QAction::toggled, this, [this](bool enabled) {
+        if (!updating_) {
+            setArtworkEnabled(enabled);
+        }
+    });
+    connect(addAction(viewMenu, QStringLiteral("viewArtworkDirectory"),
+                      tr("Game Artwork &Directory...")),
+            &QAction::triggered, this, [this] {
+                auto *tab = currentTab();
+                const auto choice = prompts.chooseArtworkDirectory(
+                    tab != nullptr ? tab->profile() : GameProfile::unknown);
+                if (!choice) {
+                    return;
+                }
+                loadArtwork(choice->first, choice->second);
+                prompts.showDocument(tr("Game Artwork"), artworkReport(), false);
+            });
+    connect(addAction(viewMenu, QStringLiteral("viewArtworkReport"), tr("Game Artwork Re&port")),
+            &QAction::triggered, this,
+            [this] { prompts.showDocument(tr("Game Artwork"), artworkReport(), false); });
     viewMenu->addSeparator();
     createDocks(viewMenu);
 
@@ -1351,6 +1431,69 @@ bool MainWindow::exportPng(DocumentTab *tab, const PngExportOptions &options,
     return true;
 }
 
+std::shared_ptr<const GameAssets> MainWindow::artworkFor(GameProfile profile) const {
+    const auto index = artworkIndex(profile);
+    if (index < 0 || artwork_[index] == nullptr || !artwork_[index]->usable()) {
+        return nullptr;
+    }
+    return artwork_[index];
+}
+
+bool MainWindow::loadArtwork(const QString &directory, GameProfile profile) {
+    const auto index = artworkIndex(profile);
+    if (index < 0) {
+        return false;
+    }
+    artwork_[index] = GameAssets::load(directory, profile);
+    // The path is a local preference; it is never written into a world file.
+    QSettings().setValue(artworkSettingKey(profile), artwork_[index]->directory());
+    if (artwork_[index]->usable()) {
+        setArtworkEnabled(true);
+    }
+    applyArtworkToTabs();
+    updateUi();
+    return artwork_[index]->usable();
+}
+
+void MainWindow::setArtworkEnabled(bool enabled) {
+    artworkEnabled_ = enabled;
+    QSettings().setValue(QStringLiteral("artwork/enabled"), enabled);
+    applyArtworkToTabs();
+    updateUi();
+}
+
+void MainWindow::applyArtworkToTabs() {
+    for (int index = 0; index < tabCount(); ++index) {
+        auto *tab = tabAt(index);
+        auto options = tab->canvas()->renderOptions();
+        options.artwork = artworkEnabled_ ? artworkFor(tab->profile()) : nullptr;
+        tab->canvas()->setRenderOptions(options);
+    }
+}
+
+QString MainWindow::artworkReport() const {
+    QStringList lines;
+    lines << tr("Artwork is read from a game directory you choose. The directory is never "
+                "modified, nothing from it is copied into world files, and the editor works "
+                "without it.");
+    lines << tr("Sprite positions are located in the game's own executable and accepted only "
+                "when they fit the sprite sheets. This has been verified with generated test "
+                "sheets only, not yet against an original game installation.");
+    for (const auto profile : {GameProfile::speedyBlupi1, GameProfile::speedyBlupi2}) {
+        lines << QString() << profileDisplayName(profile);
+        const auto &assets = artwork_[artworkIndex(profile)];
+        if (assets == nullptr) {
+            lines << tr("  No directory chosen.");
+            continue;
+        }
+        lines << QStringLiteral("  ") + assets->directory();
+        for (const auto &line : assets->report()) {
+            lines << QStringLiteral("  ") + line;
+        }
+    }
+    return lines.join(QLatin1Char('\n'));
+}
+
 bool MainWindow::locateFinding(const Finding &finding) {
     auto *tab = currentTab();
     if (tab == nullptr) {
@@ -1748,6 +1891,18 @@ void MainWindow::updateUi() {
     enable("fileRevert", hasTab);
     enable("fileProperties", hasTab);
     enable("fileExportPng", hasTab);
+    if (auto *toggle = action(QStringLiteral("viewArtwork"))) {
+        toggle->setChecked(artworkEnabled_);
+        toggle->setEnabled(artwork_[0] != nullptr || artwork_[1] != nullptr);
+    }
+    if (hasTab) {
+        auto options = tab->canvas()->renderOptions();
+        const auto wanted = artworkEnabled_ ? artworkFor(tab->profile()) : nullptr;
+        if (options.artwork != wanted) {
+            options.artwork = wanted;
+            tab->canvas()->setRenderOptions(options);
+        }
+    }
     enable("viewFitSelection",
            hasTab && (!tab->selection().empty() || tab->selectedSlot().has_value()));
     enable("fileClose", hasTab);

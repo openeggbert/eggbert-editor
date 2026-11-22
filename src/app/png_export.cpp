@@ -92,8 +92,10 @@ PngExportResult exportWorldPng(const WorldView &world, GameProfile profile,
     writer.setText(QStringLiteral("Software"),
                    QStringLiteral("Eggbert Editor %1").arg(QStringLiteral(EGGBERT_EDITOR_VERSION)));
     writer.setText(QStringLiteral("EggbertProfile"), profileKey(profile));
+    const bool artwork = options.render.artwork && options.render.artwork->usable();
     writer.setText(QStringLiteral("EggbertRenderer"),
-                   QString::fromLatin1(schematicRendererVersion));
+                   QString::fromLatin1(artwork ? artworkRendererVersion
+                                               : schematicRendererVersion));
     writer.setText(QStringLiteral("EggbertSettings"), describeExportSettings(options));
     if (!writer.write(image)) {
         result.error = writer.errorString();

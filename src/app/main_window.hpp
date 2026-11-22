@@ -58,6 +58,10 @@ struct Prompts {
     std::function<QString(const QString &suggestedName)> saveTextPath;
     // Runs the preferences dialog; false when cancelled.
     std::function<bool()> editPreferences;
+    // A game directory for artwork and the game it belongs to. The default
+    // shows what was recognised and lets the user correct it. nullopt cancels.
+    std::function<std::optional<std::pair<QString, GameProfile>>(GameProfile suggested)>
+        chooseArtworkDirectory;
     // Displays a read-only text report (byte differences).
     std::function<void(const QString &title, const QString &text)> showReport;
 };
@@ -128,6 +132,14 @@ public:
     [[nodiscard]] static QString diagnosticsBundleText(const DocumentTab *tab);
     bool saveDiagnosticsBundle(const QString &path);
 
+    // Game artwork: read-only directories per game, remembered as a local
+    // preference. Loading never writes to the directory.
+    bool loadArtwork(const QString &directory, GameProfile profile);
+    [[nodiscard]] std::shared_ptr<const GameAssets> artworkFor(GameProfile profile) const;
+    [[nodiscard]] bool artworkEnabled() const { return artworkEnabled_; }
+    void setArtworkEnabled(bool enabled);
+    [[nodiscard]] QString artworkReport() const;
+
     enum class DockLayout { mapping, objects, validation };
     void applyLayout(DockLayout layout);
     void setTheme(const QString &key);
@@ -154,6 +166,7 @@ private:
     void addRecentFile(const QString &path);
     void rebuildRecentMenu();
     void rebuildPresets(GameProfile profile);
+    void applyArtworkToTabs();
     // Shows an offset in the inspector without echoing back to the canvas.
     void showInInspector(std::size_t offset, std::size_t size);
     void showProperties();
@@ -177,6 +190,8 @@ private:
     QDockWidget *diagnosticsDock_ = nullptr;
     QDockWidget *inspectorDock_ = nullptr;
     bool syncing_ = false;
+    std::shared_ptr<const GameAssets> artwork_[2];
+    bool artworkEnabled_ = false;
     QDockWidget *objectsDock_ = nullptr;
     QMenu *createMenu_ = nullptr;
     QComboBox *presetCombo_ = nullptr;

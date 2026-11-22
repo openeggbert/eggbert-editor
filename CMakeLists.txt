@@ -24,6 +24,8 @@ endif()
 add_library(eggbert_world STATIC
     src/world/adaptive.cpp
     src/world/adaptive.hpp
+    src/world/atlas_table.cpp
+    src/world/atlas_table.hpp
     src/world/doctor.cpp
     src/world/doctor.hpp
     src/world/hex_model.cpp
@@ -62,6 +64,8 @@ qt_add_library(eggbert_app STATIC
     src/app/document_file.hpp
     src/app/document_tab.cpp
     src/app/document_tab.hpp
+    src/app/game_assets.cpp
+    src/app/game_assets.hpp
     src/app/hex_view.cpp
     src/app/hex_view.hpp
     src/app/inspector_panel.cpp
@@ -149,14 +153,14 @@ include(CPack)
 include(CTest)
 if(BUILD_TESTING)
     # Headless core tests: no Qt, no game assets.
-    foreach(name layout le_reader world_probe world_view world_document world_stats offset_map tile_tools metadata object_ops hex_model doctor adaptive view_transform)
+    foreach(name layout le_reader world_probe world_view world_document world_stats offset_map tile_tools metadata object_ops hex_model doctor adaptive atlas_table view_transform)
         add_executable(${name}-test tests/${name}_test.cpp)
         target_link_libraries(${name}-test PRIVATE eggbert_world)
         add_test(NAME ${name} COMMAND ${name}-test)
     endforeach()
 
     # Application tests run without a display.
-    foreach(name probe_report document_file world_renderer png_export main_window docks tools metadata_ui objects_ui inspector doctor_ui adaptive_ui workspace)
+    foreach(name probe_report document_file world_renderer png_export game_assets main_window docks tools metadata_ui objects_ui inspector doctor_ui adaptive_ui workspace artwork_ui)
         add_executable(${name}-test tests/${name}_test.cpp)
         target_link_libraries(${name}-test PRIVATE eggbert_app Qt6::Test)
         add_test(NAME ${name} COMMAND ${name}-test)
@@ -176,10 +180,15 @@ if(BUILD_TESTING)
                 -DPREFIX=${CMAKE_BINARY_DIR}/install-smoke -P
                 "${CMAKE_CURRENT_SOURCE_DIR}/tests/install_smoke.cmake")
 
+    # A test that waits for input (for example a dialog nobody answers) must
+    # fail instead of blocking the run.
+    get_property(eggbert_tests DIRECTORY PROPERTY TESTS)
+    set_tests_properties(${eggbert_tests} PROPERTIES TIMEOUT 120)
+
     # Opt-in check against real world files kept outside the repository.
     add_executable(sample_matrix-test tests/sample_matrix_test.cpp)
     target_link_libraries(sample_matrix-test PRIVATE eggbert_app Qt6::Test)
     add_test(NAME sample_matrix COMMAND sample_matrix-test)
     set_tests_properties(sample_matrix PROPERTIES
-        ENVIRONMENT "QT_QPA_PLATFORM=offscreen" SKIP_RETURN_CODE 77)
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen" SKIP_RETURN_CODE 77 TIMEOUT 600)
 endif()

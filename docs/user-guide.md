@@ -24,7 +24,7 @@ The file does not say which game it belongs to. Choose **Speedy Blupi / Eggbert 
 
 ## The canvas
 
-The canvas draws the world schematically, without any game artwork: every stored tile number has its own stable colour, bigDecor tiles cover two by two cells, objects are outlined boxes with their type and slot, player starts are numbered discs, and motion paths are dashed lines with an end box.
+By default the canvas draws the world schematically, without any game artwork: every stored tile number has its own stable colour, bigDecor tiles cover two by two cells, objects are outlined boxes with their type and slot, player starts are numbered discs, and motion paths are dashed lines with an end box. It can also draw with the artwork of a game you have (see *Game artwork*).
 
 - Pan: middle mouse button, Alt+drag, the mouse wheel (Shift for horizontal), or the **Browse** tool.
 - Zoom: Ctrl+wheel zooms around the pointer; **View → Zoom In / Zoom Out / Actual Pixels / Fit World / Fit Selection**.
@@ -32,6 +32,16 @@ The canvas draws the world schematically, without any game artwork: every stored
 - **View** switches the grid, value labels, each layer, objects, starts and paths on and off.
 
 The status bar shows the cell under the pointer with the stored value and file offset of each layer, the object pool usage, the revision and the zoom.
+
+## Game artwork (optional)
+
+The editor contains no game artwork and works fully without it. If you have a game, **View → Game Artwork Directory** lets you choose its directory (the one containing `DATA`, `IMAGE08` and the game's `.exe`). The editor shows what it recognised — a first-game directory has `DATA/demo200.blp`, a second-game directory `DATA/demo300.blp` — and you can correct the game. One directory is remembered per game as a local preference; it is never stored in a world file.
+
+The directory is only read, never changed. The editor reads the sprite sheets (`object.blp`, `element.blp`, `explo.blp`, `blupi000.blp` to `blupi003.blp`, which are ordinary bitmaps) and looks up the position of each sprite inside the game's own executable. A table of positions is used only when all of it fits the sheet it belongs to. **View → Game Artwork Report** lists what was found and what was not.
+
+**View → Draw with Game Artwork** switches between artwork and the schematic drawing. A tab uses artwork only when its chosen game matches a loaded directory. Tiles, bigDecor, objects and starts are drawn in the games' order, with pure blue as the transparent colour; anything the artwork does not provide keeps its schematic placeholder. Animated tiles are drawn with the frame that is stored, and the scrolling backdrop picture is not drawn. The minimap always stays schematic.
+
+Artwork drawing has so far been verified only with generated test sheets, not against an original game installation; if something is drawn in the wrong place, switch to the schematic drawing, which shows exactly what is stored, and please report it.
 
 ## Editing tiles
 
@@ -117,7 +127,7 @@ Type an offset (`1608` or `0x648`), `cell 3,70`, `big 3,70` or `slot 137` to jum
 
 ## Exporting a picture
 
-**File → Export World PNG** (Ctrl+E) writes one image of the complete world: 6,400 × 6,400 pixels at the native 64 pixels per cell, or smaller. Choose the layers and overlays and a solid or transparent background; the dialog shows the size and the memory needed first. The picture is drawn schematically with the same code as the canvas and records the game profile and settings in its metadata.
+**File → Export World PNG** (Ctrl+E) writes one image of the complete world: 6,400 × 6,400 pixels at the native 64 pixels per cell, or smaller. Choose the layers and overlays and a solid or transparent background; the dialog shows the size and the memory needed first. The picture is drawn with the same code as the canvas and records the game profile, the kind of drawing and the settings in its metadata. It is schematic unless you tick **Draw with game artwork** (available when artwork for the tab's game is loaded). Pictures drawn with artwork contain copyrighted material of the game's owners: keep them for your own use unless you have permission to share them.
 
 ## Appearance and layout
 

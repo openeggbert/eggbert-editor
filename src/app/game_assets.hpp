@@ -1,0 +1,81 @@
+// SPDX-License-Identifier: GPL-3.0-only
+#pragma once
+
+#include <QImage>
+#include <QPoint>
+#include <QRect>
+#include <QString>
+#include <QStringList>
+
+#include <array>
+#include <memory>
+#include <optional>
+
+#include "world/atlas_table.hpp"
+#include "world/layout.hpp"
+
+namespace eggbert {
+
+// What a directory looks like, with the evidence shown to the user.
+struct ProfileDetection {
+    GameProfile profile = GameProfile::unknown;
+    QStringList evidence;
+};
+
+// Guesses the game from files that exist in only one of them. Reads
+// directory listings only.
+[[nodiscard]] ProfileDetection detectGameProfile(const QString &directory);
+
+enum class SpriteSheet { tiles, elements, bigDecor, player1, player2, player3, player4 };
+inline constexpr std::size_t spriteSheetCount = 7;
+
+// Artwork read from a game directory the user selected. The directory is
+// only ever read. Sprite rectangles are not shipped with the editor: they
+// are located in the game's own executable and accepted only when they fit
+// the sheets found next to it. Anything that cannot be validated is simply
+// unavailable and the renderer draws its schematic placeholder instead.
+class GameAssets {
+public:
+    // Largest file read from the directory.
+    static constexpr qint64 maximumFileBytes = 64 * 1024 * 1024;
+
+    [[nodiscard]] static std::shared_ptr<const GameAssets> load(const QString &directory,
+                                                                GameProfile profile);
+
+    [[nodiscard]] const QString &directory() const { return directory_; }
+    [[nodiscard]] GameProfile profile() const { return profile_; }
+    // True when at least the tile sheet can be drawn.
+    [[nodiscard]] bool usable() const;
+    // One line per resource: what was found, what was not and why.
+    [[nodiscard]] const QStringList &report() const { return report_; }
+
+    struct Sprite {
+        const QImage *sheet = nullptr;
+        QRect source;
+        QPoint offset;
+    };
+    // Sprite of a stored channel and icon number; nullopt when the channel
+    // has no validated sheet or the icon has no (non-empty) entry.
+    [[nodiscard]] std::optional<Sprite> sprite(int channel, int icon) const;
+    [[nodiscard]] static std::optional<SpriteSheet> sheetForChannel(int channel);
+    [[nodiscard]] std::size_t spriteCount(SpriteSheet sheet) const;
+
+private:
+    struct Sheet {
+        QImage image;
+        // Index into tables_; player sheets share one table.
+        int table = -1;
+    };
+
+    QString directory_;
+    GameProfile profile_ = GameProfile::unknown;
+    std::array<Sheet, spriteSheetCount> sheets_;
+    std::array<AtlasTable, 4> tables_; // tiles, elements, bigDecor, players
+    std::array<bool, 4> tableFound_{};
+    QStringList report_;
+};
+
+// Version string recorded in exported pictures drawn with artwork.
+inline constexpr const char *artworkRendererVersion = "artwork-1";
+
+} // namespace eggbert
