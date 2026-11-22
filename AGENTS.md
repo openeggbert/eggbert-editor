@@ -7,13 +7,15 @@ This repository is intended to be implementable from a fresh agent context. Read
 3. all of `plan.md` for product scope, binary facts, safety requirements and acceptance criteria.
 4. the current code and tests before proposing changes.
 
-The product is a lossless desktop world editor for Speedy Blupi / Speedy Eggbert 1 and 2. It is not a procedural world or campaign generator. Blank worlds and campaigns are manually authored by the user.
+The 1.0 product is a lossless desktop editor for individual Speedy Blupi / Speedy Eggbert 1 and 2 world files. It is not a procedural generator, campaign manager or game-installation deployment tool. Do not implement items from the Post-1.0 roadmap unless the user explicitly promotes one and the fixed scope is updated first.
 
-Use C++23, CMake and Qt 6 Widgets. Keep the binary world codec, document transactions and validation independent of Qt in `src/world`. UI code belongs in `src/app`; later campaign, installation and rendering modules should retain the boundaries in `plan.md`. All project code and build files use `SPDX-License-Identifier: GPL-3.0-only`. Do not add proprietary game assets or copied code.
+Use C++23, CMake and Qt 6 Widgets. Keep the binary world codec, document transactions and validation independent of Qt in `src/world`. UI, rendering, asset resolution and dialogs belong outside the core according to `plan.md`. All project code and build files use `SPDX-License-Identifier: GPL-3.0-only`. Do not add proprietary game assets or copied code.
 
 Losslessness is the primary invariant. Preserve the exact input bytes, including unknown/reserved fields, inactive slots, padding, legacy representations and trailing data. Ordinary Save patches only user-edited fields. Put canonicalization, profile conversion and original-editor emulation behind explicit exports with a preview of every affected byte range. If a structure is ambiguous, truncated or unsupported, keep inspection available and structured writes disabled.
 
 The reconstructed games and `/rv/data/archive/trash/2026/eggbert-generator.bundle` may be inspected as research evidence when available. Pin revisions and record observations, but independently write Eggbert Editor code and fixtures. Do not edit sibling projects and do not transplant source, tests or assets from them.
+
+In Claude Code Cloud, follow `docs/claude-code-cloud.md`. Optional retail data remains outside the clone and read-only. The build, tests and synthetic fixtures must not depend on network access or proprietary data.
 
 Work in small vertical slices. Begin from `NEXT.md`, write asset-free tests for on-disk behavior, implement the headless core, then connect the UI. Run:
 
