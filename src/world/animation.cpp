@@ -185,10 +185,18 @@ void ObjectAnimation::stepSlot(Slot &slot) {
     // games/sb2/src/decmove.cpp): wait, go, wait, come back. Arrival is seen
     // on the tick after the position reaches the other end.
     if (record.posStart != record.posEnd) {
+        // The games compute this in 32 bits. Stored positions can be any
+        // 32-bit values (a file is not checked), so the same formula is
+        // evaluated in 64 bits here: no overflow, identical results for
+        // every position inside a world.
         const auto interpolate = [&](Point from, Point to, std::int16_t duration) {
             if (duration != 0) {
-                slot.position.x = (to.x - from.x) * slot.time / duration + from.x;
-                slot.position.y = (to.y - from.y) * slot.time / duration + from.y;
+                const auto along = [&](std::int32_t start, std::int32_t end) {
+                    const auto distance = static_cast<std::int64_t>(end) - start;
+                    return static_cast<std::int32_t>(distance * slot.time / duration + start);
+                };
+                slot.position.x = along(from.x, to.x);
+                slot.position.y = along(from.y, to.y);
             }
         };
         switch (slot.step) {

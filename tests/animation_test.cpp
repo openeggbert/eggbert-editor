@@ -301,6 +301,23 @@ int main() {
     CHECK_EQ(animation.poses()[0].icon, 57);
     CHECK_EQ(animation.poses()[2].icon, 0);
 
+    // Positions are not checked when a file is read: the extremes of 32 bits
+    // must not break the arithmetic, and the object still arrives.
+    {
+        auto wild = blankWorld(fxRevision13);
+        putObject(wild, 0, {4, {2'086'485'535, -2'000'000'000}, {-2'124'266'716, 2'100'000'000},
+                            7, 7, 0, 0, 10, 57});
+        putObject(wild, 1, {4, {-2'147'483'647 - 1, 0}, {2'147'483'647, 0}, 3, 3, 0, 0, 10, 57});
+        ObjectAnimation extreme;
+        extreme.sync(WorldView(wild), first);
+        extreme.advance(8); // one tick to set off, seven to travel
+        CHECK((extreme.poses()[0].position == Point{-2'124'266'716, 2'100'000'000}));
+        extreme.advance(1);
+        CHECK_EQ(extreme.step(0), 3);
+        extreme.advance(5000);
+        CHECK(extreme.step(1) >= 1 && extreme.step(1) <= 4);
+    }
+
     // Rules exist only for a known game, and only with usable frames.
     CHECK(objectIconRules(GameProfile::unknown).empty());
     for (const auto profile : {first, second}) {
