@@ -27,6 +27,7 @@
 
 #include <QDockWidget>
 
+#include "app/inspector_panel.hpp"
 #include "app/metadata_dialog.hpp"
 #include "app/minimap_widget.hpp"
 #include "app/objects_panel.hpp"
@@ -710,6 +711,25 @@ void MainWindow::createDocks(QMenu *viewMenu) {
     objectsToggle->setObjectName(QStringLiteral("viewObjectsDock"));
     objectsToggle->setText(tr("Ob&jects Panel"));
 
+    inspectorDock_ = new QDockWidget(tr("Binary Inspector"), this);
+    inspectorDock_->setObjectName(QStringLiteral("inspectorDock"));
+    inspector_ = new InspectorPanel(inspectorDock_);
+    inspectorDock_->setWidget(inspector_);
+    addDockWidget(Qt::BottomDockWidgetArea, inspectorDock_);
+    inspectorDock_->hide();
+    connect(inspector_, &InspectorPanel::offsetChosenByUser, this, [this](qulonglong offset) {
+        if (syncing_) {
+            return;
+        }
+        syncing_ = true;
+        locateOffsetRange(static_cast<std::size_t>(offset), 1);
+        syncing_ = false;
+    });
+    auto *inspectorToggle = inspectorDock_->toggleViewAction();
+    inspectorToggle->setObjectName(QStringLiteral("viewInspector"));
+    inspectorToggle->setText(tr("&Binary Inspector"));
+    inspectorToggle->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_B));
+
     auto *minimapToggle = minimapDock_->toggleViewAction();
     minimapToggle->setObjectName(QStringLiteral("viewMinimap"));
     minimapToggle->setText(tr("&Minimap"));
@@ -719,6 +739,7 @@ void MainWindow::createDocks(QMenu *viewMenu) {
     statisticsToggle->setText(tr("World S&tatistics"));
     viewMenu->addAction(statisticsToggle);
     viewMenu->addAction(objectsToggle);
+    viewMenu->addAction(inspectorToggle);
     connect(addAction(viewMenu, QStringLiteral("viewResetLayout"), tr("&Reset Layout")),
             &QAction::triggered, this, [this] { resetLayout(); });
 }
@@ -728,6 +749,7 @@ void MainWindow::resetLayout() {
     minimapDock_->show();
     statisticsDock_->show();
     objectsDock_->show();
+    inspectorDock_->hide();
 }
 
 std::size_t MainWindow::locateTileValue(SectionKind layer, std::int16_t value) {
@@ -813,6 +835,7 @@ bool MainWindow::locateOffsetRange(std::size_t offset, std::size_t size) {
             tab->canvas()->centerOnWorld(record->posCurrent.x, record->posCurrent.y);
         }
         tab->canvas()->setHighlights({}, {location.slot});
+        tab->setSelectedSlot(location.slot);
         where = tr("object slot %1").arg(location.slot);
         break;
     case OffsetArea::header:
@@ -831,7 +854,17 @@ bool MainWindow::locateOffsetRange(std::size_t offset, std::size_t size) {
     }
     statusBar()->showMessage(tr("Offset %1, %2 byte(s): %3").arg(offset).arg(size).arg(where),
                              8000);
+    showInInspector(offset, size);
     return true;
+}
+
+void MainWindow::showInInspector(std::size_t offset, std::size_t size) {
+    if (syncing_) {
+        return; // the inspector itself asked for this location
+    }
+    syncing_ = true;
+    inspector_->goToOffset(offset, size);
+    syncing_ = false;
 }
 
 bool MainWindow::locateCell(CellPos cell) {
@@ -910,7 +943,26 @@ void MainWindow::connectTab(DocumentTab *tab) {
     connect(tab, &DocumentTab::statusMessage, this,
             [this](const QString &message) { statusBar()->showMessage(message, 6000); });
     connect(tab->canvas(), &WorldCanvas::hoveredCellChanged, this, [this] { updateStatus(); });
-    connect(tab->canvas(), &WorldCanvas::cursorCellChanged, this, [this] { updateStatus(); });
+    connect(tab->canvas(), &WorldCanvas::cursorCellChanged, this, [this, tab] {
+        updateStatus();
+        if (tab != currentTab() || tab->document().probe().descriptor == nullptr) {
+            return;
+        }
+        if (const auto range = cellByteRange(*tab->document().probe().descriptor,
+                                             tab->activeLayer(), tab->canvas()->cursorCell())) {
+            showInInspector(range->offset, range->size);
+        }
+    });
+    connect(tab, &DocumentTab::objectSelectionChanged, this, [this, tab] {
+        if (tab != currentTab() || !tab->selectedSlot() ||
+            tab->document().probe().descriptor == nullptr) {
+            return;
+        }
+        if (const auto range =
+                slotByteRange(*tab->document().probe().descriptor, *tab->selectedSlot())) {
+            showInInspector(range->offset, range->size);
+        }
+    });
     connect(tab->canvas(), &WorldCanvas::viewChanged, this, [this] { updateStatus(); });
 }
 
@@ -1311,6 +1363,7 @@ void MainWindow::updateUi() {
     minimap_->setTab(tab);
     statistics_->setTab(tab);
     objects_->setTab(tab);
+    inspector_->setTab(tab);
     updateStatus();
 }
 

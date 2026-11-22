@@ -22,6 +22,8 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
 endif()
 
 add_library(eggbert_world STATIC
+    src/world/hex_model.cpp
+    src/world/hex_model.hpp
     src/world/layout.hpp
     src/world/le_reader.hpp
     src/world/metadata.cpp
@@ -52,6 +54,10 @@ qt_add_library(eggbert_app STATIC
     src/app/document_file.hpp
     src/app/document_tab.cpp
     src/app/document_tab.hpp
+    src/app/hex_view.cpp
+    src/app/hex_view.hpp
+    src/app/inspector_panel.cpp
+    src/app/inspector_panel.hpp
     src/app/main_window.cpp
     src/app/metadata_dialog.cpp
     src/app/metadata_dialog.hpp
@@ -88,14 +94,14 @@ set_target_properties(eggbert-editor PROPERTIES
 include(CTest)
 if(BUILD_TESTING)
     # Headless core tests: no Qt, no game assets.
-    foreach(name layout le_reader world_probe world_view world_document world_stats offset_map tile_tools metadata object_ops view_transform)
+    foreach(name layout le_reader world_probe world_view world_document world_stats offset_map tile_tools metadata object_ops hex_model view_transform)
         add_executable(${name}-test tests/${name}_test.cpp)
         target_link_libraries(${name}-test PRIVATE eggbert_world)
         add_test(NAME ${name} COMMAND ${name}-test)
     endforeach()
 
     # Application tests run without a display.
-    foreach(name probe_report document_file world_renderer main_window docks tools metadata_ui objects_ui)
+    foreach(name probe_report document_file world_renderer main_window docks tools metadata_ui objects_ui inspector)
         add_executable(${name}-test tests/${name}_test.cpp)
         target_link_libraries(${name}-test PRIVATE eggbert_app Qt6::Test)
         add_test(NAME ${name} COMMAND ${name}-test)

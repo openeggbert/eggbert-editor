@@ -980,6 +980,16 @@ void DocumentTab::onToolReleased() {
     }
 }
 
+void DocumentTab::toggleBookmark(std::size_t offset) {
+    const auto found = std::ranges::find(bookmarks_, offset);
+    if (found != bookmarks_.end()) {
+        bookmarks_.erase(found);
+    } else {
+        bookmarks_.push_back(offset);
+        std::ranges::sort(bookmarks_);
+    }
+}
+
 QString DocumentTab::describeCell(CellPos cell) const {
     const auto view = document().view();
     QStringList parts;

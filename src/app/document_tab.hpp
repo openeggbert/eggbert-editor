@@ -176,6 +176,10 @@ public:
     bool replaceInSelection(std::int16_t from, std::int16_t to);
     bool flipSelection(bool horizontally);
 
+    // Offsets the user marked in the binary inspector (view state only).
+    [[nodiscard]] const std::vector<std::size_t> &bookmarks() const { return bookmarks_; }
+    void toggleBookmark(std::size_t offset);
+
     // Human-readable description of what is stored at a cell.
     [[nodiscard]] QString describeCell(CellPos cell) const;
 
@@ -219,6 +223,7 @@ private:
     std::optional<CellPos> gestureLast_;
     std::optional<std::size_t> selectedSlot_;
     QString placePresetId_;
+    std::vector<std::size_t> bookmarks_;
     enum class Grab { none, body, end };
     Grab grab_ = Grab::none;
     QLabel *banner_ = nullptr;

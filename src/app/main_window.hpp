@@ -49,6 +49,7 @@ struct Prompts {
     std::function<std::optional<Metadata>(DocumentTab *, int page)> editMetadata;
 };
 
+class InspectorPanel;
 class MinimapWidget;
 class ObjectsPanel;
 class StatisticsPanel;
@@ -91,6 +92,7 @@ public:
     [[nodiscard]] MinimapWidget *minimap() const { return minimap_; }
     [[nodiscard]] StatisticsPanel *statistics() const { return statistics_; }
     [[nodiscard]] ObjectsPanel *objectsPanel() const { return objects_; }
+    [[nodiscard]] InspectorPanel *inspector() const { return inspector_; }
     // Chooses a verified preset of the current tab's profile and switches to
     // the place tool. False when the profile has no such preset.
     bool choosePreset(const QString &id);
@@ -115,6 +117,8 @@ private:
     void addRecentFile(const QString &path);
     void rebuildRecentMenu();
     void rebuildPresets(GameProfile profile);
+    // Shows an offset in the inspector without echoing back to the canvas.
+    void showInInspector(std::size_t offset, std::size_t size);
     void showProperties();
     QAction *addAction(QMenu *menu, const QString &objectName, const QString &text,
                        const QKeySequence &shortcut = {});
@@ -131,6 +135,9 @@ private:
     MinimapWidget *minimap_ = nullptr;
     StatisticsPanel *statistics_ = nullptr;
     ObjectsPanel *objects_ = nullptr;
+    InspectorPanel *inspector_ = nullptr;
+    QDockWidget *inspectorDock_ = nullptr;
+    bool syncing_ = false;
     QDockWidget *objectsDock_ = nullptr;
     QMenu *createMenu_ = nullptr;
     QComboBox *presetCombo_ = nullptr;
