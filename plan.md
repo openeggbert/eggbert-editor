@@ -142,6 +142,24 @@ Each of the 200 v1.3 `MoveObject` slots occupies 48 bytes. The earlier 100-slot 
 
 Slot order and inactive slot bytes belong to the document. Free-slot selection, creation and explicit deletion each need a defined field mask. Document intentional changes for a newly allocated slot. Preserve other slot bytes, including on moves and property edits.
 
+### Capacity limits and runtime headroom
+
+Treat every format and engine capacity as an explicit profile/revision budget. The reconstructed SB1 and SB2 engines define `MAXMOVEOBJECT` as 200 and regard a slot with `type == 0` as free. However, BLP revisions 1.0 and 1.1 store only the first 100 object records; their readers clear the full pool and load half of it. Revisions 1.2 and 1.3 store all 200 records. Therefore a lossless 1.0/1.1 document has a hard persistent capacity of 100 unless the user performs an explicit revision upgrade. Do not expose the engine's zero-filled upper half as 100 additional savable slots in an old-revision document.
+
+The format ceiling is not necessarily a safe gameplay ceiling. Runtime code also calls `MoveObjectFree` for objects created during play, so a world that occupies every persistent slot may leave no capacity for bombs, effects, spawned actors or other profile-specific behavior. Maintain separately:
+
+- **stored capacity**: 100 or 200 records according to the selected output revision;
+- **active stored objects**: slots with a verified nonzero type, without discarding bytes in nominally free slots;
+- **free persistent slots**: records available to authoring operations;
+- **estimated runtime headroom**: free slots remaining after the world loads, with profile/evidence and no unsupported promise that a particular reserve is sufficient;
+- **operation demand**: the maximum additional slots required by a paste, stamp, adaptive/compound recipe, conversion or repair before it starts.
+
+Show these numbers in the status bar, object list and World Statistics, using warning and critical thresholds that remain distinguishable from the hard cap. A creation operation that cannot fit must be rejected before mutation and must identify its demand and available capacity. Multi-slot operations are all-or-nothing; never partially place a recipe or overwrite the oldest/last slot. Offer reviewed deletion, a different target revision, or an explicit compatible compaction/remap where proven safe. Ordinary Save never compacts, reorders or clears nominally inactive records.
+
+Revision downgrade and SB1/SB2 conversion must preflight both the count and representability of every active slot. Moving active records from slots 100–199 into free lower slots is a separate, previewed remap because slot order can affect observed behavior; more than 100 active objects cannot fit a 1.0/1.1 payload without user-approved removal or substitution. Preserve the original document and produce a loss report when conversion cannot retain the pool.
+
+Also expose other fixed budgets rather than scattering magic numbers: the 100 × 100 stored grid, foreground/background availability by revision, four player starts, fixed title byte width, coordinate ranges, Campaign Pack resource limits and any verified profile-specific singleton or cardinality rule. Add boundary tests for 99/100/101 and 199/200/201 requested objects, free slots containing opaque bytes, compound operations needing multiple records, old-revision upgrades/downgrades, pool compaction, undo/redo at capacity and runtime-headroom diagnostics. World Doctor should report a full pool and evidence-based low-headroom risk without deleting anything.
+
 The games use the `.blp` extension for several kinds of resources, including images, audio and MIDI. An exchanged `.xch` world is a copied world payload. Probe the revision and expected sections against the file length and context before enabling structured edits. Cover unrelated resource files and matching-size arbitrary input in probe tests. Expose inconclusive input in an inspection view until there is sufficient evidence to decode it.
 
 ## Lossless document and file operations
