@@ -113,3 +113,17 @@ Inputs, kept outside the repository and only read: the installed files of *Speed
 | Artwork placement | six rendered scenes (rock, slime, machinery with water, town with trees and grass, lightning, vehicles and lifts) look right: tiles join, grass sits on its soil, bigDecor stands on the ground, items and vehicles rest on floors, water is see-through over the fish. Not compared pixel by pixel with a running game | inspected |
 
 Untested: other editions and languages, the demo releases, and anything that needs the games to run.
+
+## The games' editor menus, backdrop and music
+
+| Observation | Where | How |
+| --- | --- | --- |
+| The first game's editor has eight buttons: delete, then seven that call `PlaceDecor1`–`PlaceDecor7` with the index chosen in the button's menu; `PlaceDecor8`–`10` exist but are empty and unreachable. The second game has eleven buttons calling `PlaceDecor1`–`PlaceDecor10` | `src/event.cpp:3404-3445`; `games/sb2/src/event.cpp` dispatch near 4039 | read (first game) / reported (second game) |
+| The menus hold 68 entries in the first game and 97 in the second; each entry writes tiles from a table (repeated clicks cycle through it), a literal tile, or creates an object. The complete lists are in `src/world/editor_groups.cpp`, each with its line citation | `src/decdesign.cpp`, `src/decblock.cpp` tables; `games/sb2/src/decdesign.cpp`, `games/sb2/src/decblock.cpp` | reported by a scripted extraction; these entries re-read here: Tree `{20, 21, 22}`, toy background, Dream `48–67`, Fan `{126, 129, 132, 135}`; second game: spider's web `{403, 401, 402}`, teleporter `330–333`, cave `284`/`301`, secret cave `337`, cheese `246–249`, secret cheese `339` |
+| Every object entry of both menus corresponds to presets of the object catalog and every preset to exactly one entry (12 + 8 + 10 + 1 presets in four first-game buttons; 4 + 14 + 12 + 5 + 5 + 2 in six second-game buttons) | comparison of the extraction's line ranges with the catalog's | tested (`editor_groups` test) |
+| The buttons have no names of their own (a button shows the tooltip of its selected entry); the group names in the Palette are this project's | `src/event.cpp` button table | reported |
+| The backdrop is `image08\decor%.3d.blp` for the stored region, or the `image16` copy when the game runs in true colour | `src/decblock.cpp:832-847` | read |
+| The backdrop is a 640 × 480 picture, tiled, and scrolled at two thirds of the map's scroll position | `src/decblock.cpp:1184-1207`; `src/def.h:908-909` | read |
+| Music number n (1 and up) plays `sound\music%.3d.blp` with n − 1; 0 plays nothing | `src/event.cpp:2795-2796`, `:3751-3752` | read |
+| The music files are standard MIDI files; `MUSIC000.BLP` of Speedy Eggbert 1 was rendered to 184 seconds of non-silent audio with TiMidity++ and the freepats set | file contents; local run | tested |
+| While its editor is open the game keeps stepping the objects (`MoveObjectStep`), so objects move and animate in the editor and their run-time fields are saved as they are at that moment | `src/blupi.cpp:211-218`; `src/decblock.cpp:1111-1150` | read |

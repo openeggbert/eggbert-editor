@@ -70,6 +70,7 @@ class DiagnosticsPanel;
 class InspectorPanel;
 class MinimapWidget;
 class ObjectsPanel;
+class MusicPlayer;
 class PalettePanel;
 class StatisticsPanel;
 
@@ -114,6 +115,10 @@ public:
     [[nodiscard]] StatisticsPanel *statistics() const { return statistics_; }
     [[nodiscard]] ObjectsPanel *objectsPanel() const { return objects_; }
     [[nodiscard]] PalettePanel *palette() const { return palette_; }
+    [[nodiscard]] MusicPlayer *musicPlayer() const { return music_; }
+    // Plays the music file of a stored music number from the current tab's
+    // game directory; false when there is no directory, file or player.
+    bool playMusic(int number);
     [[nodiscard]] InspectorPanel *inspector() const { return inspector_; }
     [[nodiscard]] DiagnosticsPanel *diagnostics() const { return diagnostics_; }
     // Synchronises canvas, objects and inspector with a finding.
@@ -188,6 +193,10 @@ private:
     StatisticsPanel *statistics_ = nullptr;
     ObjectsPanel *objects_ = nullptr;
     PalettePanel *palette_ = nullptr;
+    MusicPlayer *music_ = nullptr;
+    // Why music cannot be played right now, when that is not the player's fault.
+    QString musicNote_;
+    void updateMusicStatus();
     InspectorPanel *inspector_ = nullptr;
     DiagnosticsPanel *diagnostics_ = nullptr;
     QDockWidget *diagnosticsDock_ = nullptr;

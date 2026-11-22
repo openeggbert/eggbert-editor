@@ -5,10 +5,12 @@
 // with it. Choosing must only change the tool state, never a document.
 
 #include "app/main_window.hpp"
+#include "app/music_player.hpp"
 #include "app/palette_panel.hpp"
 #include "app/sprite_icons.hpp"
 #include "app/world_renderer.hpp"
 #include "world/adaptive.hpp"
+#include "world/editor_groups.hpp"
 #include "world/object_catalog.hpp"
 
 #include "check.hpp"
@@ -17,6 +19,7 @@
 
 #include <QAction>
 #include <QApplication>
+#include <QAbstractButton>
 #include <QComboBox>
 #include <QDockWidget>
 #include <QListWidget>
@@ -27,6 +30,8 @@
 #include <QTabWidget>
 #include <QTemporaryDir>
 #include <QTest>
+
+#include <set>
 
 using namespace eggbert;
 using namespace eggbert::test;
@@ -78,6 +83,8 @@ int main(int argc, char **argv) {
                          blankSprite.height, blue);
     }
     saveBitmap(game.tiles.image, game.root + "/IMAGE08/OBJECT.BLP");
+    addBackdrops(game, 3);
+    addMusic(game);
     const auto digest = directoryDigest(game.root);
     const auto assets = GameAssets::load(game.root, GameProfile::speedyBlupi1);
     CHECK(assets->usable());
@@ -173,6 +180,147 @@ int main(int argc, char **argv) {
         CHECK_EQ(panel.tileList()->currentItem()->data(Qt::UserRole).toInt(), 12);
         panel.setCurrentTile(30); // not offered: nothing is marked
         CHECK(panel.tileList()->currentItem() == nullptr);
+
+        // Groups: one per button of the game's own editor, then the rest.
+        panel.setContext(GameProfile::speedyBlupi1, SectionKind::foreground, nullptr);
+        CHECK_EQ(panel.tileGroupList()->count(), 5 + 3);
+        CHECK_EQ(panel.objectGroupList()->count(), 1 + 4);
+        CHECK(itemWith(panel.tileGroupList(), "scenery") != nullptr);
+        CHECK(itemWith(panel.tileGroupList(), "lifts-enemies") == nullptr); // objects only
+        CHECK(itemWith(panel.objectGroupList(), "lifts-enemies") != nullptr);
+        CHECK_EQ(panel.currentTileGroup(), QString(PalettePanel::allForegroundGroup));
+        CHECK(!panel.showTileGroup("no-such-group"));
+
+        int chosenLayer = -1;
+        int chosenValue = -99;
+        QString chosenBrush;
+        QObject::connect(&panel, &PalettePanel::tileChosen, [&](int layer, int value) {
+            chosenLayer = layer;
+            chosenValue = value;
+        });
+        QObject::connect(&panel, &PalettePanel::brushChosen,
+                         [&](const QString &id) { chosenBrush = id; });
+        panel.resize(320, 800);
+        panel.show();
+        QApplication::processEvents();
+        // A bigDecor group: its seven kinds, 29 pictures, after the empty cell.
+        CHECK(panel.showTileGroup("scenery"));
+        CHECK_EQ(panel.tileList()->count(), 1 + 29);
+        CHECK(itemWith(panel.tileList(), 20)->toolTip().startsWith("Tree"));
+        click(panel.tileList(), itemWith(panel.tileList(), 20));
+        CHECK_EQ(chosenLayer, static_cast<int>(SectionKind::bigDecor));
+        CHECK_EQ(chosenValue, 20);
+        // A tile the games' editors reshape is painted with its brush.
+        CHECK(panel.showTileGroup("rock-tech"));
+        chosenValue = -99;
+        click(panel.tileList(), itemWith(panel.tileList(), 153));
+        CHECK_EQ(chosenBrush, QString("rock"));
+        CHECK_EQ(chosenValue, -99);
+        // ... while a plain tile of the same group is just picked.
+        click(panel.tileList(), itemWith(panel.tileList(), 185));
+        CHECK_EQ(chosenValue, 185);
+        CHECK_EQ(chosenLayer, static_cast<int>(SectionKind::foreground));
+        // Clicking a group in the strip shows it.
+        click(panel.tileGroupList(), itemWith(panel.tileGroupList(), "buildings"));
+        CHECK_EQ(panel.currentTileGroup(), QString("buildings"));
+        CHECK(itemWith(panel.tileList(), 48) != nullptr);
+        // "Other tiles": foreground numbers no group has.
+        {
+            std::set<int> grouped;
+            for (const auto &group : editorGroups(GameProfile::speedyBlupi1)) {
+                for (const auto &entry : group.tiles) {
+                    if (entry.layer == SectionKind::foreground) {
+                        grouped.insert(entry.values.begin(), entry.values.end());
+                    }
+                }
+            }
+            CHECK(panel.showTileGroup(PalettePanel::otherForegroundGroup));
+            CHECK_EQ(panel.tileList()->count(), 1 + 246 - static_cast<int>(grouped.size()));
+            CHECK(itemWith(panel.tileList(), 153) == nullptr);
+        }
+        // A layer change made elsewhere moves a plain group along, but
+        // leaves an editor group alone.
+        CHECK(panel.showTileGroup(PalettePanel::allForegroundGroup));
+        panel.setContext(GameProfile::speedyBlupi1, SectionKind::bigDecor, nullptr);
+        CHECK_EQ(panel.currentTileGroup(), QString(PalettePanel::allBigDecorGroup));
+        CHECK(panel.showTileGroup("rock-tech"));
+        panel.setContext(GameProfile::speedyBlupi1, SectionKind::foreground, nullptr);
+        CHECK_EQ(panel.currentTileGroup(), QString("rock-tech"));
+        // Object groups.
+        CHECK(panel.showObjectGroup("bonuses"));
+        CHECK_EQ(panel.objectList()->count(), 8);
+        CHECK(itemWith(panel.objectList(), "treasure") != nullptr);
+        CHECK(itemWith(panel.objectList(), "bulldozer") == nullptr);
+        CHECK(panel.showObjectGroup(PalettePanel::allObjectsGroup));
+        CHECK_EQ(panel.objectList()->count(), 31);
+
+        // The World tab.
+        CHECK(!panel.sizeButton(true, true)->isEnabled()); // no document yet
+        CHECK_EQ(panel.backdropList()->count(), 0);
+        PalettePanel::WorldState state;
+        state.available = true;
+        state.scrollsHorizontally = true;
+        state.region = 3;
+        state.music = 2;
+        panel.setWorldState(state);
+        CHECK(panel.sizeButton(true, false)->isChecked());
+        CHECK(!panel.sizeButton(true, true)->isChecked());
+        CHECK_EQ(panel.backdropList()->count(), 24);
+        CHECK_EQ(panel.backdropList()->currentItem()->data(Qt::UserRole).toInt(), 3);
+        CHECK_EQ(panel.musicList()->count(), 11);
+        CHECK_EQ(panel.musicList()->item(0)->text(), QString("No music"));
+        CHECK_EQ(panel.musicList()->currentItem()->data(Qt::UserRole).toInt(), 2);
+        int sizeRequest = -1;
+        int regionRequest = -1;
+        int musicRequest = -1;
+        int playRequest = -1;
+        int stopRequests = 0;
+        QObject::connect(&panel, &PalettePanel::worldSizeChosen, [&](bool h, bool v) {
+            sizeRequest = (h ? 1 : 0) | (v ? 2 : 0);
+        });
+        QObject::connect(&panel, &PalettePanel::regionChosen, [&](int r) { regionRequest = r; });
+        QObject::connect(&panel, &PalettePanel::musicChosen, [&](int m) { musicRequest = m; });
+        QObject::connect(&panel, &PalettePanel::musicPlayRequested, [&](int m) { playRequest = m; });
+        QObject::connect(&panel, &PalettePanel::musicStopRequested, [&] { ++stopRequests; });
+        panel.tabs()->setCurrentIndex(3);
+        QApplication::processEvents();
+        panel.sizeButton(false, true)->click();
+        CHECK_EQ(sizeRequest, 2);
+        click(panel.backdropList(), itemWith(panel.backdropList(), 1));
+        CHECK_EQ(regionRequest, 1);
+        click(panel.musicList(), itemWith(panel.musicList(), 4));
+        CHECK_EQ(musicRequest, 4);
+        // The play button plays the marked music, or stops what plays.
+        panel.setMusicStatus("ready", 0, true);
+        CHECK_EQ(panel.playButton()->text(), QString("Play"));
+        panel.playButton()->click();
+        CHECK_EQ(playRequest, 4);
+        panel.setMusicStatus("playing", 4, true);
+        CHECK_EQ(panel.playButton()->text(), QString("Stop"));
+        CHECK_EQ(panel.musicStatus(), QString("playing"));
+        panel.playButton()->click();
+        CHECK_EQ(stopRequests, 1);
+        panel.setMusicStatus("no player", 0, false);
+        CHECK(!panel.playButton()->isEnabled());
+        // A stored value outside the game's range marks nothing.
+        state.region = 77;
+        panel.setWorldState(state);
+        CHECK(panel.backdropList()->currentItem() == nullptr);
+        // Backdrop thumbnails come from the game's pictures when loaded.
+        panel.setContext(GameProfile::speedyBlupi1, SectionKind::foreground, assets);
+        CHECK(itemWith(panel.backdropList(), 1)
+                  ->icon()
+                  .pixmap(PalettePanel::backdropThumbnailWidth,
+                          PalettePanel::backdropThumbnailHeight)
+                  .toImage()
+                  .pixelColor(10, 10) == backdropColor(1, false));
+        // Without a game chosen background and music cannot be offered.
+        panel.setContext(GameProfile::unknown, SectionKind::foreground, nullptr);
+        CHECK_EQ(panel.backdropList()->count(), 0);
+        CHECK_EQ(panel.musicList()->count(), 0);
+        CHECK(panel.sizeButton(true, true)->isEnabled());
+        panel.tabs()->setCurrentIndex(0);
+        panel.hide();
 
         // The second game has its own objects and brushes.
         panel.setContext(GameProfile::speedyBlupi2, SectionKind::foreground, nullptr);
@@ -307,6 +455,83 @@ int main(int argc, char **argv) {
         CHECK(!tab->document().isModified());
         CHECK(tab->document().currentBytes().size() == bytes.size());
         CHECK(std::equal(bytes.begin(), bytes.end(), tab->document().currentBytes().begin()));
+
+        // Groups in the window: a bigDecor picture switches the layer too,
+        // and a reshaped tile selects the adaptive brush.
+        CHECK(palette->showTileGroup("scenery"));
+        tab->setTool(Tool::browse);
+        click(palette->tileList(), itemWith(palette->tileList(), 20));
+        CHECK(tab->activeLayer() == SectionKind::bigDecor);
+        CHECK_EQ(static_cast<int>(tab->tileId()), 20);
+        CHECK(tab->tool() == Tool::pencil);
+        CHECK(palette->showTileGroup("rock-tech"));
+        click(palette->tileList(), itemWith(palette->tileList(), 153));
+        CHECK(tab->tool() == Tool::adaptive);
+        CHECK_EQ(tab->adaptiveBrush(), QString("rock"));
+        click(palette->tileList(), itemWith(palette->tileList(), 185));
+        CHECK(tab->activeLayer() == SectionKind::foreground);
+        CHECK_EQ(static_cast<int>(tab->tileId()), 185);
+        CHECK(!tab->document().isModified());
+
+        // The World tab changes the header, one undo step per choice.
+        palette->tabs()->setCurrentIndex(3);
+        QApplication::processEvents();
+        const auto headerOf = [&] {
+            const auto current = tab->document().currentBytes();
+            return Bytes(current.begin(), current.begin() + 868);
+        };
+        const auto headerBefore = headerOf();
+        CHECK(palette->sizeButton(false, false)->isChecked());
+        palette->sizeButton(true, true)->click();
+        QApplication::processEvents();
+        auto header = headerOf();
+        CHECK_EQ(get8(header, 212), 100u);
+        CHECK_EQ(get8(header, 216), 100u);
+        CHECK(palette->sizeButton(true, true)->isChecked());
+        click(palette->backdropList(), itemWith(palette->backdropList(), 2));
+        CHECK_EQ(get8(headerOf(), 224), 2u);
+        CHECK_EQ(palette->backdropList()->currentItem()->data(Qt::UserRole).toInt(), 2);
+
+        // Music: choosing stores the number and plays it with the system's
+        // player (a stand-in here).
+        window.musicPlayer()->setBackend(
+            MusicPlayer::Backend{"/bin/sh", {"-c", "exec sleep 30", "%f"}, "Stand-in"});
+        CHECK(palette->playWhenChosen());
+        click(palette->musicList(), itemWith(palette->musicList(), 1));
+        CHECK_EQ(get8(headerOf(), 222), 1u);
+        CHECK(window.musicPlayer()->isPlaying());
+        CHECK_EQ(window.musicPlayer()->playingNumber(), 1);
+        CHECK(palette->musicStatus().contains("Playing music 1"));
+        CHECK_EQ(palette->playButton()->text(), QString("Stop"));
+        palette->playButton()->click();
+        CHECK(!window.musicPlayer()->isPlaying());
+        CHECK_EQ(get8(headerOf(), 222), 1u); // stopping changes nothing stored
+        palette->playButton()->click();
+        CHECK(window.musicPlayer()->isPlaying());
+        // "No music" stores 0 and stops.
+        click(palette->musicList(), itemWith(palette->musicList(), 0));
+        CHECK_EQ(get8(headerOf(), 222), 0u);
+        CHECK(!window.musicPlayer()->isPlaying());
+        // A number the directory has no file for is stored but not played.
+        click(palette->musicList(), itemWith(palette->musicList(), 5));
+        CHECK_EQ(get8(headerOf(), 222), 5u);
+        CHECK(!window.musicPlayer()->isPlaying());
+        CHECK(palette->musicStatus().contains("not found"));
+        // Only those header fields changed, and undo takes each step back.
+        header = headerOf();
+        for (std::size_t offset = 0; offset < header.size(); ++offset) {
+            if (offset != 212 && offset != 216 && offset != 222 && offset != 224) {
+                CHECK(header[offset] == headerBefore[offset]);
+            }
+        }
+        int undone = 0;
+        while (tab->document().isModified() && tab->document().undo()) {
+            ++undone;
+        }
+        CHECK_EQ(undone, 5); // size, background, music 1, no music, music 5
+        CHECK(headerOf() == headerBefore);
+        palette->tabs()->setCurrentIndex(0);
+        QApplication::processEvents();
 
         // A read-only document: the palette is shown but cannot choose.
         auto *old = window.openPath(readOnlyPath);

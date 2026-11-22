@@ -24,6 +24,13 @@ struct RenderOptions {
     bool showGrid = false;
     bool showLabels = true;
     bool transparentBackground = false;
+    // With artwork: draw the world's backdrop picture (header.region)
+    // behind everything instead of the plain background colour.
+    bool showBackdrop = true;
+    // The games tile the backdrop and scroll it at two thirds of the map's
+    // speed. True shifts it that way for the visible part (the canvas);
+    // false anchors it at the world's top-left corner (exports).
+    bool backdropParallax = false;
     // Game artwork to draw with; null draws everything schematically.
     // Sprites the artwork cannot provide fall back to their placeholder.
     std::shared_ptr<const GameAssets> artwork;
@@ -34,6 +41,8 @@ struct RenderOptions {
 // Schematic colours are fixed (not themed) so renders are reproducible.
 [[nodiscard]] QColor schematicBackgroundColor();
 [[nodiscard]] QColor schematicOutsideColor();
+// Fill of the numbered badges at the two ends of a motion path.
+[[nodiscard]] QColor pathMarkerColor();
 // Opaque colour of a stored cell value; the same value always gets the same
 // colour. Values below -1 get a warning colour.
 [[nodiscard]] QColor schematicTileColor(SectionKind layer, std::int16_t id);
@@ -48,9 +57,8 @@ struct RenderOptions {
 // the painter). Draw order follows the engines: background, bigDecor,
 // starts, objects, foreground, lifts (with artwork), then editor overlays
 // (paths, outlines, labels, grid). Without artwork, or for any sprite the
-// artwork lacks, a schematic placeholder is drawn. Animated tiles are drawn
-// with the frame that is stored, and the scrolling backdrop picture is not
-// drawn.
+// artwork lacks, a schematic placeholder is drawn. The ends of a motion path
+// are marked 1 (start) and 2 (end), as in the games' editors.
 void renderWorld(QPainter &painter, const WorldView &world, const ViewTransform &transform,
                  const QRectF &viewport, const RenderOptions &options);
 

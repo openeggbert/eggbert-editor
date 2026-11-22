@@ -26,7 +26,7 @@ The file does not say which game it belongs to. Choose **Speedy Blupi / Eggbert 
 
 ## The canvas
 
-By default the canvas draws the world schematically, without any game artwork: every stored tile number has its own stable colour, bigDecor tiles cover two by two cells, objects are outlined boxes with their type and slot, player starts are numbered discs, and motion paths are dashed lines with an end box. It can also draw with the artwork of a game you have (see *Game artwork*).
+By default the canvas draws the world schematically, without any game artwork: every stored tile number has its own stable colour, bigDecor tiles cover two by two cells, objects are outlined boxes with their type and slot, player starts are numbered discs, and motion paths are dashed lines with an end box. The two ends of a path are marked **1** (where the object starts) and **2** (where it turns back), in both kinds of drawing. It can also draw with the artwork of a game you have (see *Game artwork*).
 
 - Pan: middle mouse button, Alt+drag, the mouse wheel (Shift for horizontal), or the **Browse** tool.
 - Zoom: Ctrl+wheel zooms around the pointer; **View → Zoom In / Zoom Out / Actual Pixels / Fit World / Fit Selection**.
@@ -41,21 +41,29 @@ The editor contains no game artwork and works fully without it. If you have a ga
 
 The directory is only read, never changed. The editor reads the sprite sheets (`object.blp`, `element.blp`, `explo.blp`, `blupi000.blp` to `blupi003.blp`, which are ordinary bitmaps) and looks up the position of each sprite inside the game's own executable. A table of positions is used only when all of it fits the sheet it belongs to. **View → Game Artwork Report** lists what was found and what was not.
 
-**View → Draw with Game Artwork** switches between artwork and the schematic drawing. A tab uses artwork only when its chosen game matches a loaded directory. Tiles, bigDecor, objects and starts are drawn in the games' order, with pure blue as the transparent colour; anything the artwork does not provide keeps its schematic placeholder. Animated tiles are drawn with the frame that is stored, and the scrolling backdrop picture is not drawn. The minimap always stays schematic.
+**View → Draw with Game Artwork** switches between artwork and the schematic drawing. A tab uses artwork only when its chosen game matches a loaded directory. The backdrop picture of the world's background, bigDecor, objects, tiles and starts are drawn in the games' order, with pure blue as the transparent colour; anything the artwork does not provide keeps its schematic placeholder. The backdrop is tiled and, on the canvas, scrolls at two thirds of the map's speed as in the games; **View → Show Backdrop Picture** switches it off. Animated tiles are drawn with the frame that is stored. The minimap always stays schematic.
 
 Artwork drawing has been checked with installations of Speedy Eggbert 1 and Speedy Eggbert 2: every tile, bigDecor picture, object and start stored in their worlds is found and drawn. Other editions have not been tried. If something is drawn in the wrong place, switch to the schematic drawing, which shows exactly what is stored, and please report it.
 
 ## The Palette: choosing by picture
 
-The **Palette** panel on the left (**View → Palette**) is where you pick what the tools paint and place, by picture rather than by number:
+The **Palette** panel on the left (**View → Palette**) is where you pick what the tools paint and place, by picture rather than by number. It has four tabs.
 
-- **Tiles** shows the tiles of the active layer (foreground or bigDecor), starting with the empty cell. Click one to make it the tile the Pencil, Line, Rectangle and Fill tools write. If the current tool does not paint tiles, the Pencil is selected for you.
-- **Objects** shows every object the chosen game's own editor can place, with its name. Click one, then click a cell on the map to place it (drag for objects that move along a path).
-- **Borders** shows the chosen game's adaptive border brushes (rock, grass and so on). Click one to paint with it.
+**Tiles.** The strip at the top lists groups; the grid below shows the tiles of the chosen group, starting with the empty cell. The groups are the buttons of the game's own level editor — for example *Scenery* (trees, houses and other big pictures), *Rock and tech blocks*, *Buildings and decor* — with their kinds in the same order, followed by *Other tiles* (tiles in none of the groups), *All tiles* and *All bigDecor*. Hover over a tile to see its kind and number. Click a tile to paint with it: the layer it belongs to becomes the active layer, and the Pencil is selected unless a tile-painting tool is already active. Tiles that the games' editors fit to their neighbours (rock, grass, cheese and so on) are painted with the adaptive brush, which does the same.
 
-With game artwork loaded (see above) the pictures are the game's own graphics, and tile numbers whose picture is blank are left out; without it each entry is a coloured swatch with its number, in the same colours as the schematic canvas, and the panel offers a **Choose Game Directory** button. The same pictures appear in the object chooser of the tool bar, in **Object → Create Verified Type** and in front of every record in the Objects panel. Choosing something in the Palette never changes the world; only the tools do.
+**Objects.** The same way for everything the chosen game's editor can place: *All objects*, then one group per editor button, such as *Lifts, cases and enemies* or *Bonuses and goal*. Click an object, then click a cell on the map to place it (drag for objects that move along a path).
 
-The **Tile ID** box in the tool bar remains for typing any raw number, including ones the Palette does not show.
+**Borders.** The chosen game's adaptive border brushes. Click one to paint with it.
+
+**World.** Settings of the whole world; each choice is one undo step.
+
+- *World size*: one screen, wide (scrolls horizontally), tall (scrolls vertically) or large (scrolls both ways).
+- *Background*: the backdrop picture the game shows behind the world. Click one to use it.
+- *Music*: no music or one of the game's pieces. With **Play when chosen** ticked, choosing a piece also plays it; **Play**/**Stop** does so for the marked piece. The games' music is MIDI, and the editor has no synthesizer of its own: it uses a MIDI player installed on your system (FluidSynth with a sound font, TiMidity++ or WildMIDI), or the command you store under `music/command` in the editor's settings file (`%f` stands for the file). Without one the panel says so. Listening needs the game directory, because the music files are the game's.
+
+With game artwork loaded (see above) the pictures are the game's own graphics, and in *All tiles* numbers whose picture is blank are left out; without it each entry is a coloured swatch with its number, in the same colours as the schematic canvas, and the panel offers a **Choose Game Directory** button. The same pictures appear in the object chooser of the tool bar, in **Object → Create Verified Type** and in front of every record in the Objects panel. Choosing a tile, object or brush never changes the world; only the tools and the World tab do.
+
+The groups are a way to find things, not a limit: the **Tile ID** box in the tool bar remains for typing any raw number. Player starts are placed with the Start tool.
 
 ## Editing tiles
 

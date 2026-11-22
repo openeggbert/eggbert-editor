@@ -83,6 +83,10 @@ QColor schematicBackgroundColor() {
     return QColor(30, 33, 40);
 }
 
+QColor pathMarkerColor() {
+    return QColor(255, 221, 51);
+}
+
 QColor schematicOutsideColor() {
     return QColor(18, 19, 23);
 }
@@ -127,15 +131,56 @@ void renderWorld(QPainter &painter, const WorldView &world, const ViewTransform 
 
     const auto worldRect =
         screenRect(transform, 0, 0, layout::worldPixelWidth, layout::worldPixelHeight);
+    const GameAssets *art =
+        options.artwork && options.artwork->usable() ? options.artwork.get() : nullptr;
     if (!options.transparentBackground) {
         painter.fillRect(viewport, schematicOutsideColor());
         painter.fillRect(worldRect, schematicBackgroundColor());
+        // The backdrop picture of the stored region, tiled like the games
+        // do. With parallax it is shifted by a third of the view position,
+        // which is what scrolling it at two thirds of the map's speed means
+        // in world coordinates.
+        const auto header = world.header();
+        const QImage *backdrop = art != nullptr && options.showBackdrop && header
+                                     ? art->backdrop(header->region())
+                                     : nullptr;
+        if (backdrop != nullptr && !backdrop->isNull()) {
+            const int tileWidth = backdrop->width();
+            const int tileHeight = backdrop->height();
+            double shiftX = 0.0;
+            double shiftY = 0.0;
+            if (options.backdropParallax) {
+                shiftX = std::max(0.0, transform.toWorldX(viewport.left())) / 3.0;
+                shiftY = std::max(0.0, transform.toWorldY(viewport.top())) / 3.0;
+            }
+            const double left = std::max(0.0, transform.toWorldX(viewport.left()));
+            const double top = std::max(0.0, transform.toWorldY(viewport.top()));
+            const double right = std::min<double>(layout::worldPixelWidth,
+                                                  transform.toWorldX(viewport.right()) + 1);
+            const double bottom = std::min<double>(layout::worldPixelHeight,
+                                                   transform.toWorldY(viewport.bottom()) + 1);
+            painter.save();
+            painter.setClipRect(QRectF(worldRect).intersected(viewport), Qt::IntersectClip);
+            painter.setRenderHint(QPainter::SmoothPixmapTransform, transform.scale < 1.0);
+            const auto firstColumn = static_cast<long long>(std::floor((left - shiftX) / tileWidth));
+            const auto firstRow = static_cast<long long>(std::floor((top - shiftY) / tileHeight));
+            for (auto row = firstRow; shiftY + row * tileHeight < bottom; ++row) {
+                for (auto column = firstColumn; shiftX + column * tileWidth < right; ++column) {
+                    const double x = shiftX + column * tileWidth;
+                    const double y = shiftY + row * tileHeight;
+                    const QRectF target(
+                        QPointF(std::floor(transform.toScreenX(x)), std::floor(transform.toScreenY(y))),
+                        QPointF(std::floor(transform.toScreenX(x + tileWidth)),
+                                std::floor(transform.toScreenY(y + tileHeight))));
+                    painter.drawImage(target, *backdrop);
+                }
+            }
+            painter.restore();
+        }
     }
     const double cellScreen = cell * transform.scale;
     const bool labels = options.showLabels && cellScreen >= 26.0;
 
-    const GameAssets *art =
-        options.artwork && options.artwork->usable() ? options.artwork.get() : nullptr;
     const bool secondGame = art != nullptr && art->profile() == GameProfile::speedyBlupi2;
     // Draws one sprite at a world position with nearest-neighbour scaling;
     // false when the artwork has no such sprite.
@@ -326,6 +371,28 @@ void renderWorld(QPainter &painter, const WorldView &world, const ViewTransform 
                 painter.setPen(QPen(color, 2));
                 const auto end = objectRect(record, record.posEnd);
                 painter.drawRect(end.adjusted(1, 1, -2, -2));
+                // The two ends, numbered as the games' editors do: 1 where
+                // the object starts, 2 where it turns back.
+                if (cellScreen >= 12.0) {
+                    const double radius = std::clamp(cellScreen * 0.2, 6.0, 13.0);
+                    auto font = painter.font();
+                    font.setPixelSize(static_cast<int>(radius * 1.5));
+                    font.setBold(true);
+                    painter.setFont(font);
+                    const auto badge = [&](const QRect &box, const QString &number) {
+                        const QPointF centre(box.left() + radius, box.top() + radius);
+                        painter.setPen(QPen(Qt::black, 1));
+                        painter.setBrush(pathMarkerColor());
+                        painter.drawEllipse(centre, radius, radius);
+                        painter.setBrush(Qt::NoBrush);
+                        painter.setPen(Qt::black);
+                        painter.drawText(QRectF(centre.x() - radius, centre.y() - radius,
+                                                2 * radius, 2 * radius),
+                                         Qt::AlignCenter, number);
+                    };
+                    badge(objectRect(record, record.posStart), QStringLiteral("1"));
+                    badge(end, QStringLiteral("2"));
+                }
                 painter.setRenderHint(QPainter::Antialiasing, false);
             }
             if (options.showObjects && !drawnWithArtwork[slot]) {

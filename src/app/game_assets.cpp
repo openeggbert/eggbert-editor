@@ -155,6 +155,7 @@ std::shared_ptr<const GameAssets> GameAssets::load(const QString &directory,
             break;
         }
     }
+    assets->imageDirectory_ = imageDirectory;
     if (imageDirectory.isEmpty()) {
         report << tr("No IMAGE08, IMAGE16 or IMAGE folder was found.");
         return assets;
@@ -337,6 +338,55 @@ bool GameAssets::usable() const {
 std::size_t GameAssets::spriteCount(SpriteSheet sheet) const {
     const auto &entry = sheets_[static_cast<std::size_t>(sheet)];
     return entry.image.isNull() ? 0 : tables_[static_cast<std::size_t>(entry.table)].sprites.size();
+}
+
+QImage GameAssets::readBackdrop(int region) const {
+    if (region < 0 || region > 999 || imageDirectory_.isEmpty()) {
+        return {};
+    }
+    const auto name = QStringLiteral("decor%1.blp").arg(region, 3, 10, QLatin1Char('0'));
+    // The games take the true-colour copy in IMAGE16 when the display
+    // allows and the palette copy otherwise; prefer the better one.
+    auto path =
+        findEntry(findEntry(directory_, QStringLiteral("image16"), QDir::Dirs), name, QDir::Files);
+    if (path.isEmpty()) {
+        path = findEntry(imageDirectory_, name, QDir::Files);
+    }
+    if (path.isEmpty()) {
+        return {};
+    }
+    const auto bytes = readLimited(path);
+    if (!bytes) {
+        return {};
+    }
+    auto image = QImage::fromData(*bytes, "BMP");
+    // A backdrop is a screen-sized picture; anything else is not what this
+    // slot is for.
+    if (image.width() < 16 || image.height() < 16 || image.width() > 4096 ||
+        image.height() > 4096) {
+        return {};
+    }
+    return image.convertToFormat(QImage::Format_RGB32);
+}
+
+const QImage *GameAssets::backdrop(int region) const {
+    auto found = backdrops_.find(region);
+    if (found == backdrops_.end()) {
+        found = backdrops_.emplace(region, readBackdrop(region)).first;
+    }
+    return found->second.isNull() ? nullptr : &found->second;
+}
+
+QString GameAssets::musicFile(int music) const {
+    if (music < 1 || music > 999) {
+        return {};
+    }
+    const auto sound = findEntry(directory_, QStringLiteral("sound"), QDir::Dirs);
+    if (sound.isEmpty()) {
+        return {};
+    }
+    return findEntry(sound, QStringLiteral("music%1.blp").arg(music - 1, 3, 10, QLatin1Char('0')),
+                     QDir::Files);
 }
 
 std::optional<GameAssets::Sprite> GameAssets::sprite(int channel, int icon) const {

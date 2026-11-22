@@ -160,4 +160,32 @@ inline Game makeGame(const QString &root, bool secondGame = false, int lookAlike
     return game;
 }
 
+// Colours of the generated backdrop of a region: its left and right halves.
+inline QColor backdropColor(int region, bool rightHalf) {
+    return QColor(20 + region * 30, rightHalf ? 90 : 40, rightHalf ? 60 : 120);
+}
+
+// Adds backdrop pictures decor000..decor00N (640 x 480, two coloured halves)
+// to a generated game directory.
+inline void addBackdrops(const Game &game, int count) {
+    for (int region = 0; region < count; ++region) {
+        QImage image(640, 480, QImage::Format_RGB32);
+        image.fill(backdropColor(region, false));
+        QPainter painter(&image);
+        painter.fillRect(320, 0, 320, 480, backdropColor(region, true));
+        painter.end();
+        saveBitmap(image, game.root + QStringLiteral("/IMAGE08/DECOR%1.BLP")
+                                          .arg(region, 3, 10, QLatin1Char('0')));
+    }
+}
+
+// Adds music files: music 1 is a (silent, empty) standard MIDI file under
+// the games' name, music 2 is a file that is not MIDI.
+inline void addMusic(const Game &game) {
+    QDir().mkpath(game.root + "/SOUND");
+    write(game.root + "/SOUND/MUSIC000.BLP",
+          QByteArray::fromHex("4d546864000000060000000100604d54726b0000000400ff2f00"));
+    write(game.root + "/SOUND/MUSIC001.BLP", QByteArray("not a midi file"));
+}
+
 } // namespace eggbert::test

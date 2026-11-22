@@ -186,7 +186,11 @@ void WorldCanvas::paintEvent(QPaintEvent *) {
         painter.fillRect(rect(), schematicOutsideColor());
         return;
     }
-    renderWorld(painter, document_->view(), transform_, QRectF(rect()), options_);
+    // On the canvas the backdrop scrolls at two thirds of the map's speed,
+    // as in the games.
+    auto options = options_;
+    options.backdropParallax = true;
+    renderWorld(painter, document_->view(), transform_, QRectF(rect()), options);
 
     const auto cellRect = [this](CellPos first, CellPos last) {
         const auto left = std::floor(transform_.toScreenX(static_cast<double>(first.x) * cell));

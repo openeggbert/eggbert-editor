@@ -40,6 +40,7 @@
 #include "app/metadata_dialog.hpp"
 #include "app/minimap_widget.hpp"
 #include "app/objects_panel.hpp"
+#include "app/music_player.hpp"
 #include "app/palette_panel.hpp"
 #include "app/sprite_icons.hpp"
 #include "app/png_export_dialog.hpp"
@@ -764,6 +765,7 @@ void MainWindow::createActions() {
         {"viewObjects", tr("Show O&bjects"), &RenderOptions::showObjects, {}},
         {"viewStarts", tr("Show Player &Starts"), &RenderOptions::showStarts, {}},
         {"viewPaths", tr("Show Motion &Paths"), &RenderOptions::showPaths, {}},
+        {"viewBackdrop", tr("Show Back&drop Picture"), &RenderOptions::showBackdrop, {}},
     };
     for (const auto &toggle : toggles) {
         auto *item = addAction(viewMenu, QString::fromLatin1(toggle.name), toggle.text,
@@ -1030,12 +1032,18 @@ void MainWindow::createDocks(QMenu *viewMenu) {
     palette_ = new PalettePanel(paletteDock_);
     paletteDock_->setWidget(palette_);
     addDockWidget(Qt::LeftDockWidgetArea, paletteDock_);
-    connect(palette_, &PalettePanel::tileChosen, this, [this](int value) {
+    connect(palette_, &PalettePanel::tileChosen, this, [this](int layer, int value) {
         auto *tab = currentTab();
         if (tab == nullptr || !tab->document().isWritable()) {
             return;
         }
+        // The group a tile was picked from decides the layer it is for.
+        const auto wanted = static_cast<SectionKind>(layer);
+        if (tab->activeLayer() != wanted && !tab->setActiveLayer(wanted)) {
+            return;
+        }
         tileSpin_->setValue(value);
+        tab->setTileId(static_cast<std::int16_t>(value));
         // A picked tile is meant to be painted: keep a painting tool, or
         // switch to the pencil from a tool that does not paint tiles.
         const auto tool = tab->tool();
@@ -1063,6 +1071,47 @@ void MainWindow::createDocks(QMenu *viewMenu) {
         tab->setTool(Tool::adaptive);
         updateUi();
     });
+    // The World tab: each choice is one undo step on the header.
+    const auto editHeader = [this](const std::function<void(Metadata &)> &change) {
+        auto *tab = currentTab();
+        if (tab == nullptr) {
+            return false;
+        }
+        auto metadata = readMetadata(tab->document().view());
+        if (!metadata) {
+            return false;
+        }
+        change(*metadata);
+        const bool changed = tab->applyMetadataEdit(*metadata);
+        updateUi();
+        return changed;
+    };
+    connect(palette_, &PalettePanel::worldSizeChosen, this,
+            [editHeader](bool horizontally, bool vertically) {
+                editHeader([&](Metadata &metadata) {
+                    metadata.scrollsHorizontally = horizontally;
+                    metadata.scrollsVertically = vertically;
+                });
+            });
+    connect(palette_, &PalettePanel::regionChosen, this, [editHeader](int region) {
+        editHeader([&](Metadata &metadata) { metadata.region = static_cast<std::int16_t>(region); });
+    });
+    connect(palette_, &PalettePanel::musicChosen, this, [this, editHeader](int number) {
+        editHeader([&](Metadata &metadata) { metadata.music = static_cast<std::int16_t>(number); });
+        if (palette_->playWhenChosen()) {
+            if (number > 0) {
+                playMusic(number);
+            } else {
+                music_->stop();
+            }
+        }
+    });
+    connect(palette_, &PalettePanel::musicPlayRequested, this,
+            [this](int number) { playMusic(number); });
+    connect(palette_, &PalettePanel::musicStopRequested, this, [this] { music_->stop(); });
+    music_ = new MusicPlayer(this);
+    connect(music_, &MusicPlayer::stateChanged, this, [this] { updateMusicStatus(); });
+
     connect(palette_, &PalettePanel::artworkDirectoryRequested, this, [this] {
         if (auto *item = action(QStringLiteral("viewArtworkDirectory"))) {
             item->trigger();
@@ -1877,6 +1926,34 @@ void MainWindow::rebuildPresets(GameProfile profile) {
     }
 }
 
+bool MainWindow::playMusic(int number) {
+    auto *tab = currentTab();
+    // The music belongs to the game, whether or not its pictures are shown.
+    const auto assets = tab != nullptr ? artworkFor(tab->profile()) : nullptr;
+    if (assets == nullptr) {
+        music_->stop();
+        musicNote_ = tr("Choose the game directory (View menu) to listen to its music.");
+        updateMusicStatus();
+        return false;
+    }
+    musicNote_.clear();
+    const bool started = music_->play(assets->musicFile(number), number);
+    updateMusicStatus();
+    return started;
+}
+
+void MainWindow::updateMusicStatus() {
+    auto *tab = currentTab();
+    const bool haveGame = tab != nullptr && artworkFor(tab->profile()) != nullptr;
+    auto text = music_->statusText();
+    if (!music_->isPlaying() && !musicNote_.isEmpty()) {
+        text = musicNote_;
+    } else if (!music_->isPlaying() && !haveGame && music_->available()) {
+        text = tr("Choose the game directory (View menu) to listen to its music.");
+    }
+    palette_->setMusicStatus(text, music_->playingNumber(), music_->available() && haveGame);
+}
+
 bool MainWindow::choosePreset(const QString &id) {
     auto *tab = currentTab();
     if (tab == nullptr || findObjectPreset(tab->profile(), id.toStdString()) == nullptr) {
@@ -1988,7 +2065,8 @@ void MainWindow::updateUi() {
     }
     for (const char *name : {"viewZoomIn", "viewZoomOut", "viewActualPixels", "viewFitWorld",
                              "viewGrid", "viewLabels", "viewForeground", "viewBigDecor",
-                             "viewObjects", "viewStarts", "viewPaths", "toolBrowse"}) {
+                             "viewObjects", "viewStarts", "viewPaths", "viewBackdrop",
+                             "toolBrowse"}) {
         enable(name, hasTab);
     }
     for (const char *name : {"toolPencil", "toolEraser", "toolLine", "toolRectangle",
@@ -2078,6 +2156,7 @@ void MainWindow::updateUi() {
             {"viewObjects", options.showObjects},
             {"viewStarts", options.showStarts},
             {"viewPaths", options.showPaths},
+            {"viewBackdrop", options.showBackdrop},
         };
         for (const auto &[name, checked] : checks) {
             action(QString::fromLatin1(name))->setChecked(checked);
@@ -2127,6 +2206,20 @@ void MainWindow::updateUi() {
     palette_->setContext(profile, hasTab ? tab->activeLayer() : SectionKind::foreground,
                          currentArtwork);
     palette_->setEditable(writable);
+    {
+        PalettePanel::WorldState world;
+        if (hasTab) {
+            if (const auto metadata = readMetadata(tab->document().view())) {
+                world.available = true;
+                world.scrollsHorizontally = metadata->scrollsHorizontally;
+                world.scrollsVertically = metadata->scrollsVertically;
+                world.region = metadata->region;
+                world.music = metadata->music;
+            }
+        }
+        palette_->setWorldState(world);
+        updateMusicStatus();
+    }
     if (hasTab) {
         palette_->setCurrentTile(tab->tileId());
         palette_->setCurrentBrush(tab->adaptiveBrush());

@@ -8,6 +8,7 @@
 #include <QStringList>
 
 #include <array>
+#include <map>
 #include <memory>
 #include <optional>
 
@@ -58,6 +59,16 @@ public:
     // has no validated sheet or the icon has no (non-empty) entry.
     [[nodiscard]] std::optional<Sprite> sprite(int channel, int icon) const;
     [[nodiscard]] static std::optional<SpriteSheet> sheetForChannel(int channel);
+
+    // The backdrop picture of a region (decorNNN), or null when the
+    // directory has none for it. Loaded when first asked for.
+    [[nodiscard]] const QImage *backdrop(int region) const;
+    // The same picture read without keeping it (for thumbnails); a null
+    // image when there is none.
+    [[nodiscard]] QImage readBackdrop(int region) const;
+    // Path of the music file of a stored music number (1 and up; the games
+    // play file n - 1), or an empty string. Only a path: nothing is read.
+    [[nodiscard]] QString musicFile(int music) const;
     [[nodiscard]] std::size_t spriteCount(SpriteSheet sheet) const;
 
 private:
@@ -68,6 +79,9 @@ private:
     };
 
     QString directory_;
+    QString imageDirectory_;
+    // Backdrops already looked up; a null image records "not available".
+    mutable std::map<int, QImage> backdrops_;
     GameProfile profile_ = GameProfile::unknown;
     std::array<Sheet, spriteSheetCount> sheets_;
     std::array<AtlasTable, 4> tables_; // tiles, elements, bigDecor, players

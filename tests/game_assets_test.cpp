@@ -339,6 +339,89 @@ int main(int argc, char **argv) {
         CHECK(!assets->report().join('\n').contains("set aside"));
     }
 
+    // Backdrop pictures, music files and the numbered ends of a path.
+    {
+        const auto scenic = makeGame(dir.filePath("scenic"));
+        addBackdrops(scenic, 2);
+        addMusic(scenic);
+        const auto scenicDigest = directoryDigest(scenic.root);
+        const auto loaded = GameAssets::load(scenic.root, GameProfile::speedyBlupi1);
+        CHECK(loaded->usable());
+        CHECK(loaded->backdrop(0) != nullptr);
+        CHECK(loaded->backdrop(0)->size() == QSize(640, 480));
+        CHECK(loaded->backdrop(0) == loaded->backdrop(0)); // kept once read
+        CHECK(loaded->backdrop(2) == nullptr);
+        CHECK(loaded->backdrop(-1) == nullptr);
+        CHECK(loaded->readBackdrop(1).pixelColor(600, 10) == backdropColor(1, true));
+        CHECK(loaded->readBackdrop(7).isNull());
+        CHECK(assets->backdrop(0) == nullptr); // the plain generated game has none
+        // Music n is file n - 1; only a path is returned.
+        CHECK(loaded->musicFile(1).endsWith("MUSIC000.BLP"));
+        CHECK(loaded->musicFile(2).endsWith("MUSIC001.BLP"));
+        CHECK(loaded->musicFile(3).isEmpty());
+        CHECK(loaded->musicFile(0).isEmpty());
+        CHECK(assets->musicFile(1).isEmpty());
+
+        auto scene = blankWorld(fxRevision13);
+        put16(scene, 224, 1); // region 1
+        // A mover from cell (20, 20) to cell (24, 20).
+        const auto base = fxSlotOffset(fxRevision13, 0);
+        put16(scene, base, 4);
+        put32(scene, base + 12, 20 * 64);
+        put32(scene, base + 16, 20 * 64);
+        put32(scene, base + 20, 24 * 64);
+        put32(scene, base + 24, 20 * 64);
+        put32(scene, base + 28, 20 * 64);
+        put32(scene, base + 32, 20 * 64);
+        put16(scene, base + 42, 10);
+        put16(scene, base + 44, 57);
+        const WorldView sceneView(scene);
+        RenderOptions scenicOptions;
+        scenicOptions.showLabels = false;
+        scenicOptions.artwork = loaded;
+        // The backdrop of the stored region fills the empty world, tiled
+        // every 640 x 480 pixels from the world's corner.
+        CHECK(window(sceneView, scenicOptions, 128, 128).pixelColor(10, 10) == backdropColor(1, false));
+        CHECK(window(sceneView, scenicOptions, 300, 0).pixelColor(19, 5) == backdropColor(1, false));
+        CHECK(window(sceneView, scenicOptions, 300, 0).pixelColor(20, 5) == backdropColor(1, true));
+        CHECK(window(sceneView, scenicOptions, 640, 480).pixelColor(0, 0) ==
+              backdropColor(1, false));
+        CHECK(window(sceneView, scenicOptions, 6400 - 96, 6400 - 96).pixelColor(95, 95) ==
+              backdropColor(1, true));
+        // With parallax it is shifted by a third of the view position.
+        auto parallax = scenicOptions;
+        parallax.backdropParallax = true;
+        CHECK(window(sceneView, parallax, 128, 128).pixelColor(10, 10) == backdropColor(1, false));
+        // View at x = 900: shift 300, so the picture's middle is at world 620.
+        CHECK(window(sceneView, parallax, 900, 0).pixelColor(15, 5) == backdropColor(1, true));
+        CHECK(window(sceneView, parallax, 900, 0).pixelColor(40, 5) == backdropColor(1, false));
+        // Switched off, transparent or without a picture: the plain colour.
+        auto plain = scenicOptions;
+        plain.showBackdrop = false;
+        CHECK(window(sceneView, plain, 128, 128).pixelColor(10, 10) == background);
+        auto clear = scenicOptions;
+        clear.transparentBackground = true;
+        CHECK_EQ(window(sceneView, clear, 128, 128).pixelColor(10, 10).alpha(), 0);
+        put16(scene, 224, 9);
+        CHECK(window(WorldView(scene), scenicOptions, 128, 128).pixelColor(10, 10) == background);
+        put16(scene, 224, 1);
+        CHECK(window(sceneView, RenderOptions{}, 128, 128).pixelColor(10, 10) == background);
+
+        // The ends of the path carry badges: 1 at the start, 2 at the end.
+        // (Sampled left of the digit, inside the badge.)
+        const auto badgeAt = [&](const RenderOptions &with, int cellX) {
+            return window(sceneView, with, cellX * 64, 20 * 64).pixelColor(6, 13);
+        };
+        CHECK(badgeAt(scenicOptions, 20) == pathMarkerColor());
+        CHECK(badgeAt(scenicOptions, 24) == pathMarkerColor());
+        CHECK(badgeAt(RenderOptions{}, 24) == pathMarkerColor()); // schematic drawing too
+        auto noPaths = scenicOptions;
+        noPaths.showPaths = false;
+        CHECK(badgeAt(noPaths, 24) != pathMarkerColor());
+        CHECK(badgeAt(scenicOptions, 22) != pathMarkerColor()); // nothing along the way
+        CHECK(directoryDigest(scenic.root) == scenicDigest);
+    }
+
     // The second game's sizes and its extra vertical adjustments.
     {
         const auto second = makeGame(dir.filePath("second-game"), true);

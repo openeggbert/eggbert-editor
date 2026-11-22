@@ -34,6 +34,8 @@ add_library(eggbert_world STATIC
     src/world/le_reader.hpp
     src/world/metadata.cpp
     src/world/metadata.hpp
+    src/world/editor_groups.cpp
+    src/world/editor_groups.hpp
     src/world/object_catalog.cpp
     src/world/object_catalog.hpp
     src/world/object_ops.cpp
@@ -82,6 +84,8 @@ qt_add_library(eggbert_app STATIC
     src/app/sprite_icons.hpp
     src/app/statistics_panel.hpp
     src/app/main_window.hpp
+    src/app/music_player.cpp
+    src/app/music_player.hpp
     src/app/objects_panel.cpp
     src/app/objects_panel.hpp
     src/app/palette_panel.cpp
@@ -146,6 +150,8 @@ set(CPACK_SOURCE_IGNORE_FILES "/build[^/]*/;/\\.git/;/CMakeUserPresets\\.json$")
 set(CPACK_DEBIAN_PACKAGE_SECTION "games")
 set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://github.com/openeggbert/eggbert-editor")
 set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
+# Listening to a game's music uses an installed MIDI player; none is required.
+set(CPACK_DEBIAN_PACKAGE_SUGGESTS "fluidsynth | timidity | wildmidi")
 find_program(EGGBERT_DPKG_SHLIBDEPS dpkg-shlibdeps)
 if(EGGBERT_DPKG_SHLIBDEPS)
     set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
@@ -157,14 +163,14 @@ include(CPack)
 include(CTest)
 if(BUILD_TESTING)
     # Headless core tests: no Qt, no game assets.
-    foreach(name layout le_reader world_probe world_view world_document world_stats offset_map tile_tools metadata object_ops hex_model doctor adaptive atlas_table view_transform)
+    foreach(name layout le_reader world_probe world_view world_document world_stats offset_map tile_tools metadata object_ops hex_model doctor adaptive atlas_table editor_groups view_transform)
         add_executable(${name}-test tests/${name}_test.cpp)
         target_link_libraries(${name}-test PRIVATE eggbert_world)
         add_test(NAME ${name} COMMAND ${name}-test)
     endforeach()
 
     # Application tests run without a display.
-    foreach(name probe_report document_file world_renderer png_export game_assets main_window docks tools metadata_ui objects_ui inspector doctor_ui adaptive_ui workspace artwork_ui palette)
+    foreach(name probe_report document_file world_renderer png_export game_assets main_window docks tools metadata_ui objects_ui inspector doctor_ui adaptive_ui workspace artwork_ui palette music_player)
         add_executable(${name}-test tests/${name}_test.cpp)
         target_link_libraries(${name}-test PRIVATE eggbert_app Qt6::Test)
         add_test(NAME ${name} COMMAND ${name}-test)
