@@ -8,6 +8,7 @@
 #include <functional>
 #include <set>
 #include <string>
+#include <utility>
 
 using namespace eggbert;
 using namespace eggbert::test;
@@ -104,7 +105,7 @@ int main() {
             CHECK(ids.insert(std::string(info.id)).second);
             CHECK(!info.summary.empty());
         }
-        CHECK_EQ(ids.size(), std::size_t{28});
+        CHECK_EQ(ids.size(), std::size_t{29});
     }
 
     // --- Structure -----------------------------------------------------
@@ -310,6 +311,40 @@ int main() {
     expectRules(bigCell(203), sb1, {});
     expectRules(bigCell(203), sb2, {});
     expectRules(bigCell(50), sb2, {}); // the remap is foreground-only
+
+    // Border forms of the adaptive families (needs scrolling on so the
+    // playfield is the whole map; cleanWorld sets dimDecor to 100, 100).
+    expectRules(fgCell(153), sb1, {});                     // isolated rock in its isolated form
+    {
+        const auto report = expectRules(fgCell(35), sb1, {"ADAPT-BORDER-FORM"});
+        const auto &finding = report.findings.front();
+        CHECK(finding.severity == Severity::note);
+        CHECK(finding.message.contains("store 35"));
+        CHECK(finding.message.contains("(153 at the first"));
+        CHECK_EQ(finding.cells.size(), std::size_t{1});
+        CHECK(!finding.fix.has_value());
+    }
+    expectRules([](Bytes &b) {
+        // A correct horizontal pair: joined right, joined left.
+        put16(b, fxCellOffset(fxForegroundOffset, 10, 20), 40);
+        put16(b, fxCellOffset(fxForegroundOffset, 11, 20), 39);
+    }, sb1, {});
+    expectRules([](Bytes &b) {
+        put16(b, fxCellOffset(fxForegroundOffset, 10, 20), 40);
+        put16(b, fxCellOffset(fxForegroundOffset, 11, 20), 153);
+    }, sb1, {"ADAPT-BORDER-FORM"});
+    // A random look of the right form is not reported; values of no family
+    // are never judged; without a game nothing is judged.
+    expectRules([](Bytes &b) {
+        for (const auto &[x, y] : {std::pair{10, 20}, {9, 20}, {11, 20}, {10, 19}, {10, 21}}) {
+            put16(b, fxCellOffset(fxForegroundOffset, x, y), 1);
+        }
+        put16(b, fxCellOffset(fxForegroundOffset, 10, 20), 156);
+    }, sb1, {});
+    expectRules(fgCell(5), sb1, {});
+    expectRules(fgCell(35), GameProfile::unknown, {});
+    expectRules(fgCell(261), sb1, {"TILE-NOT-DRAWN"});        // bricks exist only in SB2
+    expectRules(fgCell(261), sb2, {"ADAPT-BORDER-FORM"});     // isolated bricks are 283
 
     // --- Objects -------------------------------------------------------
     const Point cell{640 + 2, 1280 + 4};

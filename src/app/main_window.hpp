@@ -158,6 +158,7 @@ private:
     QDockWidget *objectsDock_ = nullptr;
     QMenu *createMenu_ = nullptr;
     QComboBox *presetCombo_ = nullptr;
+    QComboBox *adaptiveCombo_ = nullptr;
     QLabel *poolLabel_ = nullptr;
     GameProfile presetProfile_ = GameProfile::unknown;
     QDockWidget *minimapDock_ = nullptr;

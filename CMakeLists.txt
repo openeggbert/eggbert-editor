@@ -22,6 +22,8 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
 endif()
 
 add_library(eggbert_world STATIC
+    src/world/adaptive.cpp
+    src/world/adaptive.hpp
     src/world/doctor.cpp
     src/world/doctor.hpp
     src/world/hex_model.cpp
@@ -102,14 +104,14 @@ set_target_properties(eggbert-editor PROPERTIES
 include(CTest)
 if(BUILD_TESTING)
     # Headless core tests: no Qt, no game assets.
-    foreach(name layout le_reader world_probe world_view world_document world_stats offset_map tile_tools metadata object_ops hex_model doctor view_transform)
+    foreach(name layout le_reader world_probe world_view world_document world_stats offset_map tile_tools metadata object_ops hex_model doctor adaptive view_transform)
         add_executable(${name}-test tests/${name}_test.cpp)
         target_link_libraries(${name}-test PRIVATE eggbert_world)
         add_test(NAME ${name} COMMAND ${name}-test)
     endforeach()
 
     # Application tests run without a display.
-    foreach(name probe_report document_file world_renderer png_export main_window docks tools metadata_ui objects_ui inspector doctor_ui)
+    foreach(name probe_report document_file world_renderer png_export main_window docks tools metadata_ui objects_ui inspector doctor_ui adaptive_ui)
         add_executable(${name}-test tests/${name}_test.cpp)
         target_link_libraries(${name}-test PRIVATE eggbert_app Qt6::Test)
         add_test(NAME ${name} COMMAND ${name}-test)

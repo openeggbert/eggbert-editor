@@ -55,3 +55,18 @@ Unless stated otherwise nothing below has been tested in an original executable.
 | The games recompute `posCurrent`, `step`, `time`, `phase` when entering the editor or starting play, so stored values of these fields do not affect behavior | research notes citing `src/decblock.cpp:1019-1104` | reported |
 
 Eggbert Editor does not copy two side effects of the games' editors: placing an object does not delete other objects on the same cell, and placing a goal or key does not free existing goals and keys. Both would silently remove content; they are left to the user and to World Doctor.
+
+## Adaptive borders
+
+| Observation | Where | How |
+| --- | --- | --- |
+| After an edit the games' editors refresh five cells in this order: the cell, its right, left, lower and upper neighbour; nothing else, and never on load or at game start | `src/decor.cpp:180-186`; `games/sb2/src/decor.cpp:414-420` (call sites: research notes) | read (order), reported (no other callers) |
+| A cell's form is `table[row * 16 + mask]` with mask bit 1 = lower neighbour joins, 2 = upper, 4 = right, 8 = left; the row is the first one containing the stored value | `src/decor.cpp:158-178`; `games/sb2/src/decor.cpp:268-346` | read |
+| Rows (16 forms each): rock, rock with 156 as full form, triangular rock, grass, bar in both games; bricks, green slime, palace, pipes in SB2 only | `src/decblock.cpp:757-763`; `games/sb2/src/decblock.cpp:919-929` | read |
+| "Joins" is a per-neighbour, direction-dependent rule list; outside the playfield counts as joined, and the playfield is 10 cells wide / 8 high on an axis whose `dimDecor` is 0 | `src/decor.cpp:116-156`; `games/sb2/src/decor.cpp:190-248` | read |
+| SB2 only: a palace cell (386–397, 400) joins only palace, a pipe cell (250–260) only pipes; extra rules for 317, 309/310, 410–420, 334–336, 264–282, 378, 404, 421–440; 182/183 join vertically (never in SB1) | `games/sb2/src/decor.cpp:196-246` | read |
+| Random looks: 35 ↔ 156 by coin in both games (SB1 keeps a stored 156 while surrounded; SB2 folds 156, 252/253, 255, 362, 363 and 342–346 back before lookup and draws again); SB2 251 → 251–253, 254 → 255, 347 → 362, 348 → 363, 341 → 341–346 | `src/decor.cpp:173`; `games/sb2/src/decor.cpp:290-342`; `games/sb2/src/misc.cpp:99-109` | read |
+| SB2 cheese (246–249, 339) and cave (284, 301, 337): the solid keeps its value; an empty cell or existing border cell next to it gets a border tile from a 16-entry table by which neighbours are cheese/cave (map edge does not count); some border tiles have a coin-flip alternative | `games/sb2/src/decor.cpp:250-266`, `:347-411`; `games/sb2/src/decblock.cpp:931-937` | read |
+| SB2 lightning: an emitter (304) fills up to four empty cells below with 305; a cell that ends empty clears up to four consecutive 305 cells below | `games/sb2/src/decor.cpp:435-469` | read |
+
+Deliberate differences from the games' editors, so that an adaptive edit never removes unrelated content: Eggbert Editor does not delete objects standing on a cell that becomes solid, and it does not reproduce the source quirk by which a freshly written four-cell lightning beam also clears beam cells five to eight rows below the emitter. Every cell an adaptive stroke would change is previewed before the click.

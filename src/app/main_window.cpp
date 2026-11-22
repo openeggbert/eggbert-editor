@@ -36,6 +36,7 @@
 #include "app/png_export_dialog.hpp"
 #include "app/probe_report.hpp"
 #include "app/statistics_panel.hpp"
+#include "world/adaptive.hpp"
 #include "world/object_catalog.hpp"
 #include "world/offset_map.hpp"
 
@@ -83,6 +84,7 @@ MainWindow::MainWindow() {
     createActions();
 
     defaultState_ = saveState();
+    rebuildPresets(GameProfile::unknown);
     QSettings settings;
     restoreGeometry(settings.value(QStringLiteral("window/geometry")).toByteArray());
     restoreState(settings.value(QStringLiteral("window/state")).toByteArray());
@@ -647,6 +649,24 @@ void MainWindow::createActions() {
     addTool(QStringLiteral("toolFill"), tr("Fill"), Tool::fill, QKeySequence(Qt::Key_F))
         ->setToolTip(tr("Fill: replaces the connected region of equal values under the pointer, "
                         "bounded by the selection (F)"));
+    addTool(QStringLiteral("toolAdaptive"), tr("Adaptive"), Tool::adaptive,
+            QKeySequence(Qt::Key_A))
+        ->setToolTip(tr("Adaptive brush: paints the chosen family and recomputes the border "
+                        "forms of the cell and its four neighbours as the chosen game's own "
+                        "editor does; cells that would change are previewed (A)"));
+    adaptiveCombo_ = new QComboBox(this);
+    adaptiveCombo_->setObjectName(QStringLiteral("adaptiveCombo"));
+    adaptiveCombo_->setToolTip(tr("What the adaptive brush paints"));
+    adaptiveCombo_->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+    toolBar->addWidget(adaptiveCombo_);
+    connect(adaptiveCombo_, &QComboBox::currentIndexChanged, this, [this](int index) {
+        if (updating_ || index < 0) {
+            return;
+        }
+        if (auto *tab = currentTab()) {
+            tab->setAdaptiveBrush(adaptiveCombo_->itemData(index).toString());
+        }
+    });
     addTool(QStringLiteral("toolStart"), tr("Start"), Tool::start, QKeySequence(Qt::Key_P))
         ->setToolTip(tr("Player start: click a cell to move the selected start there; click its "
                         "own cell to turn it around (P)"));
@@ -1291,6 +1311,23 @@ void MainWindow::addRecentFile(const QString &path) {
 
 void MainWindow::rebuildPresets(GameProfile profile) {
     presetProfile_ = profile;
+    adaptiveCombo_->clear();
+    adaptiveCombo_->addItem(tr("Tile ID, refresh neighbours"),
+                            QString::fromLatin1(DocumentTab::adaptiveTileBrush));
+    adaptiveCombo_->addItem(tr("Erase, refresh neighbours"),
+                            QString::fromLatin1(DocumentTab::adaptiveEraseBrush));
+    for (const auto &family : adaptiveFamilies(profile)) {
+        adaptiveCombo_->addItem(
+            QString::fromUtf8(family.name.data(), static_cast<qsizetype>(family.name.size())),
+            QString::fromUtf8(family.id.data(), static_cast<qsizetype>(family.id.size())));
+        adaptiveCombo_->setItemData(
+            adaptiveCombo_->count() - 1,
+            tr("Writes %1, then recomputes border forms. Evidence: %2")
+                .arg(family.seed)
+                .arg(QString::fromUtf8(family.provenance.data(),
+                                       static_cast<qsizetype>(family.provenance.size()))),
+            Qt::ToolTipRole);
+    }
     presetCombo_->clear();
     createMenu_->clear();
     for (const auto &preset : objectPresets(profile)) {
@@ -1426,6 +1463,18 @@ void MainWindow::updateUi() {
             QString::fromUtf8(tab->placePreset()->id.data(),
                               static_cast<qsizetype>(tab->placePreset()->id.size()))));
     }
+    const bool adaptiveAvailable = writable && profile != GameProfile::unknown;
+    enable("toolAdaptive", adaptiveAvailable);
+    adaptiveCombo_->setEnabled(adaptiveAvailable);
+    if (hasTab) {
+        auto index = adaptiveCombo_->findData(tab->adaptiveBrush());
+        if (index < 0) {
+            // The brush belonged to another game: fall back to the raw tile.
+            tab->setAdaptiveBrush(QString::fromLatin1(DocumentTab::adaptiveTileBrush));
+            index = adaptiveCombo_->findData(tab->adaptiveBrush());
+        }
+        adaptiveCombo_->setCurrentIndex(index);
+    }
     const bool hasPresets = writable && presetCombo_->count() > 0;
     presetCombo_->setEnabled(hasPresets);
     createMenu_->setEnabled(hasPresets);
@@ -1493,7 +1542,7 @@ void MainWindow::updateUi() {
             {Tool::eyedropper, "toolEyedropper"}, {Tool::line, "toolLine"},
             {Tool::rectangle, "toolRectangle"}, {Tool::fill, "toolFill"},
             {Tool::start, "toolStart"},         {Tool::object, "toolObject"},
-            {Tool::placeObject, "toolPlaceObject"},
+            {Tool::placeObject, "toolPlaceObject"}, {Tool::adaptive, "toolAdaptive"},
         };
         for (const auto &[tool, name] : toolActions) {
             if (tab->tool() == tool) {

@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <map>
 
+#include "world/adaptive.hpp"
 #include "world/metadata.hpp"
 #include "world/object_catalog.hpp"
 #include "world/object_ops.hpp"
@@ -37,6 +38,8 @@ constexpr RuleInfo rules[] = {
     {"TILE-NOT-DRAWN", Severity::warning, "A stored tile number has no picture in the chosen game."},
     {"TILE-SB2-REMAP", Severity::note,
      "Speedy Blupi 2 shows stored foreground values 48 to 67 as 215."},
+    {"ADAPT-BORDER-FORM", Severity::note,
+     "A border tile's form differs from what the game's editor would produce here."},
     {"OBJ-TYPE-RUNTIME", Severity::warning,
      "A stored object is of a type the game only creates while playing."},
     {"OBJ-TYPE-UNKNOWN", Severity::warning, "A stored object type is not known for the chosen game."},
@@ -342,6 +345,44 @@ void checkLayer(Report &report, SectionKind kind) {
     }
 }
 
+// Table-family cells whose stored form is not the one the game's editor
+// would compute from the current neighbours. The games only refresh five
+// cells per edit, so such cells also occur in levels made with them; this
+// is a note, never a repair.
+void checkBorders(Report &report) {
+    const auto layer = report.world().foreground();
+    const auto profile = report.profile();
+    if (!layer || profile == GameProfile::unknown) {
+        return;
+    }
+    std::map<std::int16_t, std::vector<CellPos>> groups;
+    std::map<std::int16_t, std::int16_t> firstExpected;
+    for (std::size_t x = 0; x < layout::mapWidth; ++x) {
+        for (std::size_t y = 0; y < layout::mapHeight; ++y) {
+            const auto expected = expectedBorderForm(report.world(), profile, {x, y});
+            if (!expected) {
+                continue;
+            }
+            const auto stored = *layer->cell(x, y);
+            if (baseBorderForm(profile, stored) != *expected) {
+                groups[stored].push_back({x, y});
+                firstExpected.try_emplace(stored, *expected);
+            }
+        }
+    }
+    for (auto &[value, cells] : groups) {
+        auto &finding = report.add(
+            "ADAPT-BORDER-FORM", Confidence::provenLimit,
+            num(static_cast<long long>(cells.size())) + " foreground cell(s) store " + num(value) +
+                " where the game's editor would currently give a different border form (" +
+                num(firstExpected[value]) + " at the first of them). This can be intentional.",
+            "docs/research/evidence.md, adaptive borders",
+            *layer->cellRange(cells.front().x, cells.front().y), true);
+        finding.layer = SectionKind::foreground;
+        finding.cells = std::move(cells);
+    }
+}
+
 // Channels the game's editor writes for a type: the presets' channels, plus
 // 11 to 13 for the two enemy types whose channel the editor cycles.
 bool channelExpected(GameProfile profile, std::int16_t type, std::int16_t channel) {
@@ -496,6 +537,7 @@ DoctorReport runDoctor(const WorldView &world, GameProfile profile) {
     checkHeader(report);
     checkLayer(report, SectionKind::foreground);
     checkLayer(report, SectionKind::bigDecor);
+    checkBorders(report);
     checkObjects(report);
     return report.take();
 }

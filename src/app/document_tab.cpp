@@ -89,6 +89,24 @@ DocumentTab::DocumentTab(std::unique_ptr<DocumentFile> file, QWidget *parent)
     connect(canvas_, &WorldCanvas::toolDragged, this, &DocumentTab::onToolDragged);
     connect(canvas_, &WorldCanvas::toolReleased, this, &DocumentTab::onToolReleased);
 
+    // Hovering with the adaptive brush shows every cell a click would change.
+    connect(canvas_, &WorldCanvas::hoveredCellChanged, this, [this] {
+        if (tool_ != Tool::adaptive || gestureStart_) {
+            return;
+        }
+        const auto hovered = canvas_->hoveredCell();
+        if (!hovered) {
+            canvas_->setPreviewCells({});
+            return;
+        }
+        const auto preview = previewAdaptive(*hovered);
+        auto cells = preview.changedFootprint;
+        cells.insert(cells.end(), preview.sideEffects.begin(), preview.sideEffects.end());
+        canvas_->setPreviewCells(std::move(cells));
+    });
+    variants_ = std::make_unique<SeededVariants>(
+        static_cast<std::uint32_t>(reinterpret_cast<quintptr>(this) >> 4) ^ 0x5EED1234u);
+
     canvas_->setToolActive(false);
     updateBanner();
 }
@@ -391,6 +409,84 @@ bool DocumentTab::copyActiveStartToAll() {
     }
     return applyTransaction(
         builder.build(tr("Copy Start %1 to All").arg(activeStart_ + 1).toStdString()));
+}
+
+void DocumentTab::setAdaptiveBrush(const QString &id) {
+    if (adaptiveBrush_ != id) {
+        adaptiveBrush_ = id;
+        emit toolStateChanged();
+    }
+}
+
+void DocumentTab::setVariantSource(std::unique_ptr<VariantSource> variants) {
+    variants_ = std::move(variants);
+}
+
+std::optional<std::int16_t> DocumentTab::adaptiveValue() const {
+    if (adaptiveBrush_ == QLatin1String(adaptiveTileBrush)) {
+        return tileId_;
+    }
+    if (adaptiveBrush_ == QLatin1String(adaptiveEraseBrush)) {
+        return layout::emptyCell;
+    }
+    const auto *family = findAdaptiveFamily(profile_, adaptiveBrush_.toStdString());
+    return family != nullptr ? std::optional<std::int16_t>(family->seed) : std::nullopt;
+}
+
+AdaptiveResult DocumentTab::previewAdaptive(CellPos cell) const {
+    const auto value = adaptiveValue();
+    if (!value || profile_ == GameProfile::unknown || !document().isWritable() ||
+        isLayerLocked(SectionKind::foreground) ||
+        (!selection_.empty() && !selection_.test(cell))) {
+        return {};
+    }
+    // Looks are not predicted: the preview only shows which cells change.
+    EditBuilder builder(document());
+    NoVariants plain;
+    return adaptiveStroke(builder, profile_, {&cell, 1}, *value, plain);
+}
+
+bool DocumentTab::adaptiveAt(std::span<const CellPos> cells, std::uint64_t mergeKey) {
+    if (!requireWritable()) {
+        return false;
+    }
+    if (profile_ == GameProfile::unknown) {
+        emit statusMessage(tr("Choose a game profile first: border rules are verified per game."));
+        return false;
+    }
+    if (isLayerLocked(SectionKind::foreground)) {
+        emit statusMessage(tr("The %1 layer is locked.").arg(layerDisplayName(SectionKind::foreground)));
+        return false;
+    }
+    const auto value = adaptiveValue();
+    if (!value) {
+        emit statusMessage(tr("Choose an adaptive brush of the chosen game first."));
+        return false;
+    }
+    // The footprint obeys the selection; neighbours outside it may still
+    // take a new border form, which is the point of the tool.
+    std::vector<CellPos> footprint;
+    for (const auto &cell : cells) {
+        if (selection_.empty() || selection_.test(cell)) {
+            footprint.push_back(cell);
+        }
+    }
+    if (footprint.empty()) {
+        return false;
+    }
+    EditBuilder builder(document());
+    const auto result = adaptiveStroke(builder, profile_, footprint, *value, *variants_);
+    if (!builder.hasChanges()) {
+        return false;
+    }
+    if (!applyTransaction(builder.build(tr("Adaptive Brush").toStdString(), mergeKey))) {
+        return false;
+    }
+    if (!result.sideEffects.empty()) {
+        emit statusMessage(tr("%n neighbouring cell(s) outside the brush took a new form", nullptr,
+                              static_cast<int>(result.sideEffects.size())));
+    }
+    return true;
 }
 
 bool DocumentTab::requireWritable() {
@@ -843,6 +939,13 @@ void DocumentTab::onToolPressed(CellPos cell) {
     case Tool::eyedropper:
         pickAt(cell);
         break;
+    case Tool::adaptive: {
+        gestureKey_ = nextGestureKey_++;
+        canvas_->setPreviewCells({});
+        const CellPos cells[] = {cell};
+        adaptiveAt(cells, gestureKey_);
+        break;
+    }
     case Tool::fill:
         fillAt(cell);
         break;
@@ -914,6 +1017,16 @@ void DocumentTab::onToolDragged(CellPos cell) {
         break;
     case Tool::eyedropper:
         pickAt(cell);
+        break;
+    case Tool::adaptive:
+        if (gestureKey_ != 0) {
+            // New cells only: the previous sample was already painted.
+            auto cells = lineCells(gestureLast_.value_or(cell), cell);
+            if (cells.size() > 1) {
+                cells.erase(cells.begin());
+            }
+            adaptiveAt(cells, gestureKey_);
+        }
         break;
     case Tool::line:
         canvas_->setPreviewCells(lineCells(*gestureStart_, cell));

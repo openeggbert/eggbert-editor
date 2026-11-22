@@ -9,6 +9,7 @@
 
 #include "app/document_file.hpp"
 #include "app/world_canvas.hpp"
+#include "world/adaptive.hpp"
 #include "world/doctor.hpp"
 #include "world/metadata.hpp"
 #include "world/object_ops.hpp"
@@ -32,6 +33,8 @@ enum class Tool {
     object,
     // Create objects from the chosen verified preset.
     placeObject,
+    // Paint with border forms recomputed as the chosen game's editor does.
+    adaptive,
 };
 
 // What a broad edit would do, shown before it is applied.
@@ -129,6 +132,22 @@ public:
     // start toggles its direction; any other cell moves it there.
     bool placeStartAt(CellPos cell);
     bool copyActiveStartToAll();
+
+    // Adaptive brush. The brush is a family id of the chosen profile, or
+    // one of the two special brushes below. One stroke is one undo step.
+    static constexpr const char *adaptiveTileBrush = "@tile";   // the raw tile ID
+    static constexpr const char *adaptiveEraseBrush = "@erase"; // -1
+    [[nodiscard]] QString adaptiveBrush() const { return adaptiveBrush_; }
+    void setAdaptiveBrush(const QString &id);
+    // Value the current brush writes; nullopt when the brush is a family
+    // the chosen profile does not have.
+    [[nodiscard]] std::optional<std::int16_t> adaptiveValue() const;
+    bool adaptiveAt(std::span<const CellPos> cells, std::uint64_t mergeKey);
+    // Cells an adaptive click on `cell` would change right now: the cell
+    // itself first, then cells outside it.
+    [[nodiscard]] AdaptiveResult previewAdaptive(CellPos cell) const;
+    // Replaces the source of random looks (tests use a fixed one).
+    void setVariantSource(std::unique_ptr<VariantSource> variants);
 
     // Objects. Every command is one undo step through the core operations.
     [[nodiscard]] std::optional<std::size_t> selectedSlot() const { return selectedSlot_; }
@@ -232,6 +251,8 @@ private:
     std::optional<std::size_t> selectedSlot_;
     QString placePresetId_;
     std::vector<std::size_t> bookmarks_;
+    QString adaptiveBrush_ = QString::fromLatin1(adaptiveTileBrush);
+    std::unique_ptr<VariantSource> variants_;
     enum class Grab { none, body, end };
     Grab grab_ = Grab::none;
     QLabel *banner_ = nullptr;
