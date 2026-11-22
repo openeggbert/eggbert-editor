@@ -204,6 +204,31 @@ Deferred work, not part of current implementation scope:
 
 Promote a roadmap item only by updating this fixed scope, acceptance tests, `NEXT.md` ordering and effort estimate. Do not implement it opportunistically during 1.0 work.
 
+### Promotion of the roadmap (owner's decision, 2026-11-22)
+
+After reviewing the 1.0 work the project owner promoted the whole roadmap above, and the planned Mobile Eggbert world support below, to current work, with two instructions: **do not publish a 1.0 release** (no tag, no release artefacts; the tree stays an unreleased development version) and **improve the editor's user interface**. The rules of the fixed scope keep applying to every promoted item: losslessness first, headless core before UI, independent asset-free tests, evidence before behaviour, no retail data in the repository, and no change to the sibling repositories. BLP↔Mobile Eggbert conversion stays a permanent non-goal.
+
+The items are worked in this order, one bounded slice at a time; each slice is committed only when the Release and sanitizer suites are green. An item whose evidence or test environment is missing is implemented as far as it can be verified and its limits are stated in `NEXT.md` and the guide, never guessed.
+
+| Order | Slice | Acceptance | Effort |
+| ---: | --- | --- | --- |
+| A | Interface: icon tool bar, welcome page, drag and drop, zoom control, per-file game memory; game recognised from the folder a world is opened from (read-only installation discovery) | UI tests: each control drives the same tested action; opening a world inside a generated game directory selects its profile and artwork without a prompt and never writes there | medium |
+| B | Autosave recovery and snapshots | a crashed session's unsaved bytes are offered on next start and are byte-exact; snapshots restore exact bytes; nothing is written next to the world file | medium |
+| C | Headless command line: `info`, `validate`, `export-png`, `diff`; PNG layers and crops | commands run without a display, exit codes documented, output byte-identical to the GUI's for the same input | medium |
+| D | Writing revisions 1.0/1.1 and upgrading them to 1.2/1.3 | round trip per revision; an upgrade preserves every byte that has a place in the target and reports what has none | medium |
+| E | Loss-aware SB1↔SB2 conversion | converts only values verified in both games, lists every value it cannot carry over, never overwrites the source | medium |
+| F | Installation workspace: world list with thumbnails, staged deploy with backup and rollback, playtest launch through a user-configured command | deploy and rollback are byte-exact and atomic on a generated installation; a failed deploy leaves the installation unchanged; no game binary is run by tests | large |
+| G | Campaign workspace: mission order, hubs, manifests, directory and ZIP campaign packs | manifests round-trip; hostile ZIP members are rejected; packs never contain retail data by default | large |
+| H | Advanced World Doctor: reachability estimate and cross-world checks | findings carry their basis; estimates are labelled; no finding on the original worlds without review | large |
+| I | Experimental raw hex editing and unknown-value writes behind an explicit switch; custom adaptive rules | off by default; every write is a transaction with undo; protected ranges need a second confirmation | medium |
+| J | Stamps, alignment, batch edits across open worlds | each operation is one undo step per document with a preview | medium |
+| K | Element encyclopedia and installation gallery | every entry cites its evidence; pictures only from the user's game directory | small |
+| L | Localization (Czech first), accessibility pass, Windows and macOS build configurations | translations load and fall back cleanly; CI configurations exist; packages for platforms that cannot be built here are marked untested | medium |
+| M | Mobile Eggbert text worlds as a separate document profile | token-preserving round trip on synthetic text fixtures; no conversion to or from BLP | large |
+| N | Three-way merge, playtest traces and heatmaps | only with a verifiable design; otherwise documented as not started | large |
+
+
+
 ### Planned Mobile Eggbert world support
 
 After the BLP-focused 1.0 release, add a separate editable document profile and codec for Mobile Eggbert, the modified Speedy Blupi edition derived from the 2013 Windows Phone game. Its designed worlds are text files named `worlds/worldNNN.txt`, not a BLP revision. Do not route them through the binary BLP parser or assume identical metadata/start semantics merely because both engines use a 100 × 100 map and a 200-record object pool.

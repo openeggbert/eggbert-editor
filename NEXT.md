@@ -91,7 +91,7 @@ Release-gate status on 2026-11-22 (evidence in this file and the tests named abo
 
 ## Open questions for the user
 
-- The owner's further requirements for 1.0 (2026-11-22): the world's background must be the real picture, not black (done, slice 11); the editor must let the user change background, music (with playback) and the world type by extent (done, slice 11); moving objects must show 1 at the start and 2 at the end (done, slice 11); **everything in the editor must be animated** (done, slice 12). Sprite tables stay read from the user's executable (owner's decision). No pull request for now (owner's decision).
+None blocking. Owner's standing instructions (2026-11-22, given before going offline for the night): work through the whole promoted roadmap in `plan.md` (**Promotion of the roadmap**) autonomously; **do not publish a 1.0 release** (no tag, no release); improve the editor's UI; sprite tables stay read from the user's executable; no pull request for now. The owner will not answer questions for several hours: decide, record the decision here, and continue.
 
 ## Slice roadmap toward the 1.0 gate
 
@@ -120,6 +120,25 @@ Completed slices are ticked only when their tests are green and committed.
 - [x] 7a2 Workspace polish: themes, Mapping/Objects/Validation layouts, Reset Layout, shortcuts overview, preferences
 - [x] 7b User guide, notices, Linux packaging, smoke tests, opt-in local-sample matrix
 
+## Promoted roadmap (after the 1.0 scope)
+
+Order and acceptance are in `plan.md`, **Promotion of the roadmap**. Tick a slice only when its tests are green and committed.
+
+- [ ] A Interface: icon tool bar, welcome page, drag and drop, zoom control, per-file game memory, game recognised from the folder
+- [ ] B Autosave recovery and snapshots
+- [ ] C Headless command line; PNG layers and crops
+- [ ] D Writing revisions 1.0/1.1 and upgrading them
+- [ ] E Loss-aware SB1↔SB2 conversion
+- [ ] F Installation workspace: world list, deploy with backup and rollback, playtest command
+- [ ] G Campaign workspace and packs
+- [ ] H Advanced World Doctor
+- [ ] I Experimental raw hex editing, custom adaptive rules
+- [ ] J Stamps, alignment, batch edits
+- [ ] K Element encyclopedia and installation gallery
+- [ ] L Localization (Czech), accessibility, Windows/macOS build configurations
+- [ ] M Mobile Eggbert text worlds
+- [ ] N Three-way merge, playtest traces
+
 ## Explicit non-goals
 
-Campaign/hub management, installation discovery or deployment, playtest launch, SB1↔SB2 conversion, Mobile Eggbert support, writing revisions 1.0/1.1, raw hex writes, ZIP handling and procedural generation stay out of scope (see **Post-1.0 roadmap** in `plan.md`).
+BLP↔Mobile Eggbert conversion in either direction (permanent), procedural generation of worlds, shipping any game data, and running game binaries in tests. Everything else on the former post-1.0 roadmap has been promoted by the owner (see above).
