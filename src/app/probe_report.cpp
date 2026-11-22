@@ -108,4 +108,76 @@ QString formatProbeReport(const QString &fileName, const WorldProbe &probe) {
     return lines.join(QLatin1Char('\n'));
 }
 
+QString displayNameBytes(std::span<const std::byte> bytes) {
+    QString result;
+    for (const auto value : bytes) {
+        const auto code = std::to_integer<unsigned>(value);
+        if (code == '\\') {
+            result += QStringLiteral("\\\\");
+        } else if ((code >= 0x20 && code < 0x7F) || code >= 0xA0) {
+            result += QChar(static_cast<char16_t>(code));
+        } else {
+            result += QStringLiteral("\\x%1").arg(code, 2, 16, QLatin1Char('0'));
+        }
+    }
+    return result;
+}
+
+QString formatWorldSummary(const WorldView &view) {
+    QStringList lines;
+    const auto point = [](Point value) {
+        return QStringLiteral("(%1, %2)").arg(value.x).arg(value.y);
+    };
+    if (const auto header = view.header()) {
+        lines << tr("Name: \"%1\" (%2 bytes before the terminator%3)")
+                     .arg(displayNameBytes(header->nameText()), count(header->nameLength()),
+                          header->nameTerminated()
+                              ? (header->namePaddingIsZero()
+                                     ? QString()
+                                     : tr(", non-zero bytes retained after it"))
+                              : tr(", no terminator"));
+        lines << tr("music %1, region %2, world %3")
+                     .arg(header->music())
+                     .arg(header->region())
+                     .arg(header->world());
+        lines << tr("posDecor %1, dimDecor %2")
+                     .arg(point(header->posDecor()), point(header->dimDecor()));
+        for (std::size_t index = 0; index < 4; ++index) {
+            lines << tr("Start %1: position %2, direction %3")
+                         .arg(index + 1)
+                         .arg(point(*header->blupiPos(index)))
+                         .arg(*header->blupiDir(index));
+        }
+        QStringList nonZero;
+        for (const auto field :
+             {HeaderField::reserve1, HeaderField::reserve2, HeaderField::reserve3}) {
+            if (!header->reservedIsZero(field)) {
+                nonZero << text(headerField(field).name);
+            }
+        }
+        lines << (nonZero.isEmpty()
+                      ? tr("Reserved header fields are all zero.")
+                      : tr("Non-zero reserved header fields (retained): %1")
+                            .arg(nonZero.join(QStringLiteral(", "))));
+    }
+    for (const auto kind : {SectionKind::foreground, SectionKind::bigDecor}) {
+        if (const auto layer = view.layer(kind)) {
+            std::size_t stored = 0;
+            for (std::size_t x = 0; x < layout::mapWidth; ++x) {
+                for (std::size_t y = 0; y < layout::mapHeight; ++y) {
+                    stored += *layer->cell(x, y) != -1 ? 1 : 0;
+                }
+            }
+            lines << tr("%1: %2 of 10000 cells differ from -1")
+                         .arg(sectionDisplayName(kind), count(stored));
+        }
+    }
+    if (const auto objects = view.objects()) {
+        lines << tr("Object records: %1 stored, %2 with a non-zero type, %3 free")
+                     .arg(count(objects->slotCount()), count(objects->activeCount()),
+                          count(objects->freeCount()));
+    }
+    return lines.join(QLatin1Char('\n'));
+}
+
 } // namespace eggbert

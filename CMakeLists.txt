@@ -25,6 +25,8 @@ add_library(eggbert_world STATIC
     src/world/world_file.hpp
     src/world/world_probe.cpp
     src/world/world_probe.hpp
+    src/world/world_view.cpp
+    src/world/world_view.hpp
 )
 target_include_directories(eggbert_world PUBLIC src)
 
@@ -51,7 +53,7 @@ set_target_properties(eggbert-editor PROPERTIES
 include(CTest)
 if(BUILD_TESTING)
     # Headless core tests: no Qt, no game assets.
-    foreach(name world_file layout le_reader world_probe)
+    foreach(name world_file layout le_reader world_probe world_view)
         add_executable(${name}-test tests/${name}_test.cpp)
         target_link_libraries(${name}-test PRIVATE eggbert_world)
         add_test(NAME ${name} COMMAND ${name}-test)

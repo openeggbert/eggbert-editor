@@ -2,7 +2,7 @@
 
 A desktop editor in development for 2D worlds from the Windows games Speedy Blupi and Speedy Blupi II, also released as Speedy Eggbert and Speedy Eggbert 2. Version 1.0 is intentionally scoped to lossless editing of individual world files. Installation deployment, campaigns and loss-aware SB1↔SB2 BLP conversion are post-1.0 roadmap items. A separate post-1.0 Mobile Eggbert text-world profile is planned, but conversion between BLP and Mobile Eggbert worlds is intentionally unsupported in both directions.
 
-**File → Inspect World File** currently loads a selected file and shows a read-only structural probe: the raw revision field, the candidate revision (1.0–1.3), expected and actual size, which sections are complete, truncation or surplus bytes, and why the result is or is not safe for structured inspection. The world format has no signature, so the probe reports consistency, never proof, and it cannot tell Speedy Blupi 1 from 2. Decoding, world editing and saving are planned and not implemented yet. The format notes, compatibility matrix and implementation milestones are in [plan.md](plan.md). A fresh implementation session should also read [AGENTS.md](AGENTS.md) and continue from [NEXT.md](NEXT.md).
+**File → Inspect World File** currently loads a selected file and shows a read-only structural probe: the raw revision field, the candidate revision (1.0–1.3), expected and actual size, which sections are complete, truncation or surplus bytes, and why the result is or is not safe for structured inspection. The world format has no signature, so the probe reports consistency, never proof, and it cannot tell Speedy Blupi 1 from 2. For complete sections it also shows a decoded read-only summary of the header, layers and object pool. World editing, rendering and saving are planned and not implemented yet. The format notes, compatibility matrix and implementation milestones are in [plan.md](plan.md). A fresh implementation session should also read [AGENTS.md](AGENTS.md) and continue from [NEXT.md](NEXT.md).
 
 Claude Code Cloud development is supported. Configure Qt and the optional research-data domain using [the cloud setup guide](docs/claude-code-cloud.md); retail data is never required by the normal build or tests.
 
@@ -23,7 +23,7 @@ If CMake cannot find Qt, set `CMAKE_PREFIX_PATH` to your Qt kit directory when c
 
 | Location | Contents |
 | --- | --- |
-| `src/world/` | Original byte storage, revision descriptors, bounded little-endian readers and the structural probe. Independent of Qt. |
+| `src/world/` | Original byte storage, revision descriptors, bounded little-endian readers, the structural probe and read-only decoded views. Independent of Qt. |
 | `src/app/` | Application entry point, Qt Widgets main window and probe report. |
 | `tests/` | Asset-free tests for the world library and application code. |
 | `plan.md` | Fixed 1.0 scope, binary layout, feature design, release criteria and compact post-1.0 roadmap. |

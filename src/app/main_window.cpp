@@ -14,7 +14,7 @@
 
 #include "probe_report.hpp"
 #include "world/world_file.hpp"
-#include "world/world_probe.hpp"
+#include "world/world_view.hpp"
 
 namespace eggbert {
 
@@ -59,8 +59,12 @@ MainWindow::MainWindow() {
         const WorldFile world(std::vector<std::byte>(
             reinterpret_cast<const std::byte *>(contents.constData()),
             reinterpret_cast<const std::byte *>(contents.constData()) + contents.size()));
-        details->setText(
-            formatProbeReport(QFileInfo(path).fileName(), probeWorld(world.originalBytes())));
+        const WorldView view(world.originalBytes());
+        auto report = formatProbeReport(QFileInfo(path).fileName(), view.probe());
+        if (const auto summary = formatWorldSummary(view); !summary.isEmpty()) {
+            report += QStringLiteral("\n\n") + summary;
+        }
+        details->setText(report);
     });
 
     auto *quitAction = fileMenu->addAction(tr("&Quit"));

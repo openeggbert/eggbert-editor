@@ -50,6 +50,37 @@ int main(int argc, char **argv) {
     CHECK(unrelated.contains("Structured inspection: unavailable."));
     CHECK(!unrelated.contains("Candidate revision"));
 
+    // Decoded summary of complete sections.
+    {
+        auto bytes = world(3, 50'468);
+        const char name[] = "Caf\xE9\x01";
+        for (std::size_t index = 0; index < sizeof(name); ++index) { // includes the NUL
+            bytes[376 + index] = static_cast<std::byte>(name[index]);
+        }
+        bytes[222] = std::byte{4}; // music low byte
+        bytes[223] = std::byte{0};
+        const WorldView view(bytes);
+        const auto summary = formatWorldSummary(view);
+        CHECK(summary.contains(QString::fromLatin1("Name: \"Caf\xE9\\x01\" (5 bytes")));
+        CHECK(summary.contains("non-zero bytes retained after it"));
+        CHECK(summary.contains("music 4,"));
+        CHECK(summary.contains("Start 4: position (1515870810, 1515870810)"));
+        CHECK(summary.contains("Non-zero reserved header fields (retained): reserve1, reserve2, reserve3"));
+        CHECK(summary.contains("Foreground layer: 10000 of 10000 cells differ from -1"));
+        CHECK(summary.contains("Object records: 200 stored, 200 with a non-zero type, 0 free"));
+
+        bytes.resize(20'000);
+        const WorldView truncated(bytes);
+        const auto partial = formatWorldSummary(truncated);
+        CHECK(partial.contains("Name:"));
+        CHECK(!partial.contains("Foreground layer"));
+        CHECK(!partial.contains("Object records"));
+        CHECK(formatWorldSummary(WorldView(arbitrary)).isEmpty());
+    }
+    CHECK_EQ(displayNameBytes(std::vector<std::byte>{std::byte{'a'}, std::byte{'\\'}, std::byte{0x7F},
+                                                     std::byte{0x9F}, std::byte{0xA0}}),
+             QString::fromUtf8("a\\\\\\x7f\\x9f\u00A0"));
+
     const auto empty = formatProbeReport("e.blp", probeWorld({}));
     CHECK(empty.contains("Revision field: unavailable"));
     CHECK(empty.contains("Not inspectable as a world."));
