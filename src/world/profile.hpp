@@ -34,6 +34,10 @@ struct ProfileInfo {
     // True when the game's loader rewrites stored foreground values 48..67
     // to 215 in memory. The file is never changed by that.
     bool loaderRemaps48To67 = false;
+    // Estimate, not a proven limit: with fewer free object slots than this,
+    // effects the game creates while playing may find the pool full.
+    int lowHeadroomFreeSlots = 0;
+    std::string_view headroomRationale;
 };
 
 inline constexpr ProfileInfo speedyBlupi1Info{
@@ -44,6 +48,10 @@ inline constexpr ProfileInfo speedyBlupi1Info{
     {0, 23, "blupi_recon e05e22b src/event.cpp:3093: WM_BUTTON1..WM_BUTTON24"},
     {0, 236, "blupi_recon e05e22b src/decor.h:13 MAXQUART 237"},
     false,
+    8,
+    "Estimate: explosions, splashes, projectiles and dropped vehicles each take one slot while "
+    "playing (blupi_recon e05e22b src/decblupi.cpp, src/decmove.cpp); no larger single burst was "
+    "found, so room for several simultaneous effects is suggested.",
 };
 
 inline constexpr ProfileInfo speedyBlupi2Info{
@@ -53,6 +61,9 @@ inline constexpr ProfileInfo speedyBlupi2Info{
     {0, 31, "blupi_recon e05e22b games/sb2/src/event.cpp:3679: WM_BUTTON1..WM_BUTTON32"},
     {0, 440, "blupi_recon e05e22b games/sb2/src/decor.h:13 MAXQUART 441"},
     true,
+    16,
+    "Estimate: one slime splash takes 7 slots at once and one dynamite starts 9 explosions "
+    "(blupi_recon e05e22b games/sb2/src/decnet.cpp:20-43, games/sb2/src/decmove.cpp:778-810).",
 };
 
 // nullptr for GameProfile::unknown.

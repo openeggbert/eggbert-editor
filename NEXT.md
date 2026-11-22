@@ -20,6 +20,7 @@ Implemented and covered by asset-free tests:
 - Tile tools in the UI (`document_tab.cpp`, `main_window.cpp`): Browse, Select, Pencil, Eraser, Eyedropper, Line, Rectangle, Fill; Edit menu Cut/Copy/Paste/Delete, Select All/None/Invert, Find; Layer menu active layer, lock, isolate, Fill Selection, Replace Value, Clear Selection, Flip. Selection limits tools; strokes interpolate between mouse samples; edits above 64 cells go through `prompts.confirmBroadEdit` with cell/byte/offset counts; the tile clipboard is refused across different or unknown profiles (same tab always allowed).
 - `src/world/profile.hpp`: per-game facts with provenance (music 0–10, region 0–23 / 0–31, tiles with collision data 0–236 / 0–440, SB2 loader remap of 48–67). `src/world/metadata.hpp`: `Metadata` read/apply (a `dimDecor` axis is rewritten only when its zero/non-zero meaning changes), `placeStart` (`cell * 64 + (2, 6)`), `toggleStartDirection`, `copyStartToAll`, Windows-1252 title encode/decode with round-trip for every byte.
 - `src/world/object_catalog.hpp`: per-profile verified presets (SB1 31, SB2 42) with type, step durations, waits, in-cell offset, channel, icon, path flag, icon-is-choice flag and source line ranges; `objectTypeInfo` classifies a stored type as placeable, runtime-only or unknown for a profile (never inferred across games). `src/world/object_ops.hpp`: `poolCapacity`, `freeSlots` (lowest first), `recordForRequest` (engine-exact record incl. path end and step multiplication), all-or-nothing `createObjects`, `deleteObject` (type only), `duplicateObject` (raw 48-byte copy plus shift), `relocateStatic`, `moveStart`, `moveEnd`, `translatePath`, `objectsAt`.
+- Object UI (`document_tab.cpp`, `objects_panel.cpp`, `main_window.cpp`): Objects dock (pool usage with hard-limit and estimated low-headroom notes, record list, optional free slots, exact numeric editors for durations, waits, positions, channel and icon), Object tool (select, cycle overlapping records by slot, drag by whole cells, drag a path's end box), Place tool with a per-profile preset chooser (drag sets a mover's path), Object menu (Create Verified Type, Duplicate, Delete, cell nudges, Properties and Pool Usage), pool usage in the status bar. Records whose type is not placeable for the chosen profile are view-and-delete only; `type`, `unknown1`, `unknown2`, `step`, `time`, `phase` are never offered for editing.
 - `src/app/metadata_dialog.cpp`: World and Player Starts pages; OK is disabled for an unstorable title or a changed music/region outside the chosen profile's verified range (unknown profile locks both); notes for titles over 40 bytes and for files whose title the games ignore. World menu: Metadata, Player Starts, Copy Selected Start to All Four. Start tool with a start selector.
 - `src/app/minimap_widget.cpp`, `statistics_panel.cpp`: Minimap dock (composite/foreground/bigDecor, viewport outline, click/drag pans the canvas) and World Statistics dock (tree of the headless numbers plus unsaved and changed-since-opened byte ranges; activating a row calls `MainWindow::locateTileValue/locateObjects/locateStart/locateOffsetRange`, which move the view and mark results without touching the document). View menu toggles and Reset Layout. The canvas keeps the world fitted until the user changes the view.
 - `src/app/probe_report.cpp`: plain-text probe report plus decoded summary (name with escaped non-printable bytes, music/region/world, `posDecor`/`dimDecor`, four starts, non-zero reserved fields, per-layer count of cells that differ from -1, object slot counts). Shown by **File → Document Properties**.
@@ -31,9 +32,9 @@ Verification on 2026-11-22, Ubuntu 24.04, GCC 13.3.0, CMake 3.28.3, Ninja, Qt 6.
 ```sh
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
 cmake --build build --parallel              # no warnings
-ctest --test-dir build --output-on-failure  # 18/18 passed: layout, le_reader, world_probe, world_view, world_document, world_stats, offset_map, tile_tools, metadata, object_ops, view_transform, probe_report, document_file, world_renderer, main_window, docks, tools, metadata_ui
+ctest --test-dir build --output-on-failure  # 19/19 passed: layout, le_reader, world_probe, world_view, world_document, world_stats, offset_map, tile_tools, metadata, object_ops, view_transform, probe_report, document_file, world_renderer, main_window, docks, tools, metadata_ui, objects_ui
 cmake -S . -B build-asan -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DEGGBERT_SANITIZE=ON
-cmake --build build-asan --parallel && ctest --test-dir build-asan   # 18/18 passed under ASan/UBSan
+cmake --build build-asan --parallel && ctest --test-dir build-asan   # 19/19 passed under ASan/UBSan
 ```
 
 `main_window` drives the real window offscreen: open through the action, pencil click (exactly offsets 1608–1609 change), drag as one undo step, layer switch, keyboard cursor and Space, save, external-change conflict (cancel / Save As / reload), revert, close with unsaved changes, read-only refusal, zoom about the pointer and view toggles. A screenshot of a synthetic world under Xvfb was inspected manually. The earlier `WorldFile` class and its test were removed; `world_document` covers byte retention.
@@ -42,15 +43,14 @@ cmake --build build-asan --parallel && ctest --test-dir build-asan   # 18/18 pas
 
 Verified and reported observations are recorded with citations in `docs/research/evidence.md` (sources: `blupi_recon` at `e05e22b990abb782c37a0d9fafa864d86a27e29f`; archived `eggbert-generator` bundle at `069c409611eb779e9066e8d492faed4550dac9a8`). Uncommitted background notes on object placement, adaptive borders and rendering exist only in the development scratch area; each fact must be re-read at its citation and entered in `evidence.md` when the slice that depends on it is implemented. No original executable or retail sample has been tested yet; the research-data host `drive.openeggbert.com` is on the environment allowlist, but the automated download was refused by the session's permission layer and awaits the user's decision.
 
-## Next task: object editing UI (milestone 4c, second half)
+## Next task: read-only binary inspector (milestone 6a)
 
-The headless catalog and operations exist and are tested. Connect them:
+Milestones are taken in dependency order rather than numeric order: the inspector and World Doctor need no further evidence, while adaptive brushes (5) and artwork (3c) need the larger evidence review and, for artwork, real game data.
 
-1. `DocumentTab`: selected object slot; operations create (preset + cell, optional path end and icon), delete, duplicate, move by cell delta, move start/end, exact field edits; each one transaction through the core operations, refused when the profile has no verified preset for the record's type (delete stays available).
-2. Objects dock: one row per active slot (slot, type name for the chosen profile or raw number, start, end, current, channel, icon), optional free slots, selection synchronised with the canvas, capacity line (stored/active/free and low-headroom note).
-3. Object tool: click selects (repeated clicks cycle overlapping records by slot), drag moves by whole cells with a ghost, handles for start and end, arrow-key nudge. Place tool: preset chooser limited to the chosen profile; press-drag-release sets a path for movers.
-4. Object menu: Create Verified Type, Duplicate, Delete, Properties (exact numeric fields), Pool Usage.
-5. Offscreen tests for each gesture and command, including a full pool, unknown types and read-only documents.
+1. Headless `src/world/hex_model.hpp/.cpp`: row layout for a configurable bytes-per-row, region labelling per offset via `locateOffset` (header field, layer cell, object slot/field, truncation, opaque suffix), decoded little-endian value of the element under an offset (signed and unsigned), search for a hex byte sequence or ASCII text with wrap-around, and original/current comparison per offset.
+2. `HexView` widget: virtualized painting (only visible rows), offset column, hex and ASCII columns, changed-byte highlighting against the original and the saved bytes, selection, keyboard navigation, copy as hex; a details strip with absolute and section-relative offset, decoded values, original/current value and the `[x][y]` or slot/field calculation spelled out.
+3. Binary Inspector dock: jump to offset, section, cell or slot; hex/ASCII search; bookmarks; row width; side-by-side original/current. Synchronised with the canvas cursor, object selection and statistics rows in both directions. Nothing in it can modify the document.
+4. Tests: every offset class maps to the right label and decoded value at literal offsets; search hits and wrap; the widget never dirties the document; selection sync both ways.
 
 ## Slice roadmap toward the 1.0 gate
 
@@ -66,7 +66,7 @@ Completed slices are ticked only when their tests are green and committed.
 - [ ] 3c Manual read-only asset directory and artwork rendering
 - [x] 4a Layer tools: pencil, eraser, eyedropper, line, rectangle, fill, selection, clipboard, find
 - [x] 4b Metadata and player starts
-- [ ] 4c Verified object catalogs, object panel, create/duplicate/delete/relocate, capacity budgets
+- [x] 4c Verified object catalogs, object panel, create/duplicate/delete/relocate, capacity budgets
 - [ ] 5 Verified adaptive brushes
 - [ ] 6a Read-only binary inspector
 - [ ] 6b Basic World Doctor

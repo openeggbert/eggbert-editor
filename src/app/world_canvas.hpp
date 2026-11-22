@@ -55,6 +55,10 @@ public:
     [[nodiscard]] const std::vector<CellPos> &highlightedCells() const { return markedCells_; }
     [[nodiscard]] const std::vector<std::size_t> &highlightedSlots() const { return markedSlots_; }
 
+    // The object record emphasised with its start and end boxes.
+    void setSelectedSlot(std::optional<std::size_t> slot);
+    [[nodiscard]] std::optional<std::size_t> selectedSlot() const { return selectedSlot_; }
+
     // The selection shown as a tinted overlay.
     void setSelectionMask(const CellMask &mask);
     [[nodiscard]] const CellMask &selectionMask() const { return selection_; }
@@ -98,6 +102,7 @@ private:
     std::optional<CellPos> lastToolCell_;
     std::vector<CellPos> markedCells_;
     std::vector<std::size_t> markedSlots_;
+    std::optional<std::size_t> selectedSlot_;
     bool toolActive_ = true;
     bool toolGesture_ = false;
     bool panning_ = false;

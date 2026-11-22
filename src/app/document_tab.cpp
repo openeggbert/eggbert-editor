@@ -5,6 +5,8 @@
 #include <QLabel>
 #include <QVBoxLayout>
 
+#include <algorithm>
+
 #include "world/world_stats.hpp"
 
 namespace eggbert {
@@ -160,6 +162,14 @@ bool DocumentTab::redo() {
 }
 
 void DocumentTab::notifyDocumentChanged() {
+    // An undo or delete may have freed the selected slot.
+    if (selectedSlot_) {
+        const auto objects = document().view().objects();
+        const auto record = objects ? objects->record(*selectedSlot_) : std::nullopt;
+        if (!record || record->isFree()) {
+            setSelectedSlot(std::nullopt);
+        }
+    }
     canvas_->update();
     emit documentChanged();
 }
@@ -173,7 +183,9 @@ void DocumentTab::replaceFile(std::unique_ptr<DocumentFile> file) {
     gestureKey_ = 0;
     gestureStart_.reset();
     gestureLast_.reset();
+    grab_ = Grab::none;
     selectNone();
+    setSelectedSlot(std::nullopt);
     updateBanner();
     emit toolStateChanged();
     notifyDocumentChanged();
@@ -378,6 +390,260 @@ bool DocumentTab::copyActiveStartToAll() {
     }
     return applyTransaction(
         builder.build(tr("Copy Start %1 to All").arg(activeStart_ + 1).toStdString()));
+}
+
+bool DocumentTab::requireWritable() {
+    if (document().isWritable()) {
+        return true;
+    }
+    emit statusMessage(fromView(writeAccessReason(document().writeAccess())));
+    return false;
+}
+
+void DocumentTab::reportObjectError(ObjectOpError error) {
+    const auto capacity = poolCapacity(document().view());
+    switch (error) {
+    case ObjectOpError::poolFull:
+        emit statusMessage(tr("The object pool is full (%1 of %2 slots in use); nothing was "
+                              "created.")
+                               .arg(capacity.active)
+                               .arg(capacity.stored));
+        break;
+    case ObjectOpError::noObjectPool:
+        emit statusMessage(tr("This document has no complete object pool."));
+        break;
+    case ObjectOpError::invalidSlot:
+    case ObjectOpError::slotIsFree:
+        emit statusMessage(tr("That slot holds no object."));
+        break;
+    case ObjectOpError::outsideMap:
+        emit statusMessage(tr("The position is outside the representable range."));
+        break;
+    case ObjectOpError::notApplicable:
+        emit statusMessage(tr("That operation does not apply to this object."));
+        break;
+    }
+}
+
+bool DocumentTab::applyObjectEdit(EditBuilder &builder, const QString &label) {
+    if (!builder.hasChanges()) {
+        return false;
+    }
+    return applyTransaction(builder.build(label.toStdString()));
+}
+
+void DocumentTab::setSelectedSlot(std::optional<std::size_t> slot) {
+    if (slot) {
+        const auto objects = document().view().objects();
+        if (!objects || *slot >= objects->slotCount()) {
+            slot.reset();
+        }
+    }
+    if (selectedSlot_ == slot) {
+        return;
+    }
+    selectedSlot_ = slot;
+    canvas_->setSelectedSlot(slot);
+    emit objectSelectionChanged();
+}
+
+const ObjectPreset *DocumentTab::placePreset() const {
+    return findObjectPreset(profile_, placePresetId_.toStdString());
+}
+
+void DocumentTab::setPlacePreset(const QString &id) {
+    if (placePresetId_ != id) {
+        placePresetId_ = id;
+        emit toolStateChanged();
+    }
+}
+
+QString DocumentTab::objectTypeText(std::int16_t type) const {
+    const auto info = objectTypeInfo(profile_, type);
+    switch (info.status) {
+    case ObjectTypeStatus::placeable:
+        return tr("%1 (%2)").arg(fromView(info.name)).arg(type);
+    case ObjectTypeStatus::runtimeOnly:
+        return tr("%1 (%2, created during play)").arg(fromView(info.name)).arg(type);
+    case ObjectTypeStatus::unknown:
+        break;
+    }
+    return profile_ == GameProfile::unknown ? tr("Type %1").arg(type)
+                                            : tr("Type %1 (not verified for this game)").arg(type);
+}
+
+bool DocumentTab::canDeleteObject(std::size_t slot) const {
+    const auto objects = document().view().objects();
+    const auto record = objects ? objects->record(slot) : std::nullopt;
+    return document().isWritable() && record && !record->isFree();
+}
+
+bool DocumentTab::canEditObject(std::size_t slot) const {
+    if (!canDeleteObject(slot)) {
+        return false;
+    }
+    const auto record = *document().view().objects()->record(slot);
+    return objectTypeInfo(profile_, record.type).status == ObjectTypeStatus::placeable;
+}
+
+bool DocumentTab::isEditableObjectField(ObjectField field) {
+    switch (field) {
+    case ObjectField::stepAdvance:
+    case ObjectField::stepRecede:
+    case ObjectField::timeStopStart:
+    case ObjectField::timeStopEnd:
+    case ObjectField::posStart:
+    case ObjectField::posEnd:
+    case ObjectField::posCurrent:
+    case ObjectField::channel:
+    case ObjectField::icon:
+        return true;
+    case ObjectField::type:
+    case ObjectField::unknown1:
+    case ObjectField::step:
+    case ObjectField::time:
+    case ObjectField::phase:
+    case ObjectField::unknown2:
+        break;
+    }
+    return false;
+}
+
+std::optional<std::size_t> DocumentTab::createObjectAt(CellPos cell,
+                                                       std::optional<CellPos> pathEnd) {
+    if (!requireWritable()) {
+        return std::nullopt;
+    }
+    const auto *preset = placePreset();
+    if (preset == nullptr) {
+        emit statusMessage(profile_ == GameProfile::unknown
+                               ? tr("Choose a game profile first: object presets are verified "
+                                    "per game.")
+                               : tr("Choose an object preset first."));
+        return std::nullopt;
+    }
+    ObjectRequest request{preset, cell, {}, {}};
+    if (preset->hasPath && pathEnd && *pathEnd != cell) {
+        request.pathEnd = pathEnd;
+    }
+    EditBuilder builder(document());
+    const auto slot = createObject(builder, request);
+    if (!slot) {
+        reportObjectError(slot.error());
+        return std::nullopt;
+    }
+    if (!applyTransaction(
+            builder.build(tr("Create %1").arg(fromView(preset->name)).toStdString()))) {
+        return std::nullopt;
+    }
+    setSelectedSlot(*slot);
+    emit statusMessage(tr("Created %1 in slot %2").arg(fromView(preset->name)).arg(*slot));
+    return *slot;
+}
+
+bool DocumentTab::deleteSelectedObject() {
+    if (!selectedSlot_ || !requireWritable()) {
+        return false;
+    }
+    EditBuilder builder(document());
+    const auto result = deleteObject(builder, *selectedSlot_);
+    if (!result) {
+        reportObjectError(result.error());
+        return false;
+    }
+    const auto slot = *selectedSlot_;
+    if (!applyObjectEdit(builder, tr("Delete Object in Slot %1").arg(slot))) {
+        return false;
+    }
+    setSelectedSlot(std::nullopt);
+    return true;
+}
+
+bool DocumentTab::duplicateSelectedObject() {
+    if (!selectedSlot_ || !requireWritable()) {
+        return false;
+    }
+    if (!canEditObject(*selectedSlot_)) {
+        emit statusMessage(tr("Only objects of a type verified for the chosen game can be "
+                              "duplicated."));
+        return false;
+    }
+    EditBuilder builder(document());
+    const auto slot = duplicateObject(builder, *selectedSlot_, {layout::cellPixels, 0});
+    if (!slot) {
+        reportObjectError(slot.error());
+        return false;
+    }
+    if (!applyObjectEdit(builder, tr("Duplicate Object in Slot %1").arg(*selectedSlot_))) {
+        return false;
+    }
+    setSelectedSlot(*slot);
+    return true;
+}
+
+bool DocumentTab::moveSelectedObject(Point delta) {
+    if (!selectedSlot_ || !requireWritable()) {
+        return false;
+    }
+    if (!canEditObject(*selectedSlot_)) {
+        emit statusMessage(tr("Only objects of a type verified for the chosen game can be moved."));
+        return false;
+    }
+    EditBuilder builder(document());
+    const auto result = moveObject(builder, *selectedSlot_, delta);
+    if (!result) {
+        reportObjectError(result.error());
+        return false;
+    }
+    return applyObjectEdit(builder, tr("Move Object in Slot %1").arg(*selectedSlot_));
+}
+
+bool DocumentTab::moveSelectedStart(Point position) {
+    if (!selectedSlot_ || !requireWritable() || !canEditObject(*selectedSlot_)) {
+        return false;
+    }
+    EditBuilder builder(document());
+    if (const auto result = moveStart(builder, *selectedSlot_, position); !result) {
+        reportObjectError(result.error());
+        return false;
+    }
+    return applyObjectEdit(builder, tr("Move Start of Slot %1").arg(*selectedSlot_));
+}
+
+bool DocumentTab::moveSelectedEnd(Point position) {
+    if (!selectedSlot_ || !requireWritable() || !canEditObject(*selectedSlot_)) {
+        return false;
+    }
+    EditBuilder builder(document());
+    if (const auto result = moveEnd(builder, *selectedSlot_, position); !result) {
+        reportObjectError(result.error());
+        return false;
+    }
+    return applyObjectEdit(builder, tr("Move End of Slot %1").arg(*selectedSlot_));
+}
+
+bool DocumentTab::setObjectNumber(std::size_t slot, ObjectField field, std::int16_t value) {
+    if (!requireWritable() || !canEditObject(slot) || !isEditableObjectField(field)) {
+        return false;
+    }
+    EditBuilder builder(document());
+    if (!builder.setObjectValue(slot, field, value)) {
+        return false;
+    }
+    return applyObjectEdit(
+        builder, tr("Set %1 of Slot %2").arg(fromView(objectField(field).name)).arg(slot));
+}
+
+bool DocumentTab::setObjectPosition(std::size_t slot, ObjectField field, Point value) {
+    if (!requireWritable() || !canEditObject(slot) || !isEditableObjectField(field)) {
+        return false;
+    }
+    EditBuilder builder(document());
+    if (!builder.setObjectPoint(slot, field, value)) {
+        return false;
+    }
+    return applyObjectEdit(
+        builder, tr("Set %1 of Slot %2").arg(fromView(objectField(field).name)).arg(slot));
 }
 
 void DocumentTab::setSelection(const CellMask &mask) {
@@ -591,6 +857,43 @@ void DocumentTab::onToolPressed(CellPos cell) {
     case Tool::start:
         placeStartAt(cell);
         break;
+    case Tool::object: {
+        const Point centre{static_cast<std::int32_t>(cell.x) * layout::cellPixels + 32,
+                           static_cast<std::int32_t>(cell.y) * layout::cellPixels + 32};
+        const auto objects = document().view().objects();
+        grab_ = Grab::none;
+        // The end box of the selected mover takes priority, so a path can be
+        // reshaped even where other objects overlap it.
+        if (selectedSlot_ && objects) {
+            const auto record = *objects->record(*selectedSlot_);
+            const auto size = spriteBoxSize(record.channel);
+            if (!record.isFree() && record.posEnd != record.posStart &&
+                centre.x >= record.posEnd.x && centre.x < record.posEnd.x + size &&
+                centre.y >= record.posEnd.y && centre.y < record.posEnd.y + size) {
+                grab_ = Grab::end;
+                break;
+            }
+        }
+        const auto hits = objectsAt(document().view(), centre);
+        if (hits.empty()) {
+            setSelectedSlot(std::nullopt);
+            break;
+        }
+        // Repeated clicks cycle through overlapping records in slot order.
+        auto next = hits.front();
+        if (selectedSlot_) {
+            const auto found = std::ranges::find(hits, *selectedSlot_);
+            if (found != hits.end()) {
+                next = found + 1 != hits.end() ? *(found + 1) : hits.front();
+            }
+        }
+        setSelectedSlot(next);
+        grab_ = Grab::body;
+        break;
+    }
+    case Tool::placeObject:
+        canvas_->setPreviewCells({cell});
+        break;
     }
 }
 
@@ -620,6 +923,18 @@ void DocumentTab::onToolDragged(CellPos cell) {
     case Tool::select:
         setSelection(CellMask::fromRect(rectFromCorners(*gestureStart_, cell)));
         break;
+    case Tool::object:
+        if (grab_ != Grab::none) {
+            canvas_->setPreviewCells({cell});
+        }
+        break;
+    case Tool::placeObject: {
+        const auto *preset = placePreset();
+        canvas_->setPreviewCells(preset != nullptr && preset->hasPath
+                                     ? lineCells(*gestureStart_, cell)
+                                     : std::vector<CellPos>{*gestureStart_});
+        break;
+    }
     case Tool::browse:
     case Tool::fill:
     case Tool::start:
@@ -643,6 +958,25 @@ void DocumentTab::onToolReleased() {
         drawLine(*start, *last);
     } else if (tool_ == Tool::rectangle) {
         drawRectangle(*start, *last);
+    } else if (tool_ == Tool::placeObject) {
+        createObjectAt(*start, *last);
+    } else if (tool_ == Tool::object) {
+        const auto grab = grab_;
+        grab_ = Grab::none;
+        const Point delta{
+            (static_cast<std::int32_t>(last->x) - static_cast<std::int32_t>(start->x)) *
+                layout::cellPixels,
+            (static_cast<std::int32_t>(last->y) - static_cast<std::int32_t>(start->y)) *
+                layout::cellPixels};
+        if ((delta.x == 0 && delta.y == 0) || !selectedSlot_) {
+            return;
+        }
+        if (grab == Grab::body) {
+            moveSelectedObject(delta);
+        } else if (grab == Grab::end) {
+            const auto record = *document().view().objects()->record(*selectedSlot_);
+            moveSelectedEnd({record.posEnd.x + delta.x, record.posEnd.y + delta.y});
+        }
     }
 }
 

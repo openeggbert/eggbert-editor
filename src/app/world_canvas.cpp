@@ -157,6 +157,14 @@ void WorldCanvas::setPreviewCells(std::vector<CellPos> cells) {
     update();
 }
 
+void WorldCanvas::setSelectedSlot(std::optional<std::size_t> slot) {
+    if (selectedSlot_ == slot) {
+        return;
+    }
+    selectedSlot_ = slot;
+    update();
+}
+
 void WorldCanvas::setHighlights(std::vector<CellPos> cells, std::vector<std::size_t> objectSlots) {
     markedCells_ = std::move(cells);
     markedSlots_ = std::move(objectSlots);
@@ -245,6 +253,30 @@ void WorldCanvas::paintEvent(QPaintEvent *) {
                                   size * transform_.scale, size * transform_.scale);
                 painter.drawEllipse(area.adjusted(-3, -3, 3, 3));
             }
+        }
+    }
+    if (selectedSlot_) {
+        const auto objects = document_->view().objects();
+        const auto record = objects ? objects->record(*selectedSlot_) : std::nullopt;
+        if (record) {
+            const auto size = schematicSpriteSize(record->channel);
+            const auto box = [&](Point position) {
+                return QRectF(std::floor(transform_.toScreenX(position.x)),
+                              std::floor(transform_.toScreenY(position.y)),
+                              size * transform_.scale, size * transform_.scale);
+            };
+            if (record->posStart != record->posEnd) {
+                painter.setPen(QPen(QColor(255, 255, 255), 1, Qt::DashLine));
+                painter.drawLine(box(record->posStart).center(), box(record->posEnd).center());
+                painter.setPen(QPen(QColor(120, 255, 120), 2));
+                painter.drawRect(box(record->posStart).adjusted(1, 1, -2, -2));
+                painter.setPen(QPen(QColor(255, 120, 120), 2));
+                painter.drawRect(box(record->posEnd).adjusted(1, 1, -2, -2));
+            }
+            painter.setPen(QPen(QColor(0, 0, 0), 4));
+            painter.drawRect(box(record->posCurrent).adjusted(0, 0, -1, -1));
+            painter.setPen(QPen(QColor(255, 255, 255), 2));
+            painter.drawRect(box(record->posCurrent).adjusted(0, 0, -1, -1));
         }
     }
     if (hovered_) {

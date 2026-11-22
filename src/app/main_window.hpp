@@ -50,6 +50,7 @@ struct Prompts {
 };
 
 class MinimapWidget;
+class ObjectsPanel;
 class StatisticsPanel;
 
 class MainWindow final : public QMainWindow {
@@ -89,6 +90,10 @@ public:
 
     [[nodiscard]] MinimapWidget *minimap() const { return minimap_; }
     [[nodiscard]] StatisticsPanel *statistics() const { return statistics_; }
+    [[nodiscard]] ObjectsPanel *objectsPanel() const { return objects_; }
+    // Chooses a verified preset of the current tab's profile and switches to
+    // the place tool. False when the profile has no such preset.
+    bool choosePreset(const QString &id);
     void resetLayout();
 
     [[nodiscard]] QStringList recentFiles() const;
@@ -109,6 +114,7 @@ private:
     void updateStatus();
     void addRecentFile(const QString &path);
     void rebuildRecentMenu();
+    void rebuildPresets(GameProfile profile);
     void showProperties();
     QAction *addAction(QMenu *menu, const QString &objectName, const QString &text,
                        const QKeySequence &shortcut = {});
@@ -124,6 +130,12 @@ private:
     QLabel *accessLabel_ = nullptr;
     MinimapWidget *minimap_ = nullptr;
     StatisticsPanel *statistics_ = nullptr;
+    ObjectsPanel *objects_ = nullptr;
+    QDockWidget *objectsDock_ = nullptr;
+    QMenu *createMenu_ = nullptr;
+    QComboBox *presetCombo_ = nullptr;
+    QLabel *poolLabel_ = nullptr;
+    GameProfile presetProfile_ = GameProfile::unknown;
     QDockWidget *minimapDock_ = nullptr;
     QDockWidget *statisticsDock_ = nullptr;
     QByteArray defaultState_;

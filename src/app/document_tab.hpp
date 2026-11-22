@@ -10,13 +10,28 @@
 #include "app/document_file.hpp"
 #include "app/world_canvas.hpp"
 #include "world/metadata.hpp"
+#include "world/object_ops.hpp"
 #include "world/tile_tools.hpp"
 
 class QLabel;
 
 namespace eggbert {
 
-enum class Tool { browse, pencil, eraser, eyedropper, line, rectangle, fill, select, start };
+enum class Tool {
+    browse,
+    pencil,
+    eraser,
+    eyedropper,
+    line,
+    rectangle,
+    fill,
+    select,
+    start,
+    // Select and move object records.
+    object,
+    // Create objects from the chosen verified preset.
+    placeObject,
+};
 
 // What a broad edit would do, shown before it is applied.
 struct BroadEditPreview {
@@ -114,6 +129,33 @@ public:
     bool placeStartAt(CellPos cell);
     bool copyActiveStartToAll();
 
+    // Objects. Every command is one undo step through the core operations.
+    [[nodiscard]] std::optional<std::size_t> selectedSlot() const { return selectedSlot_; }
+    void setSelectedSlot(std::optional<std::size_t> slot);
+    // Preset used by the place tool; nullptr until one is chosen or when the
+    // profile has no such preset.
+    [[nodiscard]] const ObjectPreset *placePreset() const;
+    void setPlacePreset(const QString &id);
+    // True when the record is active and its type has a verified preset for
+    // the chosen profile, so its fields may be edited.
+    [[nodiscard]] bool canEditObject(std::size_t slot) const;
+    // True when the record is active; deleting needs no type knowledge.
+    [[nodiscard]] bool canDeleteObject(std::size_t slot) const;
+    std::optional<std::size_t> createObjectAt(CellPos cell, std::optional<CellPos> pathEnd);
+    bool deleteSelectedObject();
+    bool duplicateSelectedObject();
+    // Moves the whole object (static relocation or path translation).
+    bool moveSelectedObject(Point delta);
+    bool moveSelectedStart(Point position);
+    bool moveSelectedEnd(Point position);
+    // Exact numeric edits of the fields the editor offers: durations,
+    // waits, positions, channel and icon.
+    bool setObjectNumber(std::size_t slot, ObjectField field, std::int16_t value);
+    bool setObjectPosition(std::size_t slot, ObjectField field, Point value);
+    [[nodiscard]] static bool isEditableObjectField(ObjectField field);
+    // Display name of a stored type under the tab's profile.
+    [[nodiscard]] QString objectTypeText(std::int16_t type) const;
+
     // Selection.
     [[nodiscard]] const CellMask &selection() const { return selection_; }
     void setSelection(const CellMask &mask);
@@ -143,6 +185,7 @@ signals:
     void profileChanged();
     void toolStateChanged();
     void selectionChanged();
+    void objectSelectionChanged();
     void statusMessage(const QString &message);
 
 private:
@@ -156,6 +199,9 @@ private:
     void onToolPressed(CellPos cell);
     void onToolDragged(CellPos cell);
     void onToolReleased();
+    bool requireWritable();
+    bool applyObjectEdit(EditBuilder &builder, const QString &label);
+    void reportObjectError(ObjectOpError error);
 
     std::unique_ptr<DocumentFile> file_;
     GameProfile profile_ = GameProfile::unknown;
@@ -171,6 +217,10 @@ private:
     std::uint64_t nextGestureKey_ = 1;
     std::optional<CellPos> gestureStart_;
     std::optional<CellPos> gestureLast_;
+    std::optional<std::size_t> selectedSlot_;
+    QString placePresetId_;
+    enum class Grab { none, body, end };
+    Grab grab_ = Grab::none;
     QLabel *banner_ = nullptr;
     WorldCanvas *canvas_ = nullptr;
 };

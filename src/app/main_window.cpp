@@ -29,8 +29,10 @@
 
 #include "app/metadata_dialog.hpp"
 #include "app/minimap_widget.hpp"
+#include "app/objects_panel.hpp"
 #include "app/probe_report.hpp"
 #include "app/statistics_panel.hpp"
+#include "world/object_catalog.hpp"
 #include "world/offset_map.hpp"
 
 namespace eggbert {
@@ -66,7 +68,10 @@ MainWindow::MainWindow() {
     cellLabel_ = new QLabel(this);
     zoomLabel_ = new QLabel(this);
     accessLabel_ = new QLabel(this);
+    poolLabel_ = new QLabel(this);
+    poolLabel_->setObjectName(QStringLiteral("poolLabel"));
     statusBar()->addWidget(cellLabel_, 1);
+    statusBar()->addPermanentWidget(poolLabel_);
     statusBar()->addPermanentWidget(accessLabel_);
     statusBar()->addPermanentWidget(zoomLabel_);
 
@@ -256,6 +261,7 @@ void MainWindow::createActions() {
     auto *viewMenu = menuBar()->addMenu(tr("&View"));
     auto *worldMenu = menuBar()->addMenu(tr("&World"));
     auto *layerMenu = menuBar()->addMenu(tr("&Layer"));
+    auto *objectMenu = menuBar()->addMenu(tr("&Object"));
     auto *open = addAction(fileMenu, QStringLiteral("fileOpen"), tr("&Open World..."),
                            QKeySequence::Open);
     connect(open, &QAction::triggered, this, [this] {
@@ -428,6 +434,41 @@ void MainWindow::createActions() {
                 }
             });
 
+    createMenu_ = objectMenu->addMenu(tr("&Create Verified Type"));
+    createMenu_->setObjectName(QStringLiteral("objectCreateMenu"));
+    connect(addAction(objectMenu, QStringLiteral("objectDuplicate"), tr("D&uplicate"),
+                      QKeySequence(Qt::CTRL | Qt::Key_D)),
+            &QAction::triggered, this, tabCommand(&DocumentTab::duplicateSelectedObject));
+    connect(addAction(objectMenu, QStringLiteral("objectDelete"), tr("&Delete Object"),
+                      QKeySequence(Qt::SHIFT | Qt::Key_Delete)),
+            &QAction::triggered, this, tabCommand(&DocumentTab::deleteSelectedObject));
+    objectMenu->addSeparator();
+    const auto addNudge = [&](const QString &name, const QString &text, Qt::Key key, int dx,
+                              int dy) {
+        connect(addAction(objectMenu, name, text, QKeySequence(Qt::ALT | key)),
+                &QAction::triggered, this, [this, dx, dy] {
+                    if (auto *tab = currentTab()) {
+                        tab->moveSelectedObject(
+                            {dx * layout::cellPixels, dy * layout::cellPixels});
+                    }
+                });
+    };
+    addNudge(QStringLiteral("objectNudgeLeft"), tr("Move One Cell &Left"), Qt::Key_Left, -1, 0);
+    addNudge(QStringLiteral("objectNudgeRight"), tr("Move One Cell &Right"), Qt::Key_Right, 1, 0);
+    addNudge(QStringLiteral("objectNudgeUp"), tr("Move One Cell &Up"), Qt::Key_Up, 0, -1);
+    addNudge(QStringLiteral("objectNudgeDown"), tr("Move One Cell Do&wn"), Qt::Key_Down, 0, 1);
+    objectMenu->addSeparator();
+    connect(addAction(objectMenu, QStringLiteral("objectProperties"),
+                      tr("&Properties and Pool Usage")),
+            &QAction::triggered, this, [this] {
+                objectsDock_->show();
+                objectsDock_->raise();
+                if (auto *tab = currentTab()) {
+                    statusBar()->showMessage(objects_->capacityText().section('\n', 0, 0), 8000);
+                    Q_UNUSED(tab);
+                }
+            });
+
     const auto canvasCommand = [this](void (WorldCanvas::*command)()) {
         return [this, command] {
             if (auto *tab = currentTab()) {
@@ -543,6 +584,27 @@ void MainWindow::createActions() {
             tab->setActiveStart(static_cast<std::size_t>(value - 1));
         }
     });
+    addTool(QStringLiteral("toolObject"), tr("Object"), Tool::object, QKeySequence(Qt::Key_O))
+        ->setToolTip(tr("Object: click to select a record (click again to cycle overlapping "
+                        "ones by slot), drag to move it by whole cells, drag a path's end box to "
+                        "reshape the path (O)"));
+    addTool(QStringLiteral("toolPlaceObject"), tr("Place"), Tool::placeObject,
+            QKeySequence(Qt::Key_N))
+        ->setToolTip(tr("Place: creates the chosen verified object on a cell; for movers, drag "
+                        "to the path's end (N)"));
+    presetCombo_ = new QComboBox(this);
+    presetCombo_->setObjectName(QStringLiteral("objectPresetCombo"));
+    presetCombo_->setToolTip(tr("Verified object presets of the chosen game profile"));
+    presetCombo_->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+    toolBar->addWidget(presetCombo_);
+    connect(presetCombo_, &QComboBox::currentIndexChanged, this, [this](int index) {
+        if (updating_ || index < 0) {
+            return;
+        }
+        if (auto *tab = currentTab()) {
+            tab->setPlacePreset(presetCombo_->itemData(index).toString());
+        }
+    });
     toolBar->addSeparator();
 
     layerCombo_ = new QComboBox(this);
@@ -635,6 +697,19 @@ void MainWindow::createDocks(QMenu *viewMenu) {
                                   static_cast<std::size_t>(size));
             });
 
+    objectsDock_ = new QDockWidget(tr("Objects"), this);
+    objectsDock_->setObjectName(QStringLiteral("objectsDock"));
+    objects_ = new ObjectsPanel(objectsDock_);
+    objectsDock_->setWidget(objects_);
+    addDockWidget(Qt::RightDockWidgetArea, objectsDock_);
+    tabifyDockWidget(statisticsDock_, objectsDock_);
+    statisticsDock_->raise();
+    connect(objects_, &ObjectsPanel::slotActivated, this,
+            [this](qulonglong slot) { locateSlot(static_cast<std::size_t>(slot)); });
+    auto *objectsToggle = objectsDock_->toggleViewAction();
+    objectsToggle->setObjectName(QStringLiteral("viewObjectsDock"));
+    objectsToggle->setText(tr("Ob&jects Panel"));
+
     auto *minimapToggle = minimapDock_->toggleViewAction();
     minimapToggle->setObjectName(QStringLiteral("viewMinimap"));
     minimapToggle->setText(tr("&Minimap"));
@@ -643,6 +718,7 @@ void MainWindow::createDocks(QMenu *viewMenu) {
     statisticsToggle->setObjectName(QStringLiteral("viewStatistics"));
     statisticsToggle->setText(tr("World S&tatistics"));
     viewMenu->addAction(statisticsToggle);
+    viewMenu->addAction(objectsToggle);
     connect(addAction(viewMenu, QStringLiteral("viewResetLayout"), tr("&Reset Layout")),
             &QAction::triggered, this, [this] { resetLayout(); });
 }
@@ -651,6 +727,7 @@ void MainWindow::resetLayout() {
     restoreState(defaultState_);
     minimapDock_->show();
     statisticsDock_->show();
+    objectsDock_->show();
 }
 
 std::size_t MainWindow::locateTileValue(SectionKind layer, std::int16_t value) {
@@ -825,6 +902,7 @@ void MainWindow::connectTab(DocumentTab *tab) {
     connect(tab, &DocumentTab::documentChanged, this, [this] { updateUi(); });
     connect(tab, &DocumentTab::toolStateChanged, this, [this] { updateUi(); });
     connect(tab, &DocumentTab::selectionChanged, this, [this] { updateUi(); });
+    connect(tab, &DocumentTab::objectSelectionChanged, this, [this] { updateUi(); });
     tab->confirmBroadEdit = [this, tab](const BroadEditPreview &preview) {
         return prompts.confirmBroadEdit(tab, preview);
     };
@@ -994,6 +1072,37 @@ void MainWindow::addRecentFile(const QString &path) {
     rebuildRecentMenu();
 }
 
+void MainWindow::rebuildPresets(GameProfile profile) {
+    presetProfile_ = profile;
+    presetCombo_->clear();
+    createMenu_->clear();
+    for (const auto &preset : objectPresets(profile)) {
+        const auto id =
+            QString::fromUtf8(preset.id.data(), static_cast<qsizetype>(preset.id.size()));
+        const auto name =
+            QString::fromUtf8(preset.name.data(), static_cast<qsizetype>(preset.name.size()));
+        presetCombo_->addItem(name, id);
+        const auto provenance = QString::fromUtf8(
+            preset.provenance.data(), static_cast<qsizetype>(preset.provenance.size()));
+        presetCombo_->setItemData(presetCombo_->count() - 1,
+                                  tr("Stored type %1. Evidence: %2").arg(preset.type).arg(provenance),
+                                  Qt::ToolTipRole);
+        auto *item = createMenu_->addAction(name);
+        item->setObjectName(QStringLiteral("objectCreate_") + id);
+        connect(item, &QAction::triggered, this, [this, id] { choosePreset(id); });
+    }
+}
+
+bool MainWindow::choosePreset(const QString &id) {
+    auto *tab = currentTab();
+    if (tab == nullptr || findObjectPreset(tab->profile(), id.toStdString()) == nullptr) {
+        return false;
+    }
+    tab->setPlacePreset(id);
+    tab->setTool(Tool::placeObject);
+    return true;
+}
+
 void MainWindow::rebuildRecentMenu() {
     recentMenu_->clear();
     const auto files = recentFiles();
@@ -1087,6 +1196,32 @@ void MainWindow::updateUi() {
                              "toolFill"}) {
         enable(name, writable);
     }
+    const auto profile = hasTab ? tab->profile() : GameProfile::unknown;
+    if (profile != presetProfile_ || (presetCombo_->count() == 0 && profile != GameProfile::unknown)) {
+        rebuildPresets(profile);
+    }
+    if (hasTab && tab->placePreset() == nullptr && presetCombo_->count() > 0) {
+        tab->setPlacePreset(presetCombo_->itemData(0).toString());
+    }
+    if (hasTab && tab->placePreset() != nullptr) {
+        presetCombo_->setCurrentIndex(presetCombo_->findData(
+            QString::fromUtf8(tab->placePreset()->id.data(),
+                              static_cast<qsizetype>(tab->placePreset()->id.size()))));
+    }
+    const bool hasPresets = writable && presetCombo_->count() > 0;
+    presetCombo_->setEnabled(hasPresets);
+    createMenu_->setEnabled(hasPresets);
+    enable("toolPlaceObject", hasPresets);
+    enable("toolObject", hasTab);
+    const bool hasObject = hasTab && tab->selectedSlot().has_value();
+    const bool objectEditable = hasObject && tab->canEditObject(*tab->selectedSlot());
+    enable("objectDelete", hasObject && tab->canDeleteObject(*tab->selectedSlot()));
+    enable("objectDuplicate", objectEditable);
+    for (const char *name :
+         {"objectNudgeLeft", "objectNudgeRight", "objectNudgeUp", "objectNudgeDown"}) {
+        enable(name, objectEditable);
+    }
+    enable("objectProperties", hasTab);
     enable("toolStart", writable);
     enable("worldMetadata", writable);
     enable("worldStarts", writable);
@@ -1136,7 +1271,8 @@ void MainWindow::updateUi() {
             {Tool::pencil, "toolPencil"},       {Tool::eraser, "toolEraser"},
             {Tool::eyedropper, "toolEyedropper"}, {Tool::line, "toolLine"},
             {Tool::rectangle, "toolRectangle"}, {Tool::fill, "toolFill"},
-            {Tool::start, "toolStart"},
+            {Tool::start, "toolStart"},         {Tool::object, "toolObject"},
+            {Tool::placeObject, "toolPlaceObject"},
         };
         for (const auto &[tool, name] : toolActions) {
             if (tab->tool() == tool) {
@@ -1174,6 +1310,7 @@ void MainWindow::updateUi() {
     updating_ = false;
     minimap_->setTab(tab);
     statistics_->setTab(tab);
+    objects_->setTab(tab);
     updateStatus();
 }
 
@@ -1183,11 +1320,18 @@ void MainWindow::updateStatus() {
         cellLabel_->setText(tr("Open a world file to begin."));
         zoomLabel_->clear();
         accessLabel_->clear();
+        poolLabel_->clear();
         return;
     }
     const auto cell = tab->canvas()->hoveredCell().value_or(tab->canvas()->cursorCell());
     cellLabel_->setText(tab->describeCell(cell));
     zoomLabel_->setText(tr("%1%").arg(qRound(tab->canvas()->zoom() * 100)));
+    const auto capacity = poolCapacity(tab->document().view());
+    poolLabel_->setText(capacity.stored == 0 ? QString()
+                                             : tr("Objects %1/%2, %3 free")
+                                                   .arg(capacity.active)
+                                                   .arg(capacity.stored)
+                                                   .arg(capacity.free));
     const auto &probe = tab->document().probe();
     const auto revision = probe.descriptor != nullptr
                               ? tr("Revision %1.%2")
