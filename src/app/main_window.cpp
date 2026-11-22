@@ -2,6 +2,7 @@
 #include "main_window.hpp"
 
 #include <QAction>
+#include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QKeySequence>
@@ -9,7 +10,11 @@
 #include <QMenu>
 #include <QMenuBar>
 
-#include "world/layout.hpp"
+#include <vector>
+
+#include "probe_report.hpp"
+#include "world/world_file.hpp"
+#include "world/world_probe.hpp"
 
 namespace eggbert {
 
@@ -17,7 +22,7 @@ MainWindow::MainWindow() {
     setWindowTitle(tr("Eggbert Editor"));
     resize(760, 520);
 
-    auto *details = new QLabel(tr("Choose a world file to inspect its size."), this);
+    auto *details = new QLabel(tr("Choose a world file to probe its structure. Nothing is modified."), this);
     details->setAlignment(Qt::AlignCenter);
     details->setTextFormat(Qt::PlainText);
     details->setTextInteractionFlags(Qt::TextSelectableByMouse);
@@ -33,17 +38,29 @@ MainWindow::MainWindow() {
         if (path.isEmpty()) {
             return;
         }
-        const QFileInfo file(path);
-        if (!file.isFile() || !file.isReadable()) {
+        QFile file(path);
+        if (!file.open(QIODevice::ReadOnly)) {
             details->setText(tr("This file is unavailable."));
             return;
         }
-        const auto size = file.size();
-        const auto sizeHint = size == static_cast<qint64>(v1_3::worldBytes)
-            ? tr("Matches the canonical v1.3 file size.")
-            : tr("Differs from the canonical v1.3 file size.");
-        details->setText(tr("%1\n%2 bytes\n%3")
-                             .arg(file.fileName(), QString::number(size), sizeHint));
+        // A world is about 50 KiB; refuse to load something absurdly large
+        // into memory just to probe it.
+        constexpr qint64 inspectionLimit = 64 * 1024 * 1024;
+        if (file.size() > inspectionLimit) {
+            details->setText(tr("%1\n%2 bytes\nToo large to inspect as a world file.")
+                                 .arg(QFileInfo(path).fileName(), QString::number(file.size())));
+            return;
+        }
+        const QByteArray contents = file.readAll();
+        if (file.error() != QFileDevice::NoError) {
+            details->setText(tr("This file could not be read."));
+            return;
+        }
+        const WorldFile world(std::vector<std::byte>(
+            reinterpret_cast<const std::byte *>(contents.constData()),
+            reinterpret_cast<const std::byte *>(contents.constData()) + contents.size()));
+        details->setText(
+            formatProbeReport(QFileInfo(path).fileName(), probeWorld(world.originalBytes())));
     });
 
     auto *quitAction = fileMenu->addAction(tr("&Quit"));

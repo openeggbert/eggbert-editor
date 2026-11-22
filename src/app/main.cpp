@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
-#include "main_window.hpp"
+#include "app/main_window.hpp"
 
 #include <QApplication>
 
