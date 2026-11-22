@@ -32,11 +32,24 @@ QString profileKey(GameProfile profile) {
 
 } // namespace
 
+// The crop clamped to the map; the whole map when there is none.
+static CellRect exportCells(const PngExportOptions &options) {
+    CellRect cells{{0, 0}, {layout::mapWidth - 1, layout::mapHeight - 1}};
+    if (options.crop) {
+        cells.min.x = std::min(options.crop->min.x, layout::mapWidth - 1);
+        cells.min.y = std::min(options.crop->min.y, layout::mapHeight - 1);
+        cells.max.x = std::clamp(options.crop->max.x, cells.min.x, layout::mapWidth - 1);
+        cells.max.y = std::clamp(options.crop->max.y, cells.min.y, layout::mapHeight - 1);
+    }
+    return cells;
+}
+
 PngExportEstimate estimatePngExport(const PngExportOptions &options) {
     PngExportEstimate estimate;
     const auto pixels = clampedPixelsPerCell(options);
-    estimate.width = static_cast<int>(layout::mapWidth) * pixels;
-    estimate.height = static_cast<int>(layout::mapHeight) * pixels;
+    const auto cells = exportCells(options);
+    estimate.width = static_cast<int>(cells.width()) * pixels;
+    estimate.height = static_cast<int>(cells.height()) * pixels;
     estimate.imageBytes = static_cast<qint64>(estimate.width) * estimate.height * 4;
     return estimate;
 }
@@ -53,7 +66,13 @@ QString describeExportSettings(const PngExportOptions &options) {
                     flag(render.transparentBackground)) +
            QStringLiteral(" backdrop=%1")
                .arg(flag(render.artwork != nullptr && render.showBackdrop &&
-                         !render.transparentBackground));
+                         !render.transparentBackground)) +
+           (options.crop ? QStringLiteral(" crop=%1,%2,%3,%4")
+                               .arg(exportCells(options).min.x)
+                               .arg(exportCells(options).min.y)
+                               .arg(exportCells(options).width())
+                               .arg(exportCells(options).height())
+                         : QString());
 }
 
 QImage renderWorldForExport(const WorldView &world, const PngExportOptions &options) {
@@ -65,6 +84,9 @@ QImage renderWorldForExport(const WorldView &world, const PngExportOptions &opti
     image.fill(Qt::transparent);
     ViewTransform transform;
     transform.scale = static_cast<double>(clampedPixelsPerCell(options)) / layout::cellPixels;
+    const auto cells = exportCells(options);
+    transform.originX = static_cast<double>(cells.min.x) * layout::cellPixels;
+    transform.originY = static_cast<double>(cells.min.y) * layout::cellPixels;
     QPainter painter(&image);
     // Each band clips the painter and limits the renderer to the cells it
     // touches, so the work per step is bounded whatever the output size.

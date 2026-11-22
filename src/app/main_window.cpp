@@ -425,6 +425,7 @@ void MainWindow::installDefaultPrompts() {
     prompts.exportPng =
         [this](DocumentTab *tab) -> std::optional<std::pair<PngExportOptions, QString>> {
         PngExportDialog dialog(tab->canvas()->renderOptions(), artworkFor(tab->profile()), this);
+        dialog.setSelectionBounds(tab->selection().bounds());
         if (dialog.exec() != QDialog::Accepted) {
             return std::nullopt;
         }

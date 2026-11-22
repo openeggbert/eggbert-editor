@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-only
+#include "app/cli.hpp"
 #include "app/main_window.hpp"
 #include "app/smoke_test.hpp"
 
 #include <QApplication>
+#include <QTextStream>
 
 #include <cstdio>
 #include <string_view>
@@ -22,9 +24,29 @@ int main(int argc, char **argv) {
                         "       eggbert-editor --smoke-test   (self check, needs no game data)\n"
                         "       eggbert-editor --smoke-test --game-data DIR\n"
                         "                      (self check that also draws with the game in DIR;\n"
-                        "                       DIR is only read)\n");
+                        "                       DIR is only read)\n\n%s",
+                        eggbert::commandLineUsage().toLocal8Bit().constData());
             return 0;
         }
+    }
+    // Headless commands: no window, and a display only for the one that
+    // draws (the offscreen platform unless another is asked for).
+    if (argc > 1 && eggbert::isCommandLineCommand(QString::fromLocal8Bit(argv[1]))) {
+        QStringList arguments;
+        for (int index = 1; index < argc; ++index) {
+            arguments << QString::fromLocal8Bit(argv[index]);
+        }
+        QTextStream out(stdout);
+        QTextStream err(stderr);
+        if (eggbert::commandNeedsGraphics(arguments[0])) {
+            if (qEnvironmentVariableIsEmpty("QT_QPA_PLATFORM")) {
+                qputenv("QT_QPA_PLATFORM", "offscreen");
+            }
+            QGuiApplication graphics(argc, argv);
+            return eggbert::runCommandLine(arguments, out, err);
+        }
+        QCoreApplication core(argc, argv);
+        return eggbert::runCommandLine(arguments, out, err);
     }
 
     QApplication app(argc, argv);

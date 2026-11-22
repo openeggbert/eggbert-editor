@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #pragma once
 
+#include <optional>
 #include <QDialog>
 
+#include "world/tile_tools.hpp"
 #include "app/png_export.hpp"
 
 class QCheckBox;
@@ -23,6 +25,10 @@ public:
                              std::shared_ptr<const GameAssets> available = nullptr,
                              QWidget *parent = nullptr);
 
+    // Offers "selected cells only" for this rectangle (the bounds of the
+    // document's selection); without a call the whole world is exported.
+    void setSelectionBounds(std::optional<CellRect> bounds);
+
     [[nodiscard]] PngExportOptions options() const;
     [[nodiscard]] QString estimateText() const;
 
@@ -40,6 +46,8 @@ private:
     QCheckBox *transparent_ = nullptr;
     QCheckBox *artwork_ = nullptr;
     QCheckBox *backdrop_ = nullptr;
+    QCheckBox *selectionOnly_ = nullptr;
+    std::optional<CellRect> selection_;
     std::shared_ptr<const GameAssets> available_;
     QLabel *estimate_ = nullptr;
 };

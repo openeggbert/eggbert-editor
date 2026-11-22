@@ -160,6 +160,19 @@ int main(int argc, char **argv) {
             CHECK(!backdropBox->isEnabled());
             CHECK(describeExportSettings(withArtwork.options()).endsWith("backdrop=0"));
             CHECK(describeExportSettings(without.options()).endsWith("backdrop=0"));
+            // "Selected cells only" exists when there is a selection.
+            auto *selectionBox = without.findChild<QCheckBox *>("pngSelectionOnly");
+            CHECK(selectionBox != nullptr && !selectionBox->isEnabled());
+            CHECK(!without.options().crop.has_value());
+            without.setSelectionBounds(CellRect{{10, 20}, {14, 22}});
+            CHECK(selectionBox->isEnabled() && !selectionBox->isChecked());
+            CHECK(selectionBox->text().contains("5 x 3"));
+            CHECK(!without.options().crop.has_value());
+            selectionBox->setChecked(true);
+            CHECK((without.options().crop == CellRect{{10, 20}, {14, 22}}));
+            CHECK(without.estimateText().contains("320 x 192"));
+            without.setSelectionBounds(std::nullopt);
+            CHECK(!without.options().crop.has_value());
             CHECK(without.options().render.artwork == nullptr);
         }
         // The world file is never told about the directory.

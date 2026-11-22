@@ -58,6 +58,9 @@ PngExportDialog::PngExportDialog(const RenderOptions &initial,
     connect(transparent_, &QCheckBox::toggled, this, syncBackdrop);
     syncBackdrop();
 
+    selectionOnly_ = addBox(QStringLiteral("pngSelectionOnly"), tr("Selected cells only"), false);
+    selectionOnly_->setEnabled(false);
+
     estimate_ = new QLabel(this);
     estimate_->setObjectName(QStringLiteral("pngEstimate"));
     estimate_->setWordWrap(true);
@@ -71,8 +74,26 @@ PngExportDialog::PngExportDialog(const RenderOptions &initial,
     refresh();
 }
 
+void PngExportDialog::setSelectionBounds(std::optional<CellRect> bounds) {
+    selection_ = bounds;
+    selectionOnly_->setEnabled(selection_.has_value());
+    if (!selection_) {
+        selectionOnly_->setChecked(false);
+    } else {
+        selectionOnly_->setText(tr("Selected cells only (%1 x %2 cells from %3, %4)")
+                                    .arg(selection_->width())
+                                    .arg(selection_->height())
+                                    .arg(selection_->min.x)
+                                    .arg(selection_->min.y));
+    }
+    refresh();
+}
+
 PngExportOptions PngExportDialog::options() const {
     PngExportOptions options;
+    if (selection_ && selectionOnly_->isChecked()) {
+        options.crop = selection_;
+    }
     options.pixelsPerCell = scale_->currentData().toInt();
     options.render.showForeground = foreground_->isChecked();
     options.render.showBigDecor = bigDecor_->isChecked();

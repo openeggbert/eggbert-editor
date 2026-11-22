@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #pragma once
 
+#include <optional>
 #include <QImage>
 #include <QString>
 
+#include "world/tile_tools.hpp"
 #include "app/world_renderer.hpp"
 #include "world/layout.hpp"
 
@@ -16,6 +18,9 @@ struct PngExportOptions {
     // Output pixels per map cell: 64 is the native size (6400 x 6400).
     int pixelsPerCell = layout::cellPixels;
     RenderOptions render;
+    // Only these cells (inclusive corners, clamped to the map); unset for
+    // the whole world.
+    std::optional<CellRect> crop;
 
     friend bool operator==(const PngExportOptions &, const PngExportOptions &) = default;
 };
@@ -30,7 +35,7 @@ struct PngExportEstimate {
 
 [[nodiscard]] PngExportEstimate estimatePngExport(const PngExportOptions &options);
 
-// The complete 100 x 100 world, drawn in horizontal bands with the same
+// The complete 100 x 100 world (or its crop), drawn in horizontal bands with the same
 // renderer and draw order as the canvas.
 [[nodiscard]] QImage renderWorldForExport(const WorldView &world,
                                           const PngExportOptions &options);

@@ -159,13 +159,24 @@ Type an offset (`1608` or `0x648`), `cell 3,70`, `big 3,70` or `slot 137` to jum
 
 ## Exporting a picture
 
-**File → Export World PNG** (Ctrl+E) writes one image of the complete world: 6,400 × 6,400 pixels at the native 64 pixels per cell, or smaller. Choose the layers and overlays, a solid or transparent background and, with artwork, whether the world's backdrop picture is drawn (tiled from the top-left corner, without the canvas's scrolling shift); the dialog shows the size and the memory needed first. The picture is drawn with the same code as the canvas and records the game profile, the kind of drawing and the settings in its metadata. It is schematic unless you tick **Draw with game artwork** (available when artwork for the tab's game is loaded). Pictures drawn with artwork contain copyrighted material of the game's owners: keep them for your own use unless you have permission to share them.
+**File → Export World PNG** (Ctrl+E) writes one image of the complete world: 6,400 × 6,400 pixels at the native 64 pixels per cell, or smaller. Choose the whole world or only the selected cells, the layers and overlays, a solid or transparent background and, with artwork, whether the world's backdrop picture is drawn (tiled from the top-left corner, without the canvas's scrolling shift); the dialog shows the size and the memory needed first. The picture is drawn with the same code as the canvas and records the game profile, the kind of drawing and the settings in its metadata. It is schematic unless you tick **Draw with game artwork** (available when artwork for the tab's game is loaded). Pictures drawn with artwork contain copyrighted material of the game's owners: keep them for your own use unless you have permission to share them.
 
 ## Appearance and layout
 
 Panels can be moved, floated, stacked and closed; **View** lists them. **View → Layout** arranges them for mapping, object work or validation, and **Reset Layout** restores the default. **View → Theme** switches between the system, light and dark appearance. Window layout, theme and recent files are remembered.
 
 **Help → Diagnostics Bundle** saves a text report to attach to a problem report: program, Qt and platform versions, the structural report of the current document (with its file name but not its folder, and with the decoded title and header values), the World Doctor findings, and the byte ranges changed since opening and since the last save with their old and new bytes. The rest of the world's data is not included.
+
+## Command line
+
+Besides opening files (`eggbert-editor world.blp ...`), the program has commands that open no window and never change a world file:
+
+- `eggbert-editor info FILE` prints the structural report and the decoded summary.
+- `eggbert-editor validate FILE [--game 1|2]` prints the World Doctor findings, one per line with rule, byte range and message; the exit code is 1 when there are errors.
+- `eggbert-editor diff FILE OTHER` lists the differing byte ranges with their structural names and old and new bytes; the exit code is 1 when the files differ.
+- `eggbert-editor export-png FILE OUT.png` writes the picture **File → Export World PNG** writes. Options: `--scale N` (pixels per cell, 1 to 64), `--crop x,y,width,height` (in cells), `--game 1|2`, `--game-data DIR` (draw with that game's artwork), `--no-foreground`, `--no-bigdecor`, `--no-objects`, `--no-starts`, `--no-paths`, `--no-backdrop`, `--grid`, `--labels`, `--transparent`.
+
+Exit codes: 0 success, 1 findings or differences, 2 wrong usage or a file that cannot be read or written. `eggbert-editor --help` lists everything.
 
 ## What the editor does not do
 

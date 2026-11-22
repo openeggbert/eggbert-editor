@@ -66,6 +66,8 @@ qt_add_library(eggbert_app STATIC
     src/app/appearance.hpp
     src/app/diagnostics_panel.cpp
     src/app/diagnostics_panel.hpp
+    src/app/cli.cpp
+    src/app/cli.hpp
     src/app/document_file.cpp
     src/app/document_file.hpp
     src/app/document_tab.cpp
@@ -178,7 +180,7 @@ if(BUILD_TESTING)
     endforeach()
 
     # Application tests run without a display.
-    foreach(name probe_report document_file recovery_store world_renderer png_export game_assets main_window docks tools metadata_ui objects_ui inspector doctor_ui adaptive_ui workspace artwork_ui palette music_player animation_ui interface_ui recovery_ui)
+    foreach(name probe_report document_file recovery_store cli world_renderer png_export game_assets main_window docks tools metadata_ui objects_ui inspector doctor_ui adaptive_ui workspace artwork_ui palette music_player animation_ui interface_ui recovery_ui)
         add_executable(${name}-test tests/${name}_test.cpp)
         target_link_libraries(${name}-test PRIVATE eggbert_app Qt6::Test)
         add_test(NAME ${name} COMMAND ${name}-test)
@@ -186,6 +188,9 @@ if(BUILD_TESTING)
     endforeach()
 
     # The built program's own self check, then the same from an installed tree.
+    # The headless commands of the built program, without any display.
+    add_test(NAME cli_usage COMMAND eggbert-editor info)
+    set_tests_properties(cli_usage PROPERTIES WILL_FAIL TRUE TIMEOUT 60)
     add_test(NAME smoke COMMAND eggbert-editor --smoke-test)
     set_tests_properties(smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     # Informational options must work without any display.
