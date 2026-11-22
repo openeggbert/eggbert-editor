@@ -220,7 +220,8 @@ int main(int argc, char **argv) {
         CHECK(missingIcon.pixelColor(30, 30) != background);
         CHECK(missingIcon.pixelColor(30, 30) != spriteColor(1, 3));
     }
-    // Reduced scale uses nearest-neighbour sampling: colours stay exact.
+    // Reduced scale averages pixels (dither patterns must not become a
+    // checkerboard); inside a plain sprite the colour stays exact.
     {
         const auto small = renderWorldImage(world, 0.25, options); // 16 pixels per cell
         CHECK(small.pixelColor(3 * 16 + 8, 70 * 16 + 8) == tile(9));

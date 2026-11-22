@@ -208,7 +208,12 @@ void renderWorld(QPainter &painter, const WorldView &world, const ViewTransform 
         const auto target =
             screenRect(transform, worldX + sprite->offset.x(), worldY + sprite->offset.y(),
                        sprite->source.width(), sprite->source.height());
+        // Exact pixels at full size and above. Below it, averaging: the
+        // games' water and glass are fine dither patterns, which sampling
+        // single pixels would turn into a coarse checkerboard.
+        painter.setRenderHint(QPainter::SmoothPixmapTransform, transform.scale < 1.0);
         painter.drawImage(target, *sprite->sheet, sprite->source);
+        painter.setRenderHint(QPainter::SmoothPixmapTransform, false);
         return true;
     };
 

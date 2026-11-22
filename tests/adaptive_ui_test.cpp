@@ -133,6 +133,9 @@ int main(int argc, char **argv) {
         const auto preview = tab->previewAdaptive({24, 30});
         CHECK((asSet(preview.changedFootprint) == CellSet{{24, 30}}));
         CHECK((asSet(preview.sideEffects) == CellSet{{23, 30}}));
+        // Let pending layout settle first: docks may still be adjusting the
+        // canvas size, and the canvas keeps the world fitted to it.
+        QTest::qWait(50);
         QTest::mouseMove(canvas, cellCentre(canvas, 24, 30));
         CHECK((asSet(canvas->previewCells()) == CellSet{{24, 30}, {23, 30}}));
         CHECK_EQ(fg(tab, 24, 30), std::int16_t{-1}); // previewing writes nothing
