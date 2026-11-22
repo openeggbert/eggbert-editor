@@ -13,7 +13,7 @@ All numbers are little-endian. A POINT is two signed 32-bit values, x then y.
 | 4 | 200 | `reserve1` | 50 × 32 bits, preserved; demo editions use the first value as a marker |
 | 204 | 8 | `posDecor` | saved scroll position in pixels |
 | 212 | 8 | `dimDecor` | per axis: 0 = one screen, anything else = scrolls |
-| 220 | 2 | `world` | not used by the games, preserved |
+| 220 | 2 | `world` | not read by the games as far as their reconstructed source shows; 0 in every original world checked; preserved |
 | 222 | 2 | `music` | 0 = none, 1–10 |
 | 224 | 2 | `region` | background picture number |
 | 226 | 102 | `reserve2` | 51 × 16 bits, preserved |

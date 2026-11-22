@@ -147,8 +147,8 @@ Type an offset (`1608` or `0x648`), `cell 3,70`, `big 3,70` or `slot 137` to jum
 
 Panels can be moved, floated, stacked and closed; **View** lists them. **View → Layout** arranges them for mapping, object work or validation, and **Reset Layout** restores the default. **View → Theme** switches between the system, light and dark appearance. Window layout, theme and recent files are remembered.
 
-**Help → Diagnostics Bundle** saves a text report (versions, the structural report, World Doctor findings, changed byte ranges) to attach to a problem report. It contains no world data beyond those descriptions.
+**Help → Diagnostics Bundle** saves a text report to attach to a problem report: program, Qt and platform versions, the structural report of the current document (with its file name but not its folder, and with the decoded title and header values), the World Doctor findings, and the byte ranges changed since opening and since the last save with their old and new bytes. The rest of the world's data is not included.
 
 ## What the editor does not do
 
-It does not edit revisions 1.0 and 1.1, does not edit bytes in the hex view, does not write values it has no evidence for, does not create or renumber campaigns, does not copy worlds into a game installation, does not launch a game, and does not convert between Speedy Blupi 1 and 2 or to the Mobile Eggbert format.
+It does not edit revisions 1.0 and 1.1, does not edit bytes in the hex view, does not offer objects, border brushes or music and region values it has no evidence for (raw tile numbers and an object's numeric fields are yours to type), does not create or renumber campaigns, does not copy worlds into a game installation, does not launch a game, and does not convert between Speedy Blupi 1 and 2 or to the Mobile Eggbert format.

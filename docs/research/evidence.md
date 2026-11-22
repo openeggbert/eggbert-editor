@@ -30,6 +30,7 @@ Unless stated otherwise nothing below has been tested in an original executable.
 | Cells are 64 × 64 world pixels, the map is 100 × 100 cells, the view is 640 × 480 | `src/def.h:38-39`, `:51-52`, `:57-58`; `games/sb2/src/def.h:36-37`, `:49-50`, `:55-56` | read |
 | `DIR_LEFT` is 1, `DIR_RIGHT` is 2 | `src/def.h:726-727`; `games/sb2/src/def.h:724-725` | read |
 | The in-game editor places a start at `cell * 64 + (2, 6)`; clicking the cell that already holds it toggles left/right; Ctrl copies start 1 to starts 2–4 | `src/decdesign.cpp:762-783` | read |
+| A single-player game starts at `blupiPos[0]`/`blupiDir[0]`; only a multiplayer game uses the start of the player's team | `src/decblock.cpp:976-986` | read |
 | Music choices are 0–10 (11 buttons, value `message - WM_BUTTON1`); 0 plays nothing | `src/event.cpp:416-426`, `:3086-3090` | read (meaning of 0: reported) |
 | Regions are 0–23 in SB1 and 0–31 in SB2 | `src/event.cpp:3093`; `games/sb2/src/event.cpp:3679` | read |
 | `dimDecor` is only tested for zero/non-zero per axis; the editor writes 100 or 0 | research notes citing `src/event.cpp:3098-3130`, `src/decblupi.cpp:3707-3725` | reported |
