@@ -208,4 +208,14 @@ The cancelled GPL-3.0-only `/rv/data/archive/trash/2026/eggbert-generator.bundle
 
 For reconstructed behavior, pin a `blupi_recon` revision and inspect `src/decor.h`, `src/decor.cpp`, `src/decmove.cpp`, `src/decdesign.cpp` and `src/decblock.cpp` for SB1, with corresponding `games/sb2/src/` files for SB2. `def.h` defines the 200-slot engine pool. Verify reconstruction provenance and original-game samples before claiming compatibility.
 
+### Development game-data acquisition
+
+Game data for local compatibility research may already be available on the development computer at `/rv/data/library/openeggbert/drive.openeggbert.com/Blupi/Games/Speedy_Blupi_(Windows)/`. At the time this plan was written, that directory contains `Speedy_Blupi_I.7z`, `Speedy_Blupi_II.7z`, `Speedy_Eggbert_1.7z` and `Speedy_Eggbert_2.7z`, plus demo archives. Treat this as an optional machine-specific location: check it read-only and do not make builds or tests depend on its existence.
+
+In an isolated/cloud development environment such as Claude Code Cloud, an authorized user or agent may obtain the required research copy from the user-designated [Open Eggbert drive index](https://drive.openeggbert.com/Blupi/Games/Speedy_Blupi_%28Windows%29/). Download only the edition needed for the current verification task into a temporary or external cache outside the repository. Record the exact source URL, retrieval date, byte size and a cryptographic checksum in local test notes. Do not silently fall back between Blupi/Eggbert, game 1/game 2, demo/retail or regional editions.
+
+Treat downloaded archives and extracted contents as untrusted input. Use bounded extraction into a fresh temporary directory; reject absolute paths, parent traversal, links/special files, case-folded collisions and excessive expanded size. Keep the extracted tree read-only during inspection and never execute downloaded binaries as part of ordinary unit tests. Network absence or inaccessible data must skip opt-in compatibility tests with a clear reason, not fail the asset-free build.
+
+Availability at that location does not by itself establish redistribution rights. Never commit, upload, cache in CI artifacts, package or redistribute the archives, executables, retail worlds, sprites, audio or derived exact-render screenshots. The application itself does not download game data in 1.0; end users manually choose a directory they are authorized to use. Synthetic fixtures and generated atlases remain the only required test inputs.
+
 Release under GPL-3.0-only with exact license text, corresponding source and reproducible build instructions. Inventory Qt libraries/plugins, fonts and other dependencies and include applicable notices. Resolve retail artwork only from a user-provided directory. Do not distribute game executables, retail assets, sample retail worlds or screenshots without separately verified permission.
