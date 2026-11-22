@@ -202,6 +202,16 @@ Deferred work, not part of current implementation scope:
 
 Promote a roadmap item only by updating this fixed scope, acceptance tests, `NEXT.md` ordering and effort estimate. Do not implement it opportunistically during 1.0 work.
 
+### Planned Mobile Eggbert world support
+
+After the BLP-focused 1.0 release, add a separate editable document profile and codec for Mobile Eggbert, the modified Speedy Blupi edition derived from the 2013 Windows Phone game. Its designed worlds are text files named `worlds/worldNNN.txt`, not a BLP revision. Do not route them through the binary BLP parser or assume identical metadata/start semantics merely because both engines use a 100 × 100 map and a 200-record object pool.
+
+The initial evidence baseline is the read-only sibling repository `../mobile-eggbert` at commit `dd0a592d878c7b678934945fb0e8ef8f76b63800`. At that revision, representative designed worlds contain a `DescFile:` key/value line, a `Decor:` header followed by 100 comma-separated tile rows, a `BigDecor:` header followed by 100 rows, and repeated one-line `MoveObject:` records. Empty/zero tile representation, text encoding/BOM, newline convention, whitespace, field order, unknown keys, duplicate fields and trailing content require explicit corpus tests before writing. The engine's designed-world loader normalizes tile value 0 to empty, loads one start position/direction, packs object records densely and stops at the first type-zero record; time scaling and verified per-type overrides must be represented as runtime interpretation rather than silently written back on open.
+
+Preserve the exact source text and line endings. Decode known sections as token views with byte spans, then patch only explicitly edited tokens. Unknown fields, whitespace and unrecognized sections survive ordinary Save. If exact token-preserving output cannot be proven for an input, permit inspection and Save As canonical export only after a full textual/semantic diff. Maintain the same transaction, undo, validation, capacity, minimap, object-path, Doctor and PNG concepts through format-neutral document interfaces, while keeping Mobile-specific catalogs and serialization isolated from BLP code.
+
+Research `include/WindowsPhoneSpeedyBlupi/Worlds.hpp`, `src/WindowsPhoneSpeedyBlupi/Worlds.cpp`, the designed-world path in `Decor::Read`, `include/WindowsPhoneSpeedyBlupi/decor/ObjectType.hpp`, `Content/` and `worlds/` without modifying or copying source/assets from that project. Author fresh synthetic text fixtures in Eggbert Editor. Any later BLP ↔ Mobile Eggbert conversion is a separate, explicitly loss-aware feature after both codecs are independently trustworthy; editing Mobile worlds does not require conversion support.
+
 ## Research references and licensing
 
 The cancelled GPL-3.0-only `/rv/data/archive/trash/2026/eggbert-generator.bundle` may be audited at pinned commit `069c409611eb779e9066e8d492faed4550dac9a8` for format observations and known failure modes. Do not transplant its code, tests or assets. Relevant material includes its SB1/SB2 BLP format notes, world reader tests, provenance, decisions and level-design audit.
