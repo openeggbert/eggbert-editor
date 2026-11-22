@@ -122,7 +122,11 @@ struct Game {
 // A generated stand-in for a first-game directory: upper-case names, sheets
 // saved as bitmaps, and an "executable" holding the four sprite tables
 // between unrelated bytes.
-inline Game makeGame(const QString &root, bool secondGame = false) {
+// With `lookAlikeHeight` the player table's sprite 10 gets that height in
+// its record, so the bytes that follow it read as a table of that many
+// sprites (what happens in a real executable when sheets are of similar
+// size).
+inline Game makeGame(const QString &root, bool secondGame = false, int lookAlikeHeight = 0) {
     Game game;
     game.root = root;
     QDir().mkpath(root + "/IMAGE08");
@@ -132,6 +136,9 @@ inline Game makeGame(const QString &root, bool secondGame = false) {
     game.elements = generateSheet(1, secondGame ? 289 : 187, 60, 16);
     game.bigDecor = generateSheet(2, secondGame ? 100 : 54, 128, 8);
     game.players = generateSheet(3, secondGame ? 336 : 291, 60, 16);
+    if (lookAlikeHeight != 0) {
+        game.players.sprites[10].height = static_cast<std::int16_t>(lookAlikeHeight);
+    }
     saveBitmap(game.tiles.image, root + "/IMAGE08/OBJECT.BLP");
     saveBitmap(game.elements.image, root + "/IMAGE08/ELEMENT.BLP");
     // One sheet as an 8-bit palette bitmap, as the original IMAGE08 files are.

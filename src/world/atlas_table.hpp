@@ -7,6 +7,8 @@
 #include <span>
 #include <vector>
 
+#include "world/layout.hpp"
+
 namespace eggbert {
 
 // Where one sprite sits in its sheet and how far it is shifted when drawn:
@@ -34,6 +36,9 @@ struct AtlasSearch {
     // Largest allowed offset + size on each axis: the sprite's logical cell.
     int maxExtentX = 0;
     int maxExtentY = 0;
+    // Byte ranges that are known to hold something else (other tables that
+    // were already located): a candidate overlapping one is not considered.
+    std::span<const ByteRange> excluded{};
 };
 
 enum class AtlasSearchError {
@@ -50,6 +55,11 @@ struct AtlasTable {
     // (one known table in the first game stores no height for its last
     // sprite).
     bool lastHeightAdjusted = false;
+
+    // The bytes the table occupies in the searched input.
+    [[nodiscard]] ByteRange byteRange() const {
+        return {fileOffset, 2 + sprites.size() * 12 - (lastHeightAdjusted ? 2 : 0)};
+    }
 };
 
 // Looks for `count` followed by `count` records of six signed 16-bit
@@ -57,7 +67,10 @@ struct AtlasTable {
 // arbitrary bytes (a game executable the user selected). A candidate is
 // accepted only if every rectangle lies inside the sheet and inside the
 // logical cell, at least half of the sprites are non-empty and they are not
-// all the same. Reads only; never executes or modifies anything.
+// all the same. Sprite tables of similar sheets can contain each other's
+// look-alikes (a slice of a large table that happens to start with the
+// wanted count), so a caller that already located other tables passes their
+// ranges in `excluded`. Reads only; never executes or modifies anything.
 [[nodiscard]] std::expected<AtlasTable, AtlasSearchError>
 findAtlasTable(std::span<const std::byte> bytes, const AtlasSearch &search);
 

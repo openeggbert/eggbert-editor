@@ -100,6 +100,12 @@ std::expected<AtlasTable, AtlasSearchError> findAtlasTable(std::span<const std::
         if (!count || *count != search.count) {
             continue;
         }
+        const auto overlapsExcluded = std::ranges::any_of(search.excluded, [&](const ByteRange &range) {
+            return offset < range.offset + range.size && range.offset < offset + needed;
+        });
+        if (overlapsExcluded) {
+            continue;
+        }
         auto candidate = candidateAt(bytes, offset, search);
         if (!candidate) {
             continue;

@@ -196,12 +196,28 @@ std::shared_ptr<const GameAssets> GameAssets::load(const QString &directory,
         report << tr("No executable (*.exe) was found next to the folders, so sprite positions "
                      "are unknown and nothing can be drawn with artwork.");
     }
-    for (int table = 0; table < 4; ++table) {
+    // Two passes: tables that are found unambiguously first; then the ones
+    // with several candidates again, ignoring candidates that lie inside
+    // bytes an accepted table of the same executable already occupies.
+    struct TableSearch {
+        bool wanted = false;
+        AtlasSearch search;
+        qsizetype executable = -1; // where it was found
+        qsizetype ambiguousIn = -1;
+        bool secondPass = false;
+    };
+    std::array<TableSearch, 4> searches;
+    std::vector<std::vector<std::byte>> executableBytes;
+    executableBytes.reserve(static_cast<std::size_t>(executables.size()));
+    for (const auto &executable : executables) {
+        executableBytes.push_back(toByteVector(executable));
+    }
+    for (std::size_t table = 0; table < 4; ++table) {
         // The first loaded sheet that uses this table defines the size it
         // has to fit.
         const Sheet *reference = nullptr;
         for (const auto &sheet : assets->sheets_) {
-            if (sheet.table == table && !sheet.image.isNull()) {
+            if (sheet.table == static_cast<int>(table) && !sheet.image.isNull()) {
                 reference = &sheet;
                 break;
             }
@@ -210,27 +226,70 @@ std::shared_ptr<const GameAssets> GameAssets::load(const QString &directory,
             continue;
         }
         const auto &spec = tableSpecs[table];
-        const AtlasSearch search{second ? spec.secondGameCount : spec.firstGameCount,
-                                 reference->image.width(), reference->image.height(),
-                                 spec.extentX, spec.extentY};
-        QString outcome = tr("not found in any executable");
+        auto &state = searches[table];
+        state.wanted = true;
+        state.search = AtlasSearch{second ? spec.secondGameCount : spec.firstGameCount,
+                                   reference->image.width(), reference->image.height(),
+                                   spec.extentX, spec.extentY};
         for (qsizetype index = 0; index < executables.size(); ++index) {
-            const auto found = findAtlasTable(toByteVector(executables[index]), search);
+            const auto found =
+                findAtlasTable(executableBytes[static_cast<std::size_t>(index)], state.search);
             if (found) {
-                assets->tables_[static_cast<std::size_t>(table)] = *found;
-                assets->tableFound_[static_cast<std::size_t>(table)] = true;
-                outcome = tr("%1 sprites located in %2 at offset %3")
-                              .arg(found->sprites.size())
-                              .arg(executableNames[index])
-                              .arg(found->fileOffset);
+                assets->tables_[table] = *found;
+                assets->tableFound_[table] = true;
+                state.executable = index;
                 break;
             }
-            if (found.error() == AtlasSearchError::ambiguous) {
-                outcome = tr("more than one candidate in %1; none is used")
-                              .arg(executableNames[index]);
+            if (found.error() == AtlasSearchError::ambiguous && state.ambiguousIn < 0) {
+                state.ambiguousIn = index;
             }
         }
-        report << tr("Sprite positions for %1: %2.").arg(QString::fromLatin1(spec.name), outcome);
+    }
+    for (std::size_t table = 0; table < 4; ++table) {
+        auto &state = searches[table];
+        if (!state.wanted || state.executable >= 0 || state.ambiguousIn < 0) {
+            continue;
+        }
+        std::vector<ByteRange> occupied;
+        for (std::size_t other = 0; other < 4; ++other) {
+            if (searches[other].executable == state.ambiguousIn && !searches[other].secondPass) {
+                occupied.push_back(assets->tables_[other].byteRange());
+            }
+        }
+        if (occupied.empty()) {
+            continue;
+        }
+        auto narrowed = state.search;
+        narrowed.excluded = occupied;
+        const auto found = findAtlasTable(
+            executableBytes[static_cast<std::size_t>(state.ambiguousIn)], narrowed);
+        if (found) {
+            assets->tables_[table] = *found;
+            assets->tableFound_[table] = true;
+            state.executable = state.ambiguousIn;
+            state.secondPass = true;
+        }
+    }
+    for (std::size_t table = 0; table < 4; ++table) {
+        const auto &state = searches[table];
+        if (!state.wanted) {
+            continue;
+        }
+        QString outcome = tr("not found in any executable");
+        if (state.executable >= 0) {
+            outcome = tr("%1 sprites located in %2 at offset %3")
+                          .arg(assets->tables_[table].sprites.size())
+                          .arg(executableNames[state.executable])
+                          .arg(assets->tables_[table].fileOffset);
+            if (state.secondPass) {
+                outcome += tr(" (look-alikes inside the other sprite tables were set aside)");
+            }
+        } else if (state.ambiguousIn >= 0) {
+            outcome = tr("more than one candidate in %1; none is used")
+                          .arg(executableNames[state.ambiguousIn]);
+        }
+        report << tr("Sprite positions for %1: %2.")
+                      .arg(QString::fromLatin1(tableSpecs[table].name), outcome);
     }
 
     // A sheet smaller than its table's extent cannot be drawn safely.

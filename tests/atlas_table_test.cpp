@@ -5,6 +5,7 @@
 #include "fixture.hpp"
 
 #include <algorithm>
+#include <array>
 
 using namespace eggbert;
 using namespace eggbert::test;
@@ -209,6 +210,56 @@ int main() {
         const auto table = findAtlasTable(twice, search20);
         CHECK(table.has_value());
         CHECK_EQ(table->fileOffset, std::size_t{0});
+    }
+    // A larger table can contain a look-alike of a smaller one: a record
+    // whose height equals the wanted count, followed by enough records that
+    // also fit. Excluding the larger table's bytes leaves the real one.
+    {
+        auto large = sampleSprites(40);
+        large[7].height = 20; // the bytes after it read as a 20-sprite table
+        large[7].offsetY = 0;
+        Bytes bytes;
+        appendNoise(bytes, 101);
+        const auto largeOffset = bytes.size();
+        appendTable(bytes, large);
+        appendNoise(bytes, 57);
+        const auto realOffset = bytes.size();
+        appendTable(bytes, sprites);
+        appendNoise(bytes, 40);
+
+        constexpr AtlasSearch search40{40, 256, 256, 64, 64};
+        const auto found40 = findAtlasTable(bytes, search40);
+        CHECK(found40.has_value());
+        CHECK_EQ(found40->fileOffset, largeOffset);
+        CHECK(found40->byteRange() == (ByteRange{largeOffset, 2 + 40 * 12}));
+        CHECK(findAtlasTable(bytes, search20).error() == AtlasSearchError::ambiguous);
+
+        const std::array occupied{found40->byteRange()};
+        auto narrowed = search20;
+        narrowed.excluded = occupied;
+        const auto real = findAtlasTable(bytes, narrowed);
+        CHECK(real.has_value());
+        if (real) {
+            CHECK_EQ(real->fileOffset, realOffset);
+            CHECK(real->sprites == sprites);
+        }
+        // A candidate that only partly overlaps an excluded range is also
+        // set aside; excluding everything finds nothing.
+        const std::array tail{ByteRange{realOffset + 2 + 20 * 12 - 1, 1}};
+        narrowed.excluded = tail;
+        const auto onlyAlike = findAtlasTable(bytes, narrowed);
+        CHECK(onlyAlike.has_value());
+        if (onlyAlike) {
+            // 2 count bytes + 7 records + 5 values of record 7 precede its height.
+            CHECK_EQ(onlyAlike->fileOffset, largeOffset + 2 + 7 * 12 + 10);
+        }
+        const std::array everything{ByteRange{0, bytes.size()}};
+        narrowed.excluded = everything;
+        CHECK(findAtlasTable(bytes, narrowed).error() == AtlasSearchError::notFound);
+        // Excluded ranges that touch nothing change nothing.
+        const std::array elsewhere{ByteRange{0, 50}, ByteRange{bytes.size() - 10, 10}};
+        narrowed.excluded = elsewhere;
+        CHECK(findAtlasTable(bytes, narrowed).error() == AtlasSearchError::ambiguous);
     }
     // Realistic sizes: a 441-sprite table in a megabyte of other data.
     {

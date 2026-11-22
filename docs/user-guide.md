@@ -18,6 +18,8 @@ A world file carries no signature. The editor reads the revision field at the st
 
 A matching revision and size mean the file is *consistent* with a world; they are not proof. A file that is too short opens with the complete parts visible and is read-only; extra bytes after the layout are kept and never modified; an unknown revision opens for hex inspection only. A yellow banner states why a document is read-only. **File → Document Properties** shows the full structural report.
 
+Not every `.blp` file is a world. In a game's `DATA` folder the worlds are the `world*.blp` files; `demo*.blp` (recordings), `info*.blp`, `time.blp` and `bench.blp` are other data. Because nothing marks a world, the editor cannot tell: such a file opens as a very short, read-only "world" or for hex inspection only, and is never modified. The games' picture files in `IMAGE08` also end in `.blp`; they are bitmaps.
+
 ### Choosing the game
 
 The file does not say which game it belongs to. Choose **Speedy Blupi / Eggbert 1** or **Speedy Blupi II / Eggbert 2** in the tool bar. The choice is per tab, is not stored in the file and never changes a byte. It selects the object presets, the adaptive brushes, the ranges offered for music and region, and the rules World Doctor applies. Until you choose, those game-specific features are unavailable; raw tile editing, starts, title and inspection work regardless.
@@ -41,7 +43,7 @@ The directory is only read, never changed. The editor reads the sprite sheets (`
 
 **View → Draw with Game Artwork** switches between artwork and the schematic drawing. A tab uses artwork only when its chosen game matches a loaded directory. Tiles, bigDecor, objects and starts are drawn in the games' order, with pure blue as the transparent colour; anything the artwork does not provide keeps its schematic placeholder. Animated tiles are drawn with the frame that is stored, and the scrolling backdrop picture is not drawn. The minimap always stays schematic.
 
-Artwork drawing has so far been verified only with generated test sheets, not against an original game installation; if something is drawn in the wrong place, switch to the schematic drawing, which shows exactly what is stored, and please report it.
+Artwork drawing has been checked with installations of Speedy Eggbert 1 and Speedy Eggbert 2: every tile, bigDecor picture, object and start stored in their worlds is found and drawn. Other editions have not been tried. If something is drawn in the wrong place, switch to the schematic drawing, which shows exactly what is stored, and please report it.
 
 ## Editing tiles
 
@@ -86,7 +88,7 @@ A world stores up to 200 object records (100 in revisions 1.0 and 1.1). A record
 
 - **Place** (N) creates the object chosen in the preset list on the clicked cell. For moving objects, press on the start cell and drag to the end cell. Presets exist only for object types that the chosen game's own level editor can place, and a new object gets exactly the values that editor writes. It goes into the lowest free slot; the slot's previous leftover bytes are replaced. When the pool is full nothing is created.
 - **Object** (O) selects a record by clicking it; clicking again cycles through overlapping records in slot order. Drag to move it by whole cells; drag the red end box of a path to move only the end. **Object → Move One Cell** (Alt+arrows) nudges, **Duplicate** (Ctrl+D) copies a record one cell to the right, **Delete Object** (Shift+Delete) frees the slot by clearing only its type, as the games do.
-- The Objects panel edits exact numbers: travel durations, waits, the three positions, channel and icon. The stored type, the two unknown fields and the run-time fields are shown but not edited.
+- The Objects panel edits exact numbers: travel durations, waits, the three positions, channel and icon. The stored type, the two unknown fields and the run-time fields are shown but not edited. For the two enemies drawn like a player (in a helicopter, in a tank) the channel is the colour: the games' editors offer 11, 12 and 13.
 - A record whose type the chosen game's editor cannot place (types created only while playing, or unknown numbers) is shown with its raw values and can be deleted but not changed.
 
 The 200-slot limit is a hard limit of the format. The games also need free slots while playing, for explosions, splashes, projectiles and similar effects; the panel and World Doctor point out a nearly full pool as an *estimate*.

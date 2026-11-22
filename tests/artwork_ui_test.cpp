@@ -99,7 +99,7 @@ int main(int argc, char **argv) {
         CHECK(window.action("viewArtwork")->isEnabled());
         CHECK(window.action("viewArtwork")->isChecked());
         CHECK(shown.contains("246 sprites located in GAME.EXE"));
-        CHECK(shown.contains("verified with generated test sheets only"));
+        CHECK(shown.contains("other editions may differ"));
         CHECK(canvas->renderOptions().artwork == window.artworkFor(GameProfile::speedyBlupi1));
         CHECK(canvasAt(canvas, 3, 70) == painted);
         CHECK(!tab->document().isModified());

@@ -317,6 +317,28 @@ int main(int argc, char **argv) {
         CHECK(!GameAssets::load(shrunk.root, GameProfile::speedyBlupi1)->usable());
     }
 
+    // A slice of the player table that reads like the 54-sprite table: on
+    // its own that is ambiguous, but bytes inside an accepted table cannot
+    // be another table, so the real one is found.
+    {
+        const auto alike = makeGame(dir.filePath("look-alike"), false, 54);
+        const auto loaded = GameAssets::load(alike.root, GameProfile::speedyBlupi1);
+        const auto report = loaded->report().join('\n');
+        CHECK(report.contains("Sprite positions for player: 291 sprites located in GAME.EXE"));
+        CHECK(report.contains("Sprite positions for bigDecor and effects: 54 sprites located in "
+                              "GAME.EXE"));
+        CHECK(report.contains("look-alikes inside the other sprite tables were set aside"));
+        CHECK(!report.contains("more than one candidate"));
+        const auto big = loaded->sprite(9, 20);
+        CHECK(big.has_value());
+        if (big) {
+            CHECK(big->source == QRect(alike.bigDecor.sprites[20].srcX,
+                                       alike.bigDecor.sprites[20].srcY, 128, 128));
+        }
+        // The unambiguous game reports no such note.
+        CHECK(!assets->report().join('\n').contains("set aside"));
+    }
+
     // The second game's sizes and its extra vertical adjustments.
     {
         const auto second = makeGame(dir.filePath("second-game"), true);

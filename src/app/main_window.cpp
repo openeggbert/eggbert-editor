@@ -1477,8 +1477,9 @@ QString MainWindow::artworkReport() const {
                 "modified, nothing from it is copied into world files, and the editor works "
                 "without it.");
     lines << tr("Sprite positions are located in the game's own executable and accepted only "
-                "when they fit the sprite sheets. This has been verified with generated test "
-                "sheets only, not yet against an original game installation.");
+                "when they fit the sprite sheets. This has been checked with installations of "
+                "Speedy Eggbert 1 and Speedy Eggbert 2; other editions may differ, and anything "
+                "that cannot be validated is drawn schematically.");
     for (const auto profile : {GameProfile::speedyBlupi1, GameProfile::speedyBlupi2}) {
         lines << QString() << profileDisplayName(profile);
         const auto &assets = artwork_[artworkIndex(profile)];
