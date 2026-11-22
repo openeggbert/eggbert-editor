@@ -2,7 +2,15 @@
 
 A desktop editor in development for 2D worlds from the Windows games Speedy Blupi and Speedy Blupi II, also released as Speedy Eggbert and Speedy Eggbert 2. Version 1.0 is intentionally scoped to lossless editing of individual world files. Installation deployment, campaigns and loss-aware SB1↔SB2 BLP conversion are post-1.0 roadmap items. A separate post-1.0 Mobile Eggbert text-world profile is planned, but conversion between BLP and Mobile Eggbert worlds is intentionally unsupported in both directions.
 
-**File → Inspect World File** currently loads a selected file and shows a read-only structural probe: the raw revision field, the candidate revision (1.0–1.3), expected and actual size, which sections are complete, truncation or surplus bytes, and why the result is or is not safe for structured inspection. The world format has no signature, so the probe reports consistency, never proof, and it cannot tell Speedy Blupi 1 from 2. For complete sections it also shows a decoded read-only summary of the header, layers and object pool. World editing, rendering and saving are planned and not implemented yet. The format notes, compatibility matrix and implementation milestones are in [plan.md](plan.md). A fresh implementation session should also read [AGENTS.md](AGENTS.md) and continue from [NEXT.md](NEXT.md).
+What works today:
+
+- **Open** any number of `.blp`/`.xch` files in tabs. A structural probe selects the layout from the revision field (1.0–1.3) and reports truncation or surplus bytes; **File → Document Properties** shows the probe and a decoded summary. The world format has no signature, so this is consistency, never proof, and the game (Speedy Blupi 1 or 2) cannot be read from the file: you choose a profile per tab, which never changes bytes.
+- **View** the world on an asset-free schematic canvas: foreground, `bigDecor`, player starts, objects and motion paths, with pan (middle button, Alt+drag or the Browse tool), Ctrl+wheel zoom about the pointer, Zoom In/Out, Actual Pixels, Fit World, grid, value labels and per-layer visibility. Arrow keys move a visible cell cursor; Space applies the active tool.
+- **Edit** revision 1.2/1.3 worlds with a raw pencil that writes exactly one stored tile ID into one cell of the active layer. Undo/Redo are per document; one drag is one step.
+- **Save / Save As / Save All / Revert** with atomic replacement. Save refuses to overwrite a file that changed, shrank, grew or disappeared on disk since it was read and offers Reload or Save As instead. Only edited bytes change: unknown and reserved fields, inactive object slots, name padding and trailing data are preserved exactly.
+- Revisions 1.0 and 1.1, truncated files and unknown content open **read-only** with the reason shown.
+
+Not implemented yet: artwork from a game-data directory, minimap, statistics, the other layer tools, metadata/start/object editing, adaptive brushes, the binary inspector, World Doctor and PNG export. The format notes, compatibility matrix and implementation milestones are in [plan.md](plan.md). A fresh implementation session should also read [AGENTS.md](AGENTS.md) and continue from [NEXT.md](NEXT.md).
 
 Claude Code Cloud development is supported. Configure Qt and the optional research-data domain using [the cloud setup guide](docs/claude-code-cloud.md); retail data is never required by the normal build or tests.
 
@@ -23,8 +31,8 @@ If CMake cannot find Qt, set `CMAKE_PREFIX_PATH` to your Qt kit directory when c
 
 | Location | Contents |
 | --- | --- |
-| `src/world/` | Original byte storage, revision descriptors, bounded little-endian readers, the structural probe and read-only decoded views. Independent of Qt. |
-| `src/app/` | Application entry point, Qt Widgets main window and probe report. |
+| `src/world/` | Revision descriptors, bounded little-endian readers, structural probe, read-only decoded views and the lossless document core (transactions, undo, changed ranges). Independent of Qt. |
+| `src/app/` | Qt application: file load/save, tabbed main window, document tab, canvas, schematic renderer and reports. |
 | `tests/` | Asset-free tests for the world library and application code. |
 | `plan.md` | Fixed 1.0 scope, binary layout, feature design, release criteria and compact post-1.0 roadmap. |
 | `NEXT.md` | Current implementation state and the next bounded, testable slice. |

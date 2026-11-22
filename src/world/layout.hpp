@@ -27,6 +27,14 @@ inline constexpr std::size_t tileLayerBytes = mapWidth * mapHeight * tileBytes;
 inline constexpr std::size_t objectRecordBytes = 48;
 inline constexpr std::size_t revisionFieldBytes = 4;
 
+// Both engines draw a cell as 64 x 64 world pixels; object and start
+// positions are stored in these world pixels.
+inline constexpr int cellPixels = 64;
+inline constexpr int worldPixelWidth = static_cast<int>(mapWidth) * cellPixels;
+inline constexpr int worldPixelHeight = static_cast<int>(mapHeight) * cellPixels;
+// Stored value of an empty cell in either layer.
+inline constexpr std::int16_t emptyCell = -1;
+
 } // namespace layout
 
 // A half-open range of absolute file offsets.

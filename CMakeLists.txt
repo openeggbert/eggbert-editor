@@ -7,6 +7,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(Qt6 6.2 REQUIRED COMPONENTS Widgets)
+if(BUILD_TESTING OR NOT DEFINED BUILD_TESTING)
+    find_package(Qt6 6.2 REQUIRED COMPONENTS Test)
+endif()
 
 option(EGGBERT_SANITIZE "Build with address and undefined-behavior sanitizers" OFF)
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
@@ -23,8 +26,6 @@ add_library(eggbert_world STATIC
     src/world/le_reader.hpp
     src/world/world_document.cpp
     src/world/world_document.hpp
-    src/world/world_file.cpp
-    src/world/world_file.hpp
     src/world/world_probe.cpp
     src/world/world_probe.hpp
     src/world/world_view.cpp
@@ -36,13 +37,22 @@ target_include_directories(eggbert_world PUBLIC src)
 qt_add_library(eggbert_app STATIC
     src/app/document_file.cpp
     src/app/document_file.hpp
+    src/app/document_tab.cpp
+    src/app/document_tab.hpp
     src/app/main_window.cpp
     src/app/main_window.hpp
     src/app/probe_report.cpp
     src/app/probe_report.hpp
+    src/app/view_transform.hpp
+    src/app/world_canvas.cpp
+    src/app/world_canvas.hpp
+    src/app/world_renderer.cpp
+    src/app/world_renderer.hpp
 )
 target_include_directories(eggbert_app PUBLIC src)
 target_link_libraries(eggbert_app PUBLIC Qt6::Widgets eggbert_world)
+target_compile_definitions(eggbert_app PUBLIC EGGBERT_EDITOR_VERSION="${PROJECT_VERSION}")
+set_target_properties(eggbert_app PROPERTIES AUTOMOC ON)
 
 qt_add_executable(eggbert-editor src/app/main.cpp)
 target_link_libraries(eggbert-editor PRIVATE eggbert_app)
@@ -57,16 +67,16 @@ set_target_properties(eggbert-editor PROPERTIES
 include(CTest)
 if(BUILD_TESTING)
     # Headless core tests: no Qt, no game assets.
-    foreach(name world_file layout le_reader world_probe world_view world_document)
+    foreach(name layout le_reader world_probe world_view world_document view_transform)
         add_executable(${name}-test tests/${name}_test.cpp)
         target_link_libraries(${name}-test PRIVATE eggbert_world)
         add_test(NAME ${name} COMMAND ${name}-test)
     endforeach()
 
     # Application tests run without a display.
-    foreach(name probe_report document_file)
+    foreach(name probe_report document_file world_renderer main_window)
         add_executable(${name}-test tests/${name}_test.cpp)
-        target_link_libraries(${name}-test PRIVATE eggbert_app)
+        target_link_libraries(${name}-test PRIVATE eggbert_app Qt6::Test)
         add_test(NAME ${name} COMMAND ${name}-test)
         set_tests_properties(${name} PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     endforeach()
