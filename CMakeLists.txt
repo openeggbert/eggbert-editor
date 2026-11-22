@@ -26,6 +26,10 @@ add_library(eggbert_world STATIC
     src/world/le_reader.hpp
     src/world/metadata.cpp
     src/world/metadata.hpp
+    src/world/object_catalog.cpp
+    src/world/object_catalog.hpp
+    src/world/object_ops.cpp
+    src/world/object_ops.hpp
     src/world/offset_map.cpp
     src/world/offset_map.hpp
     src/world/profile.hpp
@@ -82,7 +86,7 @@ set_target_properties(eggbert-editor PROPERTIES
 include(CTest)
 if(BUILD_TESTING)
     # Headless core tests: no Qt, no game assets.
-    foreach(name layout le_reader world_probe world_view world_document world_stats offset_map tile_tools metadata view_transform)
+    foreach(name layout le_reader world_probe world_view world_document world_stats offset_map tile_tools metadata object_ops view_transform)
         add_executable(${name}-test tests/${name}_test.cpp)
         target_link_libraries(${name}-test PRIVATE eggbert_world)
         add_test(NAME ${name} COMMAND ${name}-test)

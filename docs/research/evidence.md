@@ -37,3 +37,21 @@ Unless stated otherwise nothing below has been tested in an original executable.
 | Title entry accepts bytes 0x20–0xFF while the length is below 40; storage is `char name[100]` copied with `strcpy` | `src/event.cpp:3976-3990`; `src/decor.h:112` | read |
 | Tiles with collision data: SB1 0–236 (`MAXQUART` 237), SB2 0–440 (`MAXQUART` 441) | `src/decor.h:13`; `games/sb2/src/decor.h:13` | read |
 | SB2's loader rewrites stored foreground values 48–67 to 215 in memory; SB1 has no such step | `games/sb2/src/decor.cpp:675-684` | read |
+
+## Objects
+
+| Observation | Where | How |
+| --- | --- | --- |
+| A slot is free when `type == 0`; the editors take the lowest free slot and zero all 48 bytes before filling it; with a full pool the editor places nothing | `src/decmove.cpp:1668-1679` (`MoveObjectFree`) | read |
+| Deleting clears only `type` for every record whose start or end cell is the cell; the other 46 bytes stay | `src/decmove.cpp:1650-1666` (`MoveObjectDelete`) | read |
+| Every placement writes `posEnd = posCurrent = posStart`, `step = 1` (`STEP_STOPSTART`), `time = 0`, `phase = 0` | `src/decdesign.cpp` placement blocks (extracted and compared line by line); `src/def.h:732-735` | read |
+| SB1 presets: type, step durations, waits, position offset in the cell, channel and icon for lifts (4 speeds), crates, bulldozer, fish, bird, moving bomb, enemy helicopter/tank, treasure, egg, power, shield, drink, bullets, charger, goal, floor/ceiling bombs, personal bombs 1–4, helicopter, skateboard, jeep, tank, key | `src/decdesign.cpp:313-1054`; exact line ranges are in each preset's `provenance` in `src/world/object_catalog.cpp` | read |
+| SB2 presets: the SB1 set plus homing bomb, inverter, conveyor lifts (types 47/48), wasp, creature, dynamite, coloured keys 1–3, hovercraft | `games/sb2/src/decdesign.cpp:333-1316`; line ranges in `object_catalog.cpp` | read |
+| Channels: 1 tile sheet, 2 and 11–13 player sheets, 10 element sheet (`CHELEMENT` 10, `CHBLUPI1..3` 11–13) | `src/def.h:699-702`; `games/sb2/src/def.h:697-700` | read |
+| Setting a mover's end: `posEnd = cell * 64`; `stepAdvance` and `stepRecede` are multiplied by `max(|dx|, |dy|) / 64` | `src/decdesign.cpp:283-311` | read |
+| Default lift icon: first entry of the table selected by the initial editor state: 153 in SB1 (`{153, 74, 75}`), 29 in SB2 (`{29, 10, 2, ...}`) | `src/decdesign.cpp:262-281`, `src/decblock.cpp:208-231`; `games/sb2/src/decdesign.cpp:449-477`, `games/sb2/src/decblock.cpp:266-276` | read |
+| Crate icons offered by the editors: plain `{32, 33, 34}`; disguised SB1 `{2, 4, 79, 84, 48, 50, 143, 219, 230}`, SB2 `{2, 4, 79, 84, 143, 219, 230, 246, 341, 396}` | `src/decblock.cpp:233-239`; `games/sb2/src/decblock.cpp:302-306` | read |
+| Which types are created only during play (explosions, projectiles, splashes, doors, trails, SB2 additions) | research notes over `src/decblupi.cpp`, `src/decmove.cpp`, `games/sb2/src/...` | reported |
+| The games recompute `posCurrent`, `step`, `time`, `phase` when entering the editor or starting play, so stored values of these fields do not affect behavior | research notes citing `src/decblock.cpp:1019-1104` | reported |
+
+Eggbert Editor does not copy two side effects of the games' editors: placing an object does not delete other objects on the same cell, and placing a goal or key does not free existing goals and keys. Both would silently remove content; they are left to the user and to World Doctor.

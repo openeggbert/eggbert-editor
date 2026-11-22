@@ -8,6 +8,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <span>
 #include <string_view>
 #include <vector>
 
@@ -40,6 +41,10 @@ inline void putText(Bytes &bytes, std::size_t offset, std::string_view text) {
 
 inline unsigned get8(const Bytes &bytes, std::size_t offset) {
     return static_cast<unsigned>(bytes.at(offset));
+}
+
+inline Bytes toVector(std::span<const std::byte> bytes) {
+    return Bytes(bytes.begin(), bytes.end());
 }
 
 // Literal layout numbers.
