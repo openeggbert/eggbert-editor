@@ -34,6 +34,8 @@ target_include_directories(eggbert_world PUBLIC src)
 
 # Everything of the application except main(), so tests can link it.
 qt_add_library(eggbert_app STATIC
+    src/app/document_file.cpp
+    src/app/document_file.hpp
     src/app/main_window.cpp
     src/app/main_window.hpp
     src/app/probe_report.cpp
@@ -62,7 +64,7 @@ if(BUILD_TESTING)
     endforeach()
 
     # Application tests run without a display.
-    foreach(name probe_report)
+    foreach(name probe_report document_file)
         add_executable(${name}-test tests/${name}_test.cpp)
         target_link_libraries(${name}-test PRIVATE eggbert_app)
         add_test(NAME ${name} COMMAND ${name}-test)

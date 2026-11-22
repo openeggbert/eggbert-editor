@@ -2,7 +2,7 @@
 
 ## Current verified state
 
-Milestones 0 (scaffold) and 1 (probe and read-only views) are complete. Milestone 2 has its headless document core; nothing can be edited or saved from the GUI yet.
+Milestones 0 (scaffold) and 1 (probe and read-only views) are complete. Milestone 2 (lossless document, save and external-change safety) is complete headlessly; the GUI is still the read-only inspector, so nothing can be edited or saved interactively yet.
 
 Implemented and covered by asset-free tests:
 
@@ -11,6 +11,7 @@ Implemented and covered by asset-free tests:
 - `src/world/world_probe.hpp`: `probeWorld()` reports raw revision field, candidate revision, expected size, per-section available bytes, first missing offset, missing/surplus counts and whether structured inspection is safe, partial or unavailable. It never presents a result as proof: the format has no signature.
 - `src/world/world_view.hpp`: `WorldView` with `HeaderView` (every header field, indexed reserved fields, raw name bytes, text before the first NUL and retained padding after it), `TileLayerView` (`[x][y]` cells with absolute byte ranges), `ObjectPoolView` (decoded 48-byte records, slot/field ranges, raw slot bytes, active/free counts) and the opaque suffix range. A section view exists only when that section is complete; out-of-range indices return `nullopt`.
 - `src/world/world_document.hpp`: `WorldDocument` owns original, last-saved and current bytes of fixed length. `apply(Transaction)` validates everything before mutating: document writable (complete 1.2/1.3 only), changes sorted and non-overlapping, `before` bytes equal to current bytes, inside the layout, and outside the protected ranges (`majRev`, `minRev`, `reserve1`, `world`, `reserve2`, `reserve3`, opaque suffix). Linear undo/redo, clean index that undo may cross, redo branch discarded by a new edit, merge keys for drags, `changedRangesFromOriginal()` and `unsavedRanges()`. `EditBuilder` turns semantic edits (cell, music, region, `posDecor`, `dimDecor`, starts, name, object field/record, raw slot copy) into a minimal byte-level transaction; equal values produce no change, and a renamed title keeps the bytes after its new terminator.
+- `src/app/document_file.hpp` (Qt Core only): `DocumentFile::load` (64 MiB limit), `diskState()`, `save()` and `saveAs()`. Writes use `QSaveFile` with the direct-write fallback disabled. `save()` first re-reads the destination and compares it byte for byte with the last saved bytes; modified, truncated, extended, deleted or unreadable destinations are a conflict and nothing is written. Save As onto another existing file needs explicit consent. Any failure leaves the destination bytes and the modified state unchanged; success calls `markSaved()`. A test hook can fail the save just before the atomic replacement.
 - `src/app/probe_report.cpp`: plain-text probe report plus decoded summary (name with escaped non-printable bytes, music/region/world, `posDecor`/`dimDecor`, four starts, non-zero reserved fields, per-layer count of cells that differ from -1, object slot counts). **File → Inspect World File** shows both, read-only.
 - Build: `eggbert_world` (no Qt) and `eggbert_app` (Qt Widgets, everything except `main`); `-Wall -Wextra -Wpedantic`; optional `-DEGGBERT_SANITIZE=ON`.
 - Tests: `tests/fixture.hpp` builds synthetic worlds from literal offsets and includes no production header.
@@ -20,9 +21,9 @@ Verification on 2026-11-22, Ubuntu 24.04, GCC 13.3.0, CMake 3.28.3, Ninja, Qt 6.
 ```sh
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
 cmake --build build --parallel              # no warnings
-ctest --test-dir build --output-on-failure  # 7/7 passed: world_file, layout, le_reader, world_probe, world_view, world_document, probe_report
+ctest --test-dir build --output-on-failure  # 8/8 passed: world_file, layout, le_reader, world_probe, world_view, world_document, probe_report, document_file
 cmake -S . -B build-asan -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DEGGBERT_SANITIZE=ON
-cmake --build build-asan --parallel && ctest --test-dir build-asan   # 7/7 passed under ASan/UBSan
+cmake --build build-asan --parallel && ctest --test-dir build-asan   # 8/8 passed under ASan/UBSan
 ```
 
 ## Research evidence log
@@ -32,15 +33,15 @@ cmake --build build-asan --parallel && ctest --test-dir build-asan   # 7/7 passe
 - Background research notes compiled from `blupi_recon` (same commit) on object placement, adaptive borders and rendering are not yet reconciled or recorded here; they will be entered with citations when the slices that depend on them are implemented.
 - No original executable or retail sample has been tested in this repository yet.
 
-## Next task: Save, Save As and external-change safety (milestone 2b)
+## Next task: workspace shell and schematic canvas (milestone 3a)
 
-Add file I/O for documents in the application layer (Qt Core only, no widgets), then the first real editor shell follows in 3a.
+Replace the single-label inspector with the real editor shell, still asset-free.
 
-1. `src/app/document_file.hpp/.cpp`: load a path into a `WorldDocument` (size limit, read errors reported), remember the path and the exact bytes last known to be on disk.
-2. Save and Save As write `currentBytes()` with `QSaveFile` (no direct-write fallback) in the destination directory. Before committing a Save, re-read the destination and compare it with the last known on-disk bytes; on mismatch or disappearance report a conflict and write nothing. Save As to an existing different file needs explicit overwrite consent from the caller.
-3. On any failure (unwritable destination, short write, injected failure before commit) the destination keeps its previous bytes and the document stays modified. On success call `markSaved()`.
-4. Read-only documents (1.0/1.1, truncated, unknown) can be saved only as an identical copy via Save As (no structured change is possible, so bytes equal the input); Save is disabled because nothing can be modified.
-5. Tests with `QTemporaryDir`: untouched save is byte-identical; edit/save/reopen changes only the named range; repeated save; undo across the clean index after save; external modification, truncation and deletion are detected; unwritable destination (a path whose parent is not a directory, since tests may run as root); injected failure before atomic replacement leaves the original intact and the document dirty; no temporary file is left behind.
+1. Headless first: `src/world/tile_edit.hpp` style helpers are not needed yet; instead add a Qt-free `src/render/` or app-level scene description only if the canvas needs one. Keep world-cell ↔ world-pixel ↔ screen transforms in one small tested class (`ViewTransform`: zoom about an anchor, pan, fit rectangle, clamp).
+2. `DocumentTab`: owns a `DocumentFile`, the chosen `GameProfile` (never stored in the file) and view state. Tabbed main window with **File** Open World / Close / Save / Save As / Save All / Revert / Quit and **Edit** Undo / Redo wired to the document core; conflict and failure dialogs offer reload, Save As or cancel.
+3. `WorldCanvas`: schematic rendering of foreground, `bigDecor`, starts and objects using generated colours and numeric labels (no proprietary assets), smooth pan, zoom about the pointer, Zoom In/Out, Actual Pixels, Fit World, grid and coordinate read-out, keyboard navigation.
+4. A raw pencil (one cell, one ID, no neighbour effects) is the only editing tool in this slice so the edit → undo → save path is exercised end to end; read-only documents refuse it with a visible reason.
+5. Tests: transform round trips and anchors; an offscreen render of an asymmetric synthetic world checked at chosen pixels (transposition, layer order, visibility flags); pencil through the tab changes exactly two bytes and survives save/reopen; read-only tab refuses the edit.
 
 ## Slice roadmap toward the 1.0 gate
 
@@ -50,7 +51,7 @@ Completed slices are ticked only when their tests are green and committed.
 - [x] 1a Revision descriptors, bounded readers, `WorldProbe`, GUI probe report
 - [x] 1b Read-only header/layer/object views and decoded inspector summary
 - [x] 2a Lossless document: byte-range transactions, changed ranges, linear undo/redo with clean index, write gating (1.2/1.3 only, complete layout only)
-- [ ] 2b Save/Save As with atomic replacement, external-change detection and failure injection
+- [x] 2b Save/Save As with atomic replacement, external-change detection and failure injection
 - [ ] 3a Tabbed workspace shell, schematic canvas, pan/zoom, layer visibility
 - [ ] 3b Minimap and World Statistics
 - [ ] 3c Manual read-only asset directory and artwork rendering
