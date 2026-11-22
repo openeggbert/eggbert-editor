@@ -18,6 +18,8 @@ Implemented and covered by asset-free tests:
 - `src/world/world_stats.hpp`: `computeWorldStats` (facts only: size, revision, per-layer occupied/empty/value counts/bounds, object slot usage and counts by stored type/channel/icon, starts, used bounds), `findCells`, `findActiveSlots`. `src/world/offset_map.hpp`: `locateOffset` maps any file offset to header field/element, layer cell, object slot/field or suffix; `cellByteRange`, `slotByteRange`.
 - `src/world/tile_tools.hpp`: `CellRect`, `CellMask` (selection), `lineCells`, `outlineCells`, `paintCells`, `fillRect`, `fillMask`, bounded 4-connected `floodFill`/`floodRegion`, `replaceValue`, `TilePatch` with holes, `copyPatch`, clipped `pastePatch`/`pasteFootprint`, flips. Every tool edits one layer through `EditBuilder` and returns the number of cells changed.
 - Tile tools in the UI (`document_tab.cpp`, `main_window.cpp`): Browse, Select, Pencil, Eraser, Eyedropper, Line, Rectangle, Fill; Edit menu Cut/Copy/Paste/Delete, Select All/None/Invert, Find; Layer menu active layer, lock, isolate, Fill Selection, Replace Value, Clear Selection, Flip. Selection limits tools; strokes interpolate between mouse samples; edits above 64 cells go through `prompts.confirmBroadEdit` with cell/byte/offset counts; the tile clipboard is refused across different or unknown profiles (same tab always allowed).
+- `src/world/profile.hpp`: per-game facts with provenance (music 0–10, region 0–23 / 0–31, tiles with collision data 0–236 / 0–440, SB2 loader remap of 48–67). `src/world/metadata.hpp`: `Metadata` read/apply (a `dimDecor` axis is rewritten only when its zero/non-zero meaning changes), `placeStart` (`cell * 64 + (2, 6)`), `toggleStartDirection`, `copyStartToAll`, Windows-1252 title encode/decode with round-trip for every byte.
+- `src/app/metadata_dialog.cpp`: World and Player Starts pages; OK is disabled for an unstorable title or a changed music/region outside the chosen profile's verified range (unknown profile locks both); notes for titles over 40 bytes and for files whose title the games ignore. World menu: Metadata, Player Starts, Copy Selected Start to All Four. Start tool with a start selector.
 - `src/app/minimap_widget.cpp`, `statistics_panel.cpp`: Minimap dock (composite/foreground/bigDecor, viewport outline, click/drag pans the canvas) and World Statistics dock (tree of the headless numbers plus unsaved and changed-since-opened byte ranges; activating a row calls `MainWindow::locateTileValue/locateObjects/locateStart/locateOffsetRange`, which move the view and mark results without touching the document). View menu toggles and Reset Layout. The canvas keeps the world fitted until the user changes the view.
 - `src/app/probe_report.cpp`: plain-text probe report plus decoded summary (name with escaped non-printable bytes, music/region/world, `posDecor`/`dimDecor`, four starts, non-zero reserved fields, per-layer count of cells that differ from -1, object slot counts). Shown by **File → Document Properties**.
 - Build: `eggbert_world` (no Qt) and `eggbert_app` (Qt Widgets, everything except `main`); `-Wall -Wextra -Wpedantic`; optional `-DEGGBERT_SANITIZE=ON`.
@@ -28,28 +30,24 @@ Verification on 2026-11-22, Ubuntu 24.04, GCC 13.3.0, CMake 3.28.3, Ninja, Qt 6.
 ```sh
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
 cmake --build build --parallel              # no warnings
-ctest --test-dir build --output-on-failure  # 15/15 passed: layout, le_reader, world_probe, world_view, world_document, world_stats, offset_map, tile_tools, view_transform, probe_report, document_file, world_renderer, main_window, docks, tools
+ctest --test-dir build --output-on-failure  # 17/17 passed: layout, le_reader, world_probe, world_view, world_document, world_stats, offset_map, tile_tools, metadata, view_transform, probe_report, document_file, world_renderer, main_window, docks, tools, metadata_ui
 cmake -S . -B build-asan -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DEGGBERT_SANITIZE=ON
-cmake --build build-asan --parallel && ctest --test-dir build-asan   # 15/15 passed under ASan/UBSan
+cmake --build build-asan --parallel && ctest --test-dir build-asan   # 17/17 passed under ASan/UBSan
 ```
 
 `main_window` drives the real window offscreen: open through the action, pencil click (exactly offsets 1608–1609 change), drag as one undo step, layer switch, keyboard cursor and Space, save, external-change conflict (cancel / Save As / reload), revert, close with unsaved changes, read-only refusal, zoom about the pointer and view toggles. A screenshot of a synthetic world under Xvfb was inspected manually. The earlier `WorldFile` class and its test were removed; `world_document` covers byte retention.
 
 ## Research evidence log
 
-- `blupi_recon` at commit `e05e22b990abb782c37a0d9fafa864d86a27e29f`: `src/decor.h` (`DescFile`, `Cellule`, `MoveObject`), `src/decor.cpp` (`CDecor::Read`, `CDecor::Write`). The reader skips `bigDecor` only for exactly 1.0, reads 100 records only when `majRev == 1 && minRev <= 1`, and copies the title only for 1.3 or later; the writer zero-fills the header and emits 1.3 (1.2 with `reserve1[0] = 1` in the June 1998 demo build).
-- Archived `eggbert-generator` bundle (SHA-256 `8bed90c38f4646061d50f8a130f8b303b064d0b49a237a81433598c793f5f668`, HEAD `069c409611eb779e9066e8d492faed4550dac9a8`, the commit pinned in `plan.md`), `docs/formats/BLP_SB1_WORLD.md`. Its authors report (not re-measured here): stock SB1 worlds are revision 1.2 with an all-zero title; stock SB2 worlds are 1.3; an empty cell is -1; the `world` field is written by neither game; demo and Valueware editions use `reserve1[0]` as a non-zero marker (256 in shipped demo worlds); SB1 tile icons with collision data are 0–236 and SB2 0–440. These observations guide fixtures (non-zero `reserve1[0]` must survive) but each still needs its own recorded evidence before a feature is called verified for a profile.
-- Background research notes compiled from `blupi_recon` (same commit) on object placement, adaptive borders and rendering are not yet reconciled or recorded here; they will be entered with citations when the slices that depend on them are implemented.
-- No original executable or retail sample has been tested in this repository yet.
+Verified and reported observations are recorded with citations in `docs/research/evidence.md` (sources: `blupi_recon` at `e05e22b990abb782c37a0d9fafa864d86a27e29f`; archived `eggbert-generator` bundle at `069c409611eb779e9066e8d492faed4550dac9a8`). Uncommitted background notes on object placement, adaptive borders and rendering exist only in the development scratch area; each fact must be re-read at its citation and entered in `evidence.md` when the slice that depends on it is implemented. No original executable or retail sample has been tested yet; the research-data host `drive.openeggbert.com` is on the environment allowlist, but the automated download was refused by the session's permission layer and awaits the user's decision.
 
-## Next task: metadata and player starts (milestone 4b)
+## Next task: verified objects (milestone 4c)
 
-Evidence to record first (from `blupi_recon` at the pinned commit; verify each citation while implementing): `music` and `region` ranges per game, `dimDecor` zero/non-zero semantics per axis, `posDecor` as saved camera position, start positions in world pixels with the editor's `cell * 64 + (2, 6)` placement, direction constants (1 left, 2 right), title limits (40 typed bytes, `name[100]`, read only for revision ≥ 1.3).
+Evidence first: re-read in `blupi_recon` (SB1 `src/decdesign.cpp`, `src/decmove.cpp`, `src/def.h`; SB2 `games/sb2/src/...`) what the in-game editors write for each placeable object type (type, speeds, waits, positions relative to the cell, channel, icon), how a free slot is chosen and initialised (`MoveObjectFree`: first `type == 0`, 48 bytes zeroed), how lift end points and speeds are set, and how deletion works. Record it in `docs/research/evidence.md`. A type is offered as a preset only when its placement is recorded there for that profile.
 
-1. Headless `src/world/metadata.hpp/.cpp`: profile-aware descriptions of the editable header fields (value ranges with provenance, what an out-of-range stored value means), `dimDecor` axis booleans that keep an unusual non-zero raw value until the user changes that axis, start cell ↔ pixel conversion that preserves sub-cell offsets when moving by whole cells, and name encoding helpers (Windows-1252 display, refusal of unrepresentable characters, 99-byte limit, warning above 40 bytes and for revision 1.2 where the title is not read by the game).
-2. Edit operations through `EditBuilder`: set name, music, region, scroll axes, start position/direction (single slot, or all four explicitly).
-3. UI: World menu with Metadata… and Player Starts; a Properties dock showing the fields with raw and interpreted values; a Start tool that places the selected start at a cell and toggles direction; starts drawn with slot number and direction.
-4. Tests: each operation changes only its field's bytes; unusual raw values survive unrelated edits; name padding survives; range handling per profile; offscreen UI gestures.
+1. Headless `src/world/object_catalog.hpp/.cpp`: per-profile catalog entries (type, name, placement preset, whether it has a path, provenance) and `src/world/object_ops.hpp/.cpp`: capacity report (stored, active, free), `createObject` from a preset into the first free slot (zeroing the record as the engine does, which is an explicit, previewed overwrite of that free slot's opaque bytes), `deleteObject` (sets `type` to 0 only), `duplicateObject`, `relocateStatic`, `moveStart`, `moveEnd`, `translatePath`, exact field edits. Multi-slot operations compute slot demand first and fail as a whole when the pool cannot hold them.
+2. Tests: 199/200/201 and 99/100/101 requested objects, opaque bytes in free records, full-pool undo/redo, every preset's bytes at literal offsets, relocation variants touching only their fields, unknown types never offered.
+3. UI: Objects dock (slot, type name or number, start, end, current, channel, icon; select overlapping records by slot), Object tool with a catalog chooser, path and endpoint handles, drag/nudge/numeric entry through the same operations, capacity in the status bar.
 
 ## Slice roadmap toward the 1.0 gate
 
@@ -64,7 +62,7 @@ Completed slices are ticked only when their tests are green and committed.
 - [x] 3b Minimap and World Statistics
 - [ ] 3c Manual read-only asset directory and artwork rendering
 - [x] 4a Layer tools: pencil, eraser, eyedropper, line, rectangle, fill, selection, clipboard, find
-- [ ] 4b Metadata and player starts
+- [x] 4b Metadata and player starts
 - [ ] 4c Verified object catalogs, object panel, create/duplicate/delete/relocate, capacity budgets
 - [ ] 5 Verified adaptive brushes
 - [ ] 6a Read-only binary inspector

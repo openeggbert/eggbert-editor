@@ -45,6 +45,8 @@ struct Prompts {
     // Value to replace and its replacement, for Layer > Replace Value.
     std::function<std::optional<std::pair<int, int>>(DocumentTab *)> replaceValues;
     std::function<std::optional<FindQuery>(DocumentTab *)> findQuery;
+    // Edited header values; page 0 is the world page, 1 the starts page.
+    std::function<std::optional<Metadata>(DocumentTab *, int page)> editMetadata;
 };
 
 class MinimapWidget;
@@ -80,6 +82,8 @@ public:
     bool locateOffsetRange(std::size_t offset, std::size_t size);
     bool locateCell(CellPos cell);
     bool locateSlot(std::size_t slot);
+    // Opens the metadata editor on a page and applies the result.
+    bool editMetadata(int page);
     // Runs a search; false when nothing matches.
     bool find(const FindQuery &query);
 
@@ -114,6 +118,7 @@ private:
     QComboBox *layerCombo_ = nullptr;
     QComboBox *profileCombo_ = nullptr;
     QSpinBox *tileSpin_ = nullptr;
+    QSpinBox *startSpin_ = nullptr;
     QLabel *cellLabel_ = nullptr;
     QLabel *zoomLabel_ = nullptr;
     QLabel *accessLabel_ = nullptr;

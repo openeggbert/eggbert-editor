@@ -324,6 +324,62 @@ bool DocumentTab::fillAt(CellPos cell) {
     return commit(builder, changed, tr("Fill"));
 }
 
+bool DocumentTab::applyMetadataEdit(const Metadata &metadata) {
+    if (!document().isWritable()) {
+        emit statusMessage(fromView(writeAccessReason(document().writeAccess())));
+        return false;
+    }
+    EditBuilder builder(document());
+    if (!applyMetadata(builder, metadata) || !builder.hasChanges()) {
+        return false;
+    }
+    return applyTransaction(builder.build(tr("Edit Metadata").toStdString()));
+}
+
+void DocumentTab::setActiveStart(std::size_t index) {
+    if (index < 4 && index != activeStart_) {
+        activeStart_ = index;
+        emit toolStateChanged();
+    }
+}
+
+bool DocumentTab::placeStartAt(CellPos cell) {
+    if (!document().isWritable()) {
+        emit statusMessage(fromView(writeAccessReason(document().writeAccess())));
+        return false;
+    }
+    const auto header = document().view().header();
+    if (!header) {
+        return false;
+    }
+    EditBuilder builder(document());
+    QString label;
+    if (*header->blupiPos(activeStart_) == startPositionForCell(cell)) {
+        toggleStartDirection(builder, activeStart_);
+        label = tr("Turn Start %1").arg(activeStart_ + 1);
+    } else {
+        placeStart(builder, activeStart_, cell);
+        label = tr("Move Start %1").arg(activeStart_ + 1);
+    }
+    if (!builder.hasChanges()) {
+        return false;
+    }
+    return applyTransaction(builder.build(label.toStdString()));
+}
+
+bool DocumentTab::copyActiveStartToAll() {
+    if (!document().isWritable()) {
+        emit statusMessage(fromView(writeAccessReason(document().writeAccess())));
+        return false;
+    }
+    EditBuilder builder(document());
+    if (!copyStartToAll(builder, activeStart_) || !builder.hasChanges()) {
+        return false;
+    }
+    return applyTransaction(
+        builder.build(tr("Copy Start %1 to All").arg(activeStart_ + 1).toStdString()));
+}
+
 void DocumentTab::setSelection(const CellMask &mask) {
     if (selection_ == mask) {
         return;
@@ -532,6 +588,9 @@ void DocumentTab::onToolPressed(CellPos cell) {
     case Tool::select:
         setSelection(CellMask::fromRect({cell, cell}));
         break;
+    case Tool::start:
+        placeStartAt(cell);
+        break;
     }
 }
 
@@ -563,6 +622,7 @@ void DocumentTab::onToolDragged(CellPos cell) {
         break;
     case Tool::browse:
     case Tool::fill:
+    case Tool::start:
         break;
     }
     gestureLast_ = cell;

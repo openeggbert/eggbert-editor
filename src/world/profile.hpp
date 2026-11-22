@@ -1,0 +1,71 @@
+// SPDX-License-Identifier: GPL-3.0-only
+#pragma once
+
+#include <cstdint>
+#include <string_view>
+
+#include "world/layout.hpp"
+
+namespace eggbert {
+
+// Inclusive range of values a game offers for a field, with where that was
+// observed. See docs/research/evidence.md for the full citations.
+struct VerifiedRange {
+    int minimum = 0;
+    int maximum = 0;
+    std::string_view provenance;
+
+    [[nodiscard]] constexpr bool contains(int value) const {
+        return value >= minimum && value <= maximum;
+    }
+};
+
+// Game-specific facts. The byte layout is the same for both games; a profile
+// only selects catalogs, previews and validation.
+struct ProfileInfo {
+    GameProfile profile = GameProfile::unknown;
+    std::string_view name;
+    // header.music: 0 plays nothing, n > 0 plays music file n - 1.
+    VerifiedRange music;
+    // header.region selects the background picture decorNNN.
+    VerifiedRange region;
+    // Foreground tile numbers that have collision data in the engine.
+    VerifiedRange foregroundTiles;
+    // True when the game's loader rewrites stored foreground values 48..67
+    // to 215 in memory. The file is never changed by that.
+    bool loaderRemaps48To67 = false;
+};
+
+inline constexpr ProfileInfo speedyBlupi1Info{
+    GameProfile::speedyBlupi1,
+    "Speedy Blupi / Speedy Eggbert 1",
+    {0, 10, "blupi_recon e05e22b src/event.cpp:416-426 (11 music buttons), :3088 (message - "
+            "WM_BUTTON1)"},
+    {0, 23, "blupi_recon e05e22b src/event.cpp:3093: WM_BUTTON1..WM_BUTTON24"},
+    {0, 236, "blupi_recon e05e22b src/decor.h:13 MAXQUART 237"},
+    false,
+};
+
+inline constexpr ProfileInfo speedyBlupi2Info{
+    GameProfile::speedyBlupi2,
+    "Speedy Blupi II / Speedy Eggbert 2",
+    {0, 10, "blupi_recon e05e22b games/sb2/src/event.cpp:448-458 (11 music buttons)"},
+    {0, 31, "blupi_recon e05e22b games/sb2/src/event.cpp:3679: WM_BUTTON1..WM_BUTTON32"},
+    {0, 440, "blupi_recon e05e22b games/sb2/src/decor.h:13 MAXQUART 441"},
+    true,
+};
+
+// nullptr for GameProfile::unknown.
+[[nodiscard]] constexpr const ProfileInfo *profileInfo(GameProfile profile) {
+    switch (profile) {
+    case GameProfile::speedyBlupi1:
+        return &speedyBlupi1Info;
+    case GameProfile::speedyBlupi2:
+        return &speedyBlupi2Info;
+    case GameProfile::unknown:
+        break;
+    }
+    return nullptr;
+}
+
+} // namespace eggbert

@@ -27,6 +27,7 @@
 
 #include <QDockWidget>
 
+#include "app/metadata_dialog.hpp"
 #include "app/minimap_widget.hpp"
 #include "app/probe_report.hpp"
 #include "app/statistics_panel.hpp"
@@ -206,6 +207,14 @@ void MainWindow::installDefaultPrompts() {
         }
         return std::pair{from->value(), to->value()};
     };
+    prompts.editMetadata = [this](DocumentTab *tab, int page) -> std::optional<Metadata> {
+        MetadataDialog dialog(tab->document().view(), tab->profile(), this);
+        dialog.setPage(static_cast<MetadataDialog::Page>(page));
+        if (dialog.exec() != QDialog::Accepted) {
+            return std::nullopt;
+        }
+        return dialog.metadata();
+    };
     prompts.findQuery = [this](DocumentTab *tab) -> std::optional<FindQuery> {
         QDialog dialog(this);
         dialog.setWindowTitle(tr("Find"));
@@ -245,6 +254,7 @@ void MainWindow::createActions() {
     auto *fileMenu = menuBar()->addMenu(tr("&File"));
     auto *editMenu = menuBar()->addMenu(tr("&Edit"));
     auto *viewMenu = menuBar()->addMenu(tr("&View"));
+    auto *worldMenu = menuBar()->addMenu(tr("&World"));
     auto *layerMenu = menuBar()->addMenu(tr("&Layer"));
     auto *open = addAction(fileMenu, QStringLiteral("fileOpen"), tr("&Open World..."),
                            QKeySequence::Open);
@@ -326,6 +336,18 @@ void MainWindow::createActions() {
                     if (!find(*query)) {
                         statusBar()->showMessage(tr("Nothing found."), 6000);
                     }
+                }
+            });
+
+    connect(addAction(worldMenu, QStringLiteral("worldMetadata"), tr("&Metadata...")),
+            &QAction::triggered, this, [this] { editMetadata(MetadataDialog::worldPage); });
+    connect(addAction(worldMenu, QStringLiteral("worldStarts"), tr("Player &Starts...")),
+            &QAction::triggered, this, [this] { editMetadata(MetadataDialog::startsPage); });
+    connect(addAction(worldMenu, QStringLiteral("worldCopyStart"),
+                      tr("&Copy Selected Start to All Four")),
+            &QAction::triggered, this, [this] {
+                if (auto *tab = currentTab()) {
+                    tab->copyActiveStartToAll();
                 }
             });
 
@@ -504,6 +526,23 @@ void MainWindow::createActions() {
     addTool(QStringLiteral("toolFill"), tr("Fill"), Tool::fill, QKeySequence(Qt::Key_F))
         ->setToolTip(tr("Fill: replaces the connected region of equal values under the pointer, "
                         "bounded by the selection (F)"));
+    addTool(QStringLiteral("toolStart"), tr("Start"), Tool::start, QKeySequence(Qt::Key_P))
+        ->setToolTip(tr("Player start: click a cell to move the selected start there; click its "
+                        "own cell to turn it around (P)"));
+    startSpin_ = new QSpinBox(this);
+    startSpin_->setObjectName(QStringLiteral("startSpin"));
+    startSpin_->setRange(1, 4);
+    startSpin_->setPrefix(tr("Start "));
+    startSpin_->setToolTip(tr("Player start edited by the Start tool"));
+    toolBar->addWidget(startSpin_);
+    connect(startSpin_, &QSpinBox::valueChanged, this, [this](int value) {
+        if (updating_) {
+            return;
+        }
+        if (auto *tab = currentTab()) {
+            tab->setActiveStart(static_cast<std::size_t>(value - 1));
+        }
+    });
     toolBar->addSeparator();
 
     layerCombo_ = new QComboBox(this);
@@ -747,6 +786,15 @@ bool MainWindow::locateSlot(std::size_t slot) {
                                  : tr("Slot %1: stored type %2").arg(slot).arg(record->type),
                              8000);
     return true;
+}
+
+bool MainWindow::editMetadata(int page) {
+    auto *tab = currentTab();
+    if (tab == nullptr || !tab->document().isWritable()) {
+        return false;
+    }
+    const auto edited = prompts.editMetadata(tab, page);
+    return edited && tab->applyMetadataEdit(*edited);
 }
 
 bool MainWindow::find(const FindQuery &query) {
@@ -1039,6 +1087,14 @@ void MainWindow::updateUi() {
                              "toolFill"}) {
         enable(name, writable);
     }
+    enable("toolStart", writable);
+    enable("worldMetadata", writable);
+    enable("worldStarts", writable);
+    enable("worldCopyStart", writable);
+    startSpin_->setEnabled(writable);
+    if (hasTab) {
+        startSpin_->setValue(static_cast<int>(tab->activeStart()) + 1);
+    }
     enable("toolSelect", hasTab);
     enable("toolEyedropper", hasTab);
     const bool hasSelection = hasTab && !tab->selection().empty();
@@ -1080,6 +1136,7 @@ void MainWindow::updateUi() {
             {Tool::pencil, "toolPencil"},       {Tool::eraser, "toolEraser"},
             {Tool::eyedropper, "toolEyedropper"}, {Tool::line, "toolLine"},
             {Tool::rectangle, "toolRectangle"}, {Tool::fill, "toolFill"},
+            {Tool::start, "toolStart"},
         };
         for (const auto &[tool, name] : toolActions) {
             if (tab->tool() == tool) {

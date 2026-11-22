@@ -9,13 +9,14 @@
 
 #include "app/document_file.hpp"
 #include "app/world_canvas.hpp"
+#include "world/metadata.hpp"
 #include "world/tile_tools.hpp"
 
 class QLabel;
 
 namespace eggbert {
 
-enum class Tool { browse, pencil, eraser, eyedropper, line, rectangle, fill, select };
+enum class Tool { browse, pencil, eraser, eyedropper, line, rectangle, fill, select, start };
 
 // What a broad edit would do, shown before it is applied.
 struct BroadEditPreview {
@@ -103,6 +104,16 @@ public:
     bool drawRectangle(CellPos first, CellPos second);
     bool fillAt(CellPos cell);
 
+    // Header edits. Each is one undo step.
+    bool applyMetadataEdit(const Metadata &metadata);
+    // Start edited by the Start tool: 0..3.
+    [[nodiscard]] std::size_t activeStart() const { return activeStart_; }
+    void setActiveStart(std::size_t index);
+    // As in the games' editors: a click on the cell that already holds the
+    // start toggles its direction; any other cell moves it there.
+    bool placeStartAt(CellPos cell);
+    bool copyActiveStartToAll();
+
     // Selection.
     [[nodiscard]] const CellMask &selection() const { return selection_; }
     void setSelection(const CellMask &mask);
@@ -151,6 +162,7 @@ private:
     Tool tool_ = Tool::browse;
     SectionKind activeLayer_ = SectionKind::foreground;
     std::int16_t tileId_ = 0;
+    std::size_t activeStart_ = 0;
     bool foregroundLocked_ = false;
     bool bigDecorLocked_ = false;
     std::optional<RenderOptions> isolated_;
