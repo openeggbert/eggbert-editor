@@ -184,6 +184,10 @@ public:
     [[nodiscard]] QString describeCell(CellPos cell) const;
 
 signals:
+    // The tab now holds a different WorldDocument object (Revert or reload):
+    // anything keeping a pointer to the old one must drop it. Emitted before
+    // documentChanged.
+    void documentReplaced();
     // Bytes, history or modified state changed.
     void documentChanged();
     void profileChanged();

@@ -177,6 +177,7 @@ void DocumentTab::notifyDocumentChanged() {
 void DocumentTab::replaceFile(std::unique_ptr<DocumentFile> file) {
     file_ = std::move(file);
     canvas_->setDocument(&file_->document());
+    emit documentReplaced();
     if (!document().view().layer(activeLayer_)) {
         activeLayer_ = SectionKind::foreground;
     }

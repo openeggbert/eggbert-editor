@@ -248,6 +248,18 @@ int main(int argc, char **argv) {
     CHECK_EQ(std::to_integer<int>(view->bytes()[1608]), 0x35);
     CHECK_EQ(tab->document().historySize(), std::size_t{1}); // only the pencil edit
 
+    // Revert replaces the document object: the views must follow it rather
+    // than keep reading the old one.
+    window.prompts.confirmRevert = [](DocumentTab *) { return true; };
+    CHECK(window.revertTab(tab));
+    CHECK(!tab->document().isModified());
+    CHECK(view->bytes().data() == tab->document().currentBytes().data());
+    CHECK(inspector->originalView()->bytes().data() == tab->document().originalBytes().data());
+    CHECK_EQ(std::to_integer<int>(view->bytes()[1608]), 0x34);
+    inspector->goToOffset(1608);
+    CHECK(inspector->detailsText().contains("signed 4660"));
+    CHECK(!inspector->detailsText().contains("differs from the original"));
+
     // A truncated file: bytes shown, section list reflects what exists.
     auto *cutTab = window.openPath(cutPath);
     CHECK(cutTab != nullptr);

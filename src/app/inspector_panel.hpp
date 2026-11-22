@@ -49,6 +49,7 @@ signals:
 
 private:
     void refresh();
+    void adoptDocument();
     void refreshDetails();
     void rebuildSections();
     void rebuildBookmarks();

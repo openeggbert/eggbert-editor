@@ -155,7 +155,12 @@ void InspectorPanel::setTab(DocumentTab *tab) {
     if (tab_) {
         connect(tab_, &DocumentTab::documentChanged, this, [this] { refresh(); });
         connect(tab_, &DocumentTab::profileChanged, this, [this] { refreshDetails(); });
+        connect(tab_, &DocumentTab::documentReplaced, this, [this] { adoptDocument(); });
     }
+    adoptDocument();
+}
+
+void InspectorPanel::adoptDocument() {
     const WorldDocument *document = tab_ ? &tab_->document() : nullptr;
     currentView_->setDocument(document);
     originalView_->setDocument(document);
