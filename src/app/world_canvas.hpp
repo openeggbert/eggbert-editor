@@ -7,10 +7,13 @@
 #include <utility>
 #include <vector>
 
+#include "world/animation.hpp"
 #include "app/view_transform.hpp"
 #include "app/world_renderer.hpp"
 #include "world/tile_tools.hpp"
 #include "world/world_document.hpp"
+
+class QTimer;
 
 namespace eggbert {
 
@@ -27,6 +30,22 @@ public:
     [[nodiscard]] const ViewTransform &transform() const { return transform_; }
     [[nodiscard]] const RenderOptions &renderOptions() const { return options_; }
     void setRenderOptions(const RenderOptions &options);
+
+    // Display-only animation, as in the games' own editors: animated tiles
+    // and moving objects are shown as time passes. Nothing stored changes.
+    void setAnimated(bool animated);
+    [[nodiscard]] bool isAnimated() const { return animated_; }
+    // The game whose animation and draw order rules apply.
+    void setProfile(GameProfile profile);
+    [[nodiscard]] std::uint32_t animationTick() const { return tick_; }
+    // Moves the animation on by `ticks` (the clock does this 20 times a
+    // second while the canvas is visible).
+    void advanceAnimation(std::uint32_t ticks);
+    // Starts the animation again from the stored state (after an edit).
+    void restartAnimation();
+    // Where the object of a slot is drawn right now: its animated position
+    // while animation is on, its stored current position otherwise.
+    [[nodiscard]] Point shownPosition(std::size_t slot) const;
 
     // Screen pixels per world pixel.
     [[nodiscard]] double zoom() const { return transform_.scale; }
@@ -85,6 +104,8 @@ protected:
     void leaveEvent(QEvent *event) override;
     void wheelEvent(QWheelEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
+    void showEvent(QShowEvent *event) override;
+    void hideEvent(QHideEvent *event) override;
 
 private:
     void applyViewChange();
@@ -108,6 +129,11 @@ private:
     bool panning_ = false;
     bool autoFit_ = true;
     QPointF lastPanPosition_;
+    bool animated_ = false;
+    GameProfile profile_ = GameProfile::unknown;
+    std::uint32_t tick_ = 0;
+    ObjectAnimation objects_;
+    QTimer *clock_ = nullptr;
 };
 
 } // namespace eggbert

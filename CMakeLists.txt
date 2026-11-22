@@ -24,6 +24,8 @@ endif()
 add_library(eggbert_world STATIC
     src/world/adaptive.cpp
     src/world/adaptive.hpp
+    src/world/animation.cpp
+    src/world/animation.hpp
     src/world/atlas_table.cpp
     src/world/atlas_table.hpp
     src/world/doctor.cpp
@@ -36,6 +38,8 @@ add_library(eggbert_world STATIC
     src/world/metadata.hpp
     src/world/editor_groups.cpp
     src/world/editor_groups.hpp
+    src/world/object_animation_data.cpp
+    src/world/object_animation_data.hpp
     src/world/object_catalog.cpp
     src/world/object_catalog.hpp
     src/world/object_ops.cpp
@@ -163,14 +167,14 @@ include(CPack)
 include(CTest)
 if(BUILD_TESTING)
     # Headless core tests: no Qt, no game assets.
-    foreach(name layout le_reader world_probe world_view world_document world_stats offset_map tile_tools metadata object_ops hex_model doctor adaptive atlas_table editor_groups view_transform)
+    foreach(name layout le_reader world_probe world_view world_document world_stats offset_map tile_tools metadata object_ops hex_model doctor adaptive animation atlas_table editor_groups view_transform)
         add_executable(${name}-test tests/${name}_test.cpp)
         target_link_libraries(${name}-test PRIVATE eggbert_world)
         add_test(NAME ${name} COMMAND ${name}-test)
     endforeach()
 
     # Application tests run without a display.
-    foreach(name probe_report document_file world_renderer png_export game_assets main_window docks tools metadata_ui objects_ui inspector doctor_ui adaptive_ui workspace artwork_ui palette music_player)
+    foreach(name probe_report document_file world_renderer png_export game_assets main_window docks tools metadata_ui objects_ui inspector doctor_ui adaptive_ui workspace artwork_ui palette music_player animation_ui)
         add_executable(${name}-test tests/${name}_test.cpp)
         target_link_libraries(${name}-test PRIVATE eggbert_app Qt6::Test)
         add_test(NAME ${name} COMMAND ${name}-test)

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "world_renderer.hpp"
 
+#include "world/animation.hpp"
+
 #include <QFont>
 #include <QPainter>
 #include <QPen>
@@ -182,6 +184,17 @@ void renderWorld(QPainter &painter, const WorldView &world, const ViewTransform 
     const bool labels = options.showLabels && cellScreen >= 26.0;
 
     const bool secondGame = art != nullptr && art->profile() == GameProfile::speedyBlupi2;
+    const auto drawProfile = art != nullptr ? art->profile() : options.profile;
+    const AnimationFrame *animation = options.animation.get();
+    // The frame of a tile now: animated with artwork, the stored number
+    // (with the games' draw order) otherwise.
+    const auto frameOf = [&](SectionKind kind, std::int16_t stored, int x, int y) {
+        if (animation != nullptr && art != nullptr) {
+            return tileFrame(drawProfile, kind, stored, static_cast<std::size_t>(x),
+                             static_cast<std::size_t>(y), animation->tick);
+        }
+        return stillTileFrame(drawProfile, kind, stored);
+    };
     // Draws one sprite at a world position with nearest-neighbour scaling;
     // false when the artwork has no such sprite.
     const auto drawSprite = [&](int channel, int icon, double worldX, double worldY) {
@@ -217,7 +230,8 @@ void renderWorld(QPainter &painter, const WorldView &world, const ViewTransform 
                     } else if (secondGame && id >= 87 && id <= 89) {
                         spriteY -= 2;
                     }
-                    if (drawSprite(id == 203 ? 1 : 9, id, x * cell, spriteY)) {
+                    const auto frame = frameOf(SectionKind::bigDecor, id, x, y);
+                    if (drawSprite(id == 203 ? 1 : 9, frame.icon, x * cell, spriteY)) {
                         continue;
                     }
                 }
@@ -276,23 +290,35 @@ void renderWorld(QPainter &painter, const WorldView &world, const ViewTransform 
         return art != nullptr && (type == 1 || (secondGame && (type == 47 || type == 48)));
     };
     std::vector<bool> drawnWithArtwork(objects ? objects->slotCount() : 0, false);
+    // The pose an object is shown with: the animation's, or the stored one.
+    const auto poseOf = [&](std::size_t slot, const ObjectRecord &record) {
+        if (animation != nullptr && slot < animation->objects.size()) {
+            return animation->objects[slot];
+        }
+        return ObjectPose{record.posCurrent, record.channel, record.icon};
+    };
     const auto drawObjectBody = [&](std::size_t slot, const ObjectRecord &record) {
-        const auto rect = objectRect(record, record.posCurrent);
+        const auto pose = poseOf(slot, record);
+        const auto rect = objectRect(record, pose.position);
         if (!QRectF(rect).adjusted(-64, -64, 64, 64).intersects(viewport)) {
             return;
         }
         // Three types are drawn slightly lower and to the right; one more
         // in the second game.
-        double worldX = record.posCurrent.x;
-        double worldY = record.posCurrent.y;
+        double worldX = pose.position.x;
+        double worldY = pose.position.y;
         if (record.type == 4 || record.type == 32 || record.type == 33) {
             worldX += 2;
             worldY += 6;
         } else if (secondGame && record.type == 54) {
             worldY += 6;
         }
-        if (drawSprite(record.channel, record.icon, worldX, worldY)) {
+        if (drawSprite(pose.channel, pose.icon, worldX, worldY)) {
             drawnWithArtwork[slot] = true;
+            // The games' editors mark a crate that is disguised as a tile.
+            if (record.type == 12 && (pose.icon < 32 || pose.icon > 34)) {
+                drawSprite(1, 214, worldX, worldY);
+            }
             return;
         }
         auto color = schematicObjectColor(record.type);
@@ -310,8 +336,16 @@ void renderWorld(QPainter &painter, const WorldView &world, const ViewTransform 
         }
     }
 
-    // Foreground cells.
-    if (const auto layer = world.foreground(); layer && options.showForeground) {
+    // Foreground cells. With artwork the games' order applies: ordinary
+    // tiles, then lifts, then the tiles of the second pass (lava, water,
+    // wind, fans, traps), which so cover what is inside them. The schematic
+    // drawing shows every stored number in one pass.
+    enum class Pass { all, ordinary, late };
+    const auto drawForeground = [&](Pass pass) {
+        const auto layer = world.foreground();
+        if (!layer || !options.showForeground) {
+            return;
+        }
         const auto range = visibleCells(transform, viewport, 0);
         for (int x = range.x0; x <= range.x1; ++x) {
             for (int y = range.y0; y <= range.y1; ++y) {
@@ -319,12 +353,19 @@ void renderWorld(QPainter &painter, const WorldView &world, const ViewTransform 
                 if (id == layout::emptyCell) {
                     continue;
                 }
+                const auto frame = frameOf(SectionKind::foreground, id, x, y);
+                if ((pass == Pass::ordinary && frame.late) || (pass == Pass::late && !frame.late)) {
+                    continue;
+                }
+                if (art != nullptr && frame.animated && frame.icon == layout::emptyCell) {
+                    continue; // a blank frame of the animation
+                }
                 // Grass pictures (107 to 109, 157) are drawn seven pixels up,
                 // and picture 364 of the second game two pixels up.
                 const int lift = (id >= 107 && id <= 109) || id == 157 ? 7
                                  : secondGame && id == 364             ? 2
                                                                        : 0;
-                if (drawSprite(1, id, x * cell, y * cell - lift)) {
+                if (drawSprite(1, frame.icon, x * cell, y * cell - lift + frame.offsetY)) {
                     continue;
                 }
                 const auto rect = screenRect(transform, x * cell, y * cell, cell, cell);
@@ -340,7 +381,8 @@ void renderWorld(QPainter &painter, const WorldView &world, const ViewTransform 
                 }
             }
         }
-    }
+    };
+    drawForeground(art != nullptr ? Pass::ordinary : Pass::all);
 
     if (objects && options.showObjects && art != nullptr) {
         for (std::size_t slot = 0; slot < objects->slotCount(); ++slot) {
@@ -349,6 +391,9 @@ void renderWorld(QPainter &painter, const WorldView &world, const ViewTransform 
                 drawObjectBody(slot, record);
             }
         }
+    }
+    if (art != nullptr) {
+        drawForeground(Pass::late);
     }
 
     // Editor overlays: motion paths, object outlines and slot labels.
@@ -396,7 +441,7 @@ void renderWorld(QPainter &painter, const WorldView &world, const ViewTransform 
                 painter.setRenderHint(QPainter::Antialiasing, false);
             }
             if (options.showObjects && !drawnWithArtwork[slot]) {
-                const auto rect = objectRect(record, record.posCurrent);
+                const auto rect = objectRect(record, poseOf(slot, record).position);
                 if (!QRectF(rect).intersects(viewport)) {
                     continue;
                 }

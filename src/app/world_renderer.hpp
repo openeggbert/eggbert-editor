@@ -6,14 +6,24 @@
 #include <QRectF>
 
 #include <memory>
+#include <vector>
 
 #include "app/game_assets.hpp"
 #include "app/view_transform.hpp"
+#include "world/animation.hpp"
 #include "world/world_view.hpp"
 
 class QPainter;
 
 namespace eggbert {
+
+// One moment of the display-only animation: the tick for animated tiles and,
+// per object slot, the pose to draw instead of the stored one (an empty
+// list means the stored poses).
+struct AnimationFrame {
+    std::uint32_t tick = 0;
+    std::vector<ObjectPose> objects;
+};
 
 struct RenderOptions {
     bool showForeground = true;
@@ -34,6 +44,12 @@ struct RenderOptions {
     // Game artwork to draw with; null draws everything schematically.
     // Sprites the artwork cannot provide fall back to their placeholder.
     std::shared_ptr<const GameAssets> artwork;
+    // The game whose drawing rules apply (draw order, animation). Taken
+    // from the artwork when that is set.
+    GameProfile profile = GameProfile::unknown;
+    // Null draws the stored state; otherwise animated tiles show the frame
+    // of the tick (with artwork) and objects are drawn at their poses.
+    std::shared_ptr<const AnimationFrame> animation;
 
     friend bool operator==(const RenderOptions &, const RenderOptions &) = default;
 };

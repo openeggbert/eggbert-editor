@@ -125,6 +125,7 @@ void DocumentTab::setProfile(GameProfile profile) {
     }
     // The profile only selects catalogs and previews; bytes are untouched.
     profile_ = profile;
+    canvas_->setProfile(profile);
     canvas_->update();
     emit profileChanged();
 }
@@ -978,7 +979,27 @@ void DocumentTab::onToolPressed(CellPos cell) {
                 break;
             }
         }
-        const auto hits = objectsAt(document().view(), centre);
+        auto hits = objectsAt(document().view(), centre);
+        // While the canvas animates, an object is drawn where the animation
+        // has taken it (starting from its posStart), so it can be picked
+        // there too, and at its start cell.
+        if (canvas_->isAnimated() && objects) {
+            for (std::size_t slot = 0; slot < objects->slotCount(); ++slot) {
+                const auto record = *objects->record(slot);
+                if (record.isFree() || std::ranges::find(hits, slot) != hits.end()) {
+                    continue;
+                }
+                const auto size = spriteBoxSize(record.channel);
+                const auto inside = [&](Point position) {
+                    return centre.x >= position.x && centre.x < position.x + size &&
+                           centre.y >= position.y && centre.y < position.y + size;
+                };
+                if (inside(canvas_->shownPosition(slot)) || inside(record.posStart)) {
+                    hits.push_back(slot);
+                }
+            }
+            std::ranges::sort(hits);
+        }
         if (hits.empty()) {
             setSelectedSlot(std::nullopt);
             break;

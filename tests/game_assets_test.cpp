@@ -422,6 +422,70 @@ int main(int argc, char **argv) {
         CHECK(directoryDigest(scenic.root) == scenicDigest);
     }
 
+    // Animation frames, the games' second tile pass and object poses.
+    {
+        auto scene = blankWorld(fxRevision13);
+        put16(scene, fxCellOffset(fxForegroundOffset, 30, 30), 68);  // lava
+        put16(scene, fxCellOffset(fxForegroundOffset, 34, 30), 68);  // lava under a lift
+        put16(scene, fxCellOffset(fxForegroundOffset, 36, 30), 9);   // plain tile under a lift
+        put16(scene, fxCellOffset(fxRevision13.bigDecorOffset, 40, 30), 203); // marine plant
+        const auto put = [&](std::size_t slot, int type, int x, int y, int channel, int icon) {
+            const auto base = fxSlotOffset(fxRevision13, slot);
+            put16(scene, base, type);
+            for (const std::size_t field : {12, 20, 28}) {
+                put32(scene, base + field, x);
+                put32(scene, base + field + 4, y);
+            }
+            put16(scene, base + 42, channel);
+            put16(scene, base + 44, icon);
+        };
+        put(0, 1, 34 * 64, 30 * 64, 1, 153); // lifts
+        put(1, 1, 36 * 64, 30 * 64, 1, 153);
+        put(2, 5, 44 * 64, 30 * 64, 10, 3);  // an item
+        put(3, 12, 48 * 64, 30 * 64, 1, 2);  // a crate disguised as tile 2
+        put(4, 12, 50 * 64, 30 * 64, 1, 32); // an ordinary crate
+        const WorldView sceneView(scene);
+        const auto at = [&](const RenderOptions &with, int cellX, int px = 30, int py = 30) {
+            return window(sceneView, with, cellX * 64, 30 * 64, 64).pixelColor(px, py);
+        };
+        // Stored state: lava is drawn after lifts, a plain tile before them.
+        CHECK(at(options, 30) == tile(68));
+        CHECK(at(options, 34) == tile(68));
+        CHECK(at(options, 36) == tile(153));
+        CHECK(at(options, 40) == tile(203));
+        // The games' editors mark a disguised crate with picture 214.
+        CHECK(at(options, 48) == tile(214));
+        CHECK(at(options, 50) == tile(32));
+        // With an animation frame the tick chooses the picture.
+        auto moving = options;
+        auto frame = std::make_shared<AnimationFrame>();
+        frame->tick = 3;
+        moving.animation = frame;
+        CHECK(at(moving, 30) == tile(69));
+        CHECK(at(moving, 34) == tile(71)); // another cell, another phase: (34 * 13 + 30 * 7 + 1) % 5
+        CHECK(at(moving, 36) == tile(153));
+        CHECK(at(moving, 40) == tile(204));
+        CHECK(at(moving, 44, 10, 10) == spriteColor(1, 3)); // no poses given: stored ones
+        // Poses replace the stored position and picture of each slot.
+        auto posed = std::make_shared<AnimationFrame>();
+        posed->tick = 0;
+        posed->objects.assign(200, ObjectPose{});
+        posed->objects[2] = ObjectPose{{46 * 64, 30 * 64}, 10, 7};
+        moving.animation = posed;
+        CHECK(at(moving, 46, 10, 10) == spriteColor(1, 7));
+        CHECK(at(moving, 44, 10, 10) != spriteColor(1, 3));
+        CHECK(at(moving, 30) == tile(68)); // tick 0 again
+        // Without artwork tiles keep their stored colour at any tick, while
+        // objects still follow their poses.
+        RenderOptions schematic;
+        schematic.showLabels = false;
+        schematic.profile = GameProfile::speedyBlupi1;
+        auto late = std::make_shared<AnimationFrame>();
+        late->tick = 3;
+        schematic.animation = late;
+        CHECK(at(schematic, 30) == schematicTileColor(SectionKind::foreground, 68));
+    }
+
     // The second game's sizes and its extra vertical adjustments.
     {
         const auto second = makeGame(dir.filePath("second-game"), true);

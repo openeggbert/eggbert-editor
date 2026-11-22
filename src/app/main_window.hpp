@@ -145,6 +145,9 @@ public:
     [[nodiscard]] std::shared_ptr<const GameAssets> artworkFor(GameProfile profile) const;
     [[nodiscard]] bool artworkEnabled() const { return artworkEnabled_; }
     void setArtworkEnabled(bool enabled);
+    // Display-only animation on every canvas (View -> Animate).
+    void setAnimated(bool animated);
+    [[nodiscard]] bool animated() const { return animate_; }
     [[nodiscard]] QString artworkReport() const;
 
     enum class DockLayout { mapping, objects, validation };
@@ -204,6 +207,7 @@ private:
     bool syncing_ = false;
     std::shared_ptr<const GameAssets> artwork_[2];
     bool artworkEnabled_ = false;
+    bool animate_ = true;
     QDockWidget *objectsDock_ = nullptr;
     QDockWidget *paletteDock_ = nullptr;
     QMenu *createMenu_ = nullptr;

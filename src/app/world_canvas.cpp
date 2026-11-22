@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "world_canvas.hpp"
 
+#include "world/animation.hpp"
+
+#include <QTimer>
 #include <QKeyEvent>
 #include <QMouseEvent>
 #include <QPainter>
@@ -35,6 +38,74 @@ WorldCanvas::WorldCanvas(const WorldDocument *document, QWidget *parent)
     setMouseTracking(true);
     setMinimumSize(200, 150);
     setAttribute(Qt::WA_OpaquePaintEvent);
+    clock_ = new QTimer(this);
+    clock_->setInterval(1000 / animationTicksPerSecond);
+    connect(clock_, &QTimer::timeout, this, [this] { advanceAnimation(1); });
+}
+
+void WorldCanvas::setAnimated(bool animated) {
+    if (animated_ == animated) {
+        return;
+    }
+    animated_ = animated;
+    restartAnimation();
+    if (animated_ && isVisible()) {
+        clock_->start();
+    } else {
+        clock_->stop();
+    }
+    update();
+}
+
+void WorldCanvas::setProfile(GameProfile profile) {
+    if (profile_ == profile) {
+        return;
+    }
+    profile_ = profile;
+    restartAnimation();
+    update();
+}
+
+void WorldCanvas::restartAnimation() {
+    tick_ = 0;
+    objects_.restart();
+}
+
+void WorldCanvas::advanceAnimation(std::uint32_t ticks) {
+    if (!animated_ || document_ == nullptr || ticks == 0) {
+        return;
+    }
+    // Take over edits first: a changed record starts again from its start.
+    objects_.sync(document_->view(), profile_);
+    objects_.advance(ticks);
+    tick_ += ticks;
+    update();
+}
+
+Point WorldCanvas::shownPosition(std::size_t slot) const {
+    if (animated_ && slot < objects_.poses().size()) {
+        return objects_.poses()[slot].position;
+    }
+    if (document_ != nullptr) {
+        if (const auto objects = document_->view().objects()) {
+            if (const auto record = objects->record(slot)) {
+                return record->posCurrent;
+            }
+        }
+    }
+    return {};
+}
+
+void WorldCanvas::showEvent(QShowEvent *event) {
+    QWidget::showEvent(event);
+    if (animated_) {
+        clock_->start();
+    }
+}
+
+void WorldCanvas::hideEvent(QHideEvent *event) {
+    QWidget::hideEvent(event);
+    clock_->stop();
 }
 
 void WorldCanvas::setDocument(const WorldDocument *document) {
@@ -190,6 +261,14 @@ void WorldCanvas::paintEvent(QPaintEvent *) {
     // as in the games.
     auto options = options_;
     options.backdropParallax = true;
+    options.profile = profile_;
+    if (animated_) {
+        objects_.sync(document_->view(), profile_);
+        auto frame = std::make_shared<AnimationFrame>();
+        frame->tick = tick_;
+        frame->objects = objects_.poses();
+        options.animation = std::move(frame);
+    }
     renderWorld(painter, document_->view(), transform_, QRectF(rect()), options);
 
     const auto cellRect = [this](CellPos first, CellPos last) {
@@ -252,8 +331,8 @@ void WorldCanvas::paintEvent(QPaintEvent *) {
                     continue;
                 }
                 const auto size = schematicSpriteSize(record->channel);
-                const QRectF area(transform_.toScreenX(record->posCurrent.x),
-                                  transform_.toScreenY(record->posCurrent.y),
+                const auto shown = shownPosition(slot);
+                const QRectF area(transform_.toScreenX(shown.x), transform_.toScreenY(shown.y),
                                   size * transform_.scale, size * transform_.scale);
                 painter.drawEllipse(area.adjusted(-3, -3, 3, 3));
             }
@@ -278,9 +357,9 @@ void WorldCanvas::paintEvent(QPaintEvent *) {
                 painter.drawRect(box(record->posEnd).adjusted(1, 1, -2, -2));
             }
             painter.setPen(QPen(QColor(0, 0, 0), 4));
-            painter.drawRect(box(record->posCurrent).adjusted(0, 0, -1, -1));
+            painter.drawRect(box(shownPosition(*selectedSlot_)).adjusted(0, 0, -1, -1));
             painter.setPen(QPen(QColor(255, 255, 255), 2));
-            painter.drawRect(box(record->posCurrent).adjusted(0, 0, -1, -1));
+            painter.drawRect(box(shownPosition(*selectedSlot_)).adjusted(0, 0, -1, -1));
         }
     }
     if (hovered_) {

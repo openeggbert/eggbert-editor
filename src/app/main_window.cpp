@@ -115,6 +115,7 @@ MainWindow::MainWindow() {
             }
         }
         artworkEnabled_ = stored.value(QStringLiteral("artwork/enabled"), false).toBool();
+        animate_ = stored.value(QStringLiteral("view/animate"), true).toBool();
     }
     setWindowIcon(applicationIcon());
     applyPreferences();
@@ -806,6 +807,18 @@ void MainWindow::createActions() {
                 loadArtwork(choice->first, choice->second);
                 prompts.showDocument(tr("Game Artwork"), artworkReport(), false);
             });
+    {
+        auto *animate = addAction(viewMenu, QStringLiteral("viewAnimate"), tr("&Animate"));
+        animate->setCheckable(true);
+        animate->setChecked(animate_);
+        animate->setStatusTip(tr("Show animated tiles and moving objects as time passes, as the "
+                                 "games' own editors do. Nothing stored changes."));
+        connect(animate, &QAction::toggled, this, [this](bool checked) {
+            if (!updating_) {
+                setAnimated(checked);
+            }
+        });
+    }
     connect(addAction(viewMenu, QStringLiteral("viewArtworkReport"), tr("Game Artwork Re&port")),
             &QAction::triggered, this,
             [this] { prompts.showDocument(tr("Game Artwork"), artworkReport(), false); });
@@ -1566,9 +1579,17 @@ void MainWindow::setArtworkEnabled(bool enabled) {
     updateUi();
 }
 
+void MainWindow::setAnimated(bool animated) {
+    animate_ = animated;
+    QSettings().setValue(QStringLiteral("view/animate"), animated);
+    applyArtworkToTabs();
+    updateUi();
+}
+
 void MainWindow::applyArtworkToTabs() {
     for (int index = 0; index < tabCount(); ++index) {
         auto *tab = tabAt(index);
+        tab->canvas()->setAnimated(animate_);
         auto options = tab->canvas()->renderOptions();
         options.artwork = artworkEnabled_ ? artworkFor(tab->profile()) : nullptr;
         tab->canvas()->setRenderOptions(options);
@@ -2045,6 +2066,11 @@ void MainWindow::updateUi() {
             options.artwork = wanted;
             tab->canvas()->setRenderOptions(options);
         }
+        tab->canvas()->setProfile(tab->profile());
+        tab->canvas()->setAnimated(animate_);
+    }
+    if (auto *item = action(QStringLiteral("viewAnimate"))) {
+        item->setChecked(animate_);
     }
     enable("viewFitSelection",
            hasTab && (!tab->selection().empty() || tab->selectedSlot().has_value()));
