@@ -4,6 +4,8 @@
 #include <QPointer>
 #include <QWidget>
 
+#include <memory>
+
 #include "app/document_tab.hpp"
 
 class QCheckBox;
@@ -12,6 +14,8 @@ class QSpinBox;
 class QTreeWidget;
 
 namespace eggbert {
+
+class GameAssets;
 
 // Lists the object pool of the current document and edits the exact numeric
 // fields of the selected record. Everything goes through DocumentTab.
@@ -22,6 +26,8 @@ public:
     explicit ObjectsPanel(QWidget *parent = nullptr);
 
     void setTab(DocumentTab *tab);
+    // Artwork for the small picture in front of each record; may be null.
+    void setArtwork(std::shared_ptr<const GameAssets> artwork);
     void refresh();
     [[nodiscard]] QTreeWidget *tree() const { return tree_; }
     [[nodiscard]] QString capacityText() const;
@@ -36,6 +42,8 @@ signals:
 
 private:
     void refreshEditors();
+
+    std::shared_ptr<const GameAssets> artwork_;
 
     QPointer<DocumentTab> tab_;
     QLabel *capacity_ = nullptr;

@@ -70,6 +70,7 @@ class DiagnosticsPanel;
 class InspectorPanel;
 class MinimapWidget;
 class ObjectsPanel;
+class PalettePanel;
 class StatisticsPanel;
 
 class MainWindow final : public QMainWindow {
@@ -112,6 +113,7 @@ public:
     [[nodiscard]] MinimapWidget *minimap() const { return minimap_; }
     [[nodiscard]] StatisticsPanel *statistics() const { return statistics_; }
     [[nodiscard]] ObjectsPanel *objectsPanel() const { return objects_; }
+    [[nodiscard]] PalettePanel *palette() const { return palette_; }
     [[nodiscard]] InspectorPanel *inspector() const { return inspector_; }
     [[nodiscard]] DiagnosticsPanel *diagnostics() const { return diagnostics_; }
     // Synchronises canvas, objects and inspector with a finding.
@@ -185,6 +187,7 @@ private:
     MinimapWidget *minimap_ = nullptr;
     StatisticsPanel *statistics_ = nullptr;
     ObjectsPanel *objects_ = nullptr;
+    PalettePanel *palette_ = nullptr;
     InspectorPanel *inspector_ = nullptr;
     DiagnosticsPanel *diagnostics_ = nullptr;
     QDockWidget *diagnosticsDock_ = nullptr;
@@ -193,11 +196,14 @@ private:
     std::shared_ptr<const GameAssets> artwork_[2];
     bool artworkEnabled_ = false;
     QDockWidget *objectsDock_ = nullptr;
+    QDockWidget *paletteDock_ = nullptr;
     QMenu *createMenu_ = nullptr;
     QComboBox *presetCombo_ = nullptr;
     QComboBox *adaptiveCombo_ = nullptr;
     QLabel *poolLabel_ = nullptr;
     GameProfile presetProfile_ = GameProfile::unknown;
+    // Artwork the preset choosers' icons were drawn with.
+    const GameAssets *presetArtwork_ = nullptr;
     QDockWidget *minimapDock_ = nullptr;
     QDockWidget *statisticsDock_ = nullptr;
     QByteArray defaultState_;

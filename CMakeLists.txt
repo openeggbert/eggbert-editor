@@ -78,10 +78,14 @@ qt_add_library(eggbert_app STATIC
     src/app/statistics_panel.cpp
     src/app/smoke_test.cpp
     src/app/smoke_test.hpp
+    src/app/sprite_icons.cpp
+    src/app/sprite_icons.hpp
     src/app/statistics_panel.hpp
     src/app/main_window.hpp
     src/app/objects_panel.cpp
     src/app/objects_panel.hpp
+    src/app/palette_panel.cpp
+    src/app/palette_panel.hpp
     src/app/png_export.cpp
     src/app/png_export.hpp
     src/app/png_export_dialog.cpp
@@ -160,7 +164,7 @@ if(BUILD_TESTING)
     endforeach()
 
     # Application tests run without a display.
-    foreach(name probe_report document_file world_renderer png_export game_assets main_window docks tools metadata_ui objects_ui inspector doctor_ui adaptive_ui workspace artwork_ui)
+    foreach(name probe_report document_file world_renderer png_export game_assets main_window docks tools metadata_ui objects_ui inspector doctor_ui adaptive_ui workspace artwork_ui palette)
         add_executable(${name}-test tests/${name}_test.cpp)
         target_link_libraries(${name}-test PRIVATE eggbert_app Qt6::Test)
         add_test(NAME ${name} COMMAND ${name}-test)

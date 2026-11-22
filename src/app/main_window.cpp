@@ -40,6 +40,8 @@
 #include "app/metadata_dialog.hpp"
 #include "app/minimap_widget.hpp"
 #include "app/objects_panel.hpp"
+#include "app/palette_panel.hpp"
+#include "app/sprite_icons.hpp"
 #include "app/png_export_dialog.hpp"
 #include "app/probe_report.hpp"
 #include "app/statistics_panel.hpp"
@@ -1022,6 +1024,54 @@ void MainWindow::createDocks(QMenu *viewMenu) {
     statisticsDock_->raise();
     connect(objects_, &ObjectsPanel::slotActivated, this,
             [this](qulonglong slot) { locateSlot(static_cast<std::size_t>(slot)); });
+    // Visual chooser for tiles, objects and border brushes, on the left.
+    paletteDock_ = new QDockWidget(tr("Palette"), this);
+    paletteDock_->setObjectName(QStringLiteral("paletteDock"));
+    palette_ = new PalettePanel(paletteDock_);
+    paletteDock_->setWidget(palette_);
+    addDockWidget(Qt::LeftDockWidgetArea, paletteDock_);
+    connect(palette_, &PalettePanel::tileChosen, this, [this](int value) {
+        auto *tab = currentTab();
+        if (tab == nullptr || !tab->document().isWritable()) {
+            return;
+        }
+        tileSpin_->setValue(value);
+        // A picked tile is meant to be painted: keep a painting tool, or
+        // switch to the pencil from a tool that does not paint tiles.
+        const auto tool = tab->tool();
+        const bool adaptiveWithTile =
+            tool == Tool::adaptive &&
+            tab->adaptiveBrush() == QString::fromLatin1(DocumentTab::adaptiveTileBrush);
+        if (tool != Tool::pencil && tool != Tool::line && tool != Tool::rectangle &&
+            tool != Tool::fill && !adaptiveWithTile) {
+            tab->setTool(Tool::pencil);
+        }
+        updateUi();
+    });
+    connect(palette_, &PalettePanel::presetChosen, this, [this](const QString &id) {
+        if (choosePreset(id)) {
+            updateUi();
+        }
+    });
+    connect(palette_, &PalettePanel::brushChosen, this, [this](const QString &id) {
+        auto *tab = currentTab();
+        if (tab == nullptr || !tab->document().isWritable() ||
+            tab->profile() == GameProfile::unknown) {
+            return;
+        }
+        tab->setAdaptiveBrush(id);
+        tab->setTool(Tool::adaptive);
+        updateUi();
+    });
+    connect(palette_, &PalettePanel::artworkDirectoryRequested, this, [this] {
+        if (auto *item = action(QStringLiteral("viewArtworkDirectory"))) {
+            item->trigger();
+        }
+    });
+    auto *paletteToggle = paletteDock_->toggleViewAction();
+    paletteToggle->setObjectName(QStringLiteral("viewPalette"));
+    paletteToggle->setText(tr("&Palette"));
+
     auto *objectsToggle = objectsDock_->toggleViewAction();
     objectsToggle->setObjectName(QStringLiteral("viewObjectsDock"));
     objectsToggle->setText(tr("Ob&jects Panel"));
@@ -1076,6 +1126,7 @@ void MainWindow::createDocks(QMenu *viewMenu) {
     statisticsToggle->setObjectName(QStringLiteral("viewStatistics"));
     statisticsToggle->setText(tr("World S&tatistics"));
     viewMenu->addAction(statisticsToggle);
+    viewMenu->addAction(paletteToggle);
     viewMenu->addAction(objectsToggle);
     viewMenu->addAction(inspectorToggle);
     viewMenu->addAction(diagnosticsToggle);
@@ -1111,6 +1162,7 @@ void MainWindow::applyLayout(DockLayout layout) {
     };
     switch (layout) {
     case DockLayout::mapping:
+        show(paletteDock_, true);
         show(objectsDock_, false);
         show(inspectorDock_, false);
         show(diagnosticsDock_, false);
@@ -1118,6 +1170,7 @@ void MainWindow::applyLayout(DockLayout layout) {
         show(statisticsDock_, true);
         break;
     case DockLayout::objects:
+        show(paletteDock_, true);
         show(statisticsDock_, false);
         show(inspectorDock_, false);
         show(diagnosticsDock_, false);
@@ -1125,6 +1178,7 @@ void MainWindow::applyLayout(DockLayout layout) {
         show(objectsDock_, true);
         break;
     case DockLayout::validation:
+        show(paletteDock_, false);
         show(objectsDock_, false);
         show(minimapDock_, false);
         show(statisticsDock_, true);
@@ -1262,6 +1316,7 @@ bool MainWindow::saveDiagnosticsBundle(const QString &path) {
 
 void MainWindow::resetLayout() {
     restoreState(defaultState_);
+    paletteDock_->show();
     minimapDock_->show();
     statisticsDock_->show();
     objectsDock_->show();
@@ -1776,6 +1831,10 @@ void MainWindow::addRecentFile(const QString &path) {
 
 void MainWindow::rebuildPresets(GameProfile profile) {
     presetProfile_ = profile;
+    const auto shared = artworkEnabled_ ? artworkFor(profile) : nullptr;
+    const auto *artwork = shared.get();
+    presetArtwork_ = artwork;
+    const int iconSize = 24;
     adaptiveCombo_->clear();
     adaptiveCombo_->addItem(tr("Tile ID, refresh neighbours"),
                             QString::fromLatin1(DocumentTab::adaptiveTileBrush));
@@ -1785,6 +1844,9 @@ void MainWindow::rebuildPresets(GameProfile profile) {
         adaptiveCombo_->addItem(
             QString::fromUtf8(family.name.data(), static_cast<qsizetype>(family.name.size())),
             QString::fromUtf8(family.id.data(), static_cast<qsizetype>(family.id.size())));
+        adaptiveCombo_->setItemIcon(
+            adaptiveCombo_->count() - 1,
+            QIcon(tileThumbnail(SectionKind::foreground, family.seed, artwork, iconSize)));
         adaptiveCombo_->setItemData(
             adaptiveCombo_->count() - 1,
             tr("Writes %1, then recomputes border forms. Evidence: %2")
@@ -1800,13 +1862,16 @@ void MainWindow::rebuildPresets(GameProfile profile) {
             QString::fromUtf8(preset.id.data(), static_cast<qsizetype>(preset.id.size()));
         const auto name =
             QString::fromUtf8(preset.name.data(), static_cast<qsizetype>(preset.name.size()));
-        presetCombo_->addItem(name, id);
+        const QIcon icon(
+            objectThumbnail(preset.type, preset.channel, preset.icon, artwork, iconSize));
+        presetCombo_->addItem(icon, name, id);
         const auto provenance = QString::fromUtf8(
             preset.provenance.data(), static_cast<qsizetype>(preset.provenance.size()));
         presetCombo_->setItemData(presetCombo_->count() - 1,
                                   tr("Stored type %1. Evidence: %2").arg(preset.type).arg(provenance),
                                   Qt::ToolTipRole);
-        auto *item = createMenu_->addAction(name);
+        auto *item = createMenu_->addAction(icon, name);
+        item->setIconVisibleInMenu(true);
         item->setObjectName(QStringLiteral("objectCreate_") + id);
         connect(item, &QAction::triggered, this, [this, id] { choosePreset(id); });
     }
@@ -1931,7 +1996,9 @@ void MainWindow::updateUi() {
         enable(name, writable);
     }
     const auto profile = hasTab ? tab->profile() : GameProfile::unknown;
-    if (profile != presetProfile_ || (presetCombo_->count() == 0 && profile != GameProfile::unknown)) {
+    const auto currentArtwork = artworkEnabled_ ? artworkFor(profile) : nullptr;
+    if (profile != presetProfile_ || currentArtwork.get() != presetArtwork_ ||
+        (presetCombo_->count() == 0 && profile != GameProfile::unknown)) {
         rebuildPresets(profile);
     }
     if (hasTab && tab->placePreset() == nullptr && presetCombo_->count() > 0) {
@@ -2057,8 +2124,21 @@ void MainWindow::updateUi() {
     tileSpin_->setEnabled(writable);
     profileCombo_->setEnabled(hasTab);
     updating_ = false;
+    palette_->setContext(profile, hasTab ? tab->activeLayer() : SectionKind::foreground,
+                         currentArtwork);
+    palette_->setEditable(writable);
+    if (hasTab) {
+        palette_->setCurrentTile(tab->tileId());
+        palette_->setCurrentBrush(tab->adaptiveBrush());
+        if (tab->placePreset() != nullptr) {
+            palette_->setCurrentPreset(QString::fromUtf8(
+                tab->placePreset()->id.data(),
+                static_cast<qsizetype>(tab->placePreset()->id.size())));
+        }
+    }
     minimap_->setTab(tab);
     statistics_->setTab(tab);
+    objects_->setArtwork(currentArtwork);
     objects_->setTab(tab);
     inspector_->setTab(tab);
     diagnostics_->setTab(tab);

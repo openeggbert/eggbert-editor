@@ -13,6 +13,8 @@
 
 #include <limits>
 
+#include "app/game_assets.hpp"
+#include "app/sprite_icons.hpp"
 #include "world/profile.hpp"
 
 namespace eggbert {
@@ -144,6 +146,14 @@ ObjectsPanel::ObjectsPanel(QWidget *parent) : QWidget(parent) {
     refresh();
 }
 
+void ObjectsPanel::setArtwork(std::shared_ptr<const GameAssets> artwork) {
+    if (artwork_ == artwork) {
+        return;
+    }
+    artwork_ = std::move(artwork);
+    refresh();
+}
+
 void ObjectsPanel::setTab(DocumentTab *tab) {
     if (tab_ == tab) {
         return;
@@ -217,6 +227,10 @@ void ObjectsPanel::refresh() {
             item->setData(0, slotRole, static_cast<qulonglong>(slot));
             item->setText(0, QString::number(slot));
             item->setText(1, record.isFree() ? tr("free (0)") : tab_->objectTypeText(record.type));
+            if (!record.isFree()) {
+                item->setIcon(1, QIcon(objectThumbnail(record.type, record.channel, record.icon,
+                                                       artwork_.get(), 20)));
+            }
             item->setText(2, pointText(record.posStart));
             item->setText(3, pointText(record.posEnd));
             item->setText(4, pointText(record.posCurrent));

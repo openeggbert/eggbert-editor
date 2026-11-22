@@ -45,9 +45,21 @@ The directory is only read, never changed. The editor reads the sprite sheets (`
 
 Artwork drawing has been checked with installations of Speedy Eggbert 1 and Speedy Eggbert 2: every tile, bigDecor picture, object and start stored in their worlds is found and drawn. Other editions have not been tried. If something is drawn in the wrong place, switch to the schematic drawing, which shows exactly what is stored, and please report it.
 
+## The Palette: choosing by picture
+
+The **Palette** panel on the left (**View → Palette**) is where you pick what the tools paint and place, by picture rather than by number:
+
+- **Tiles** shows the tiles of the active layer (foreground or bigDecor), starting with the empty cell. Click one to make it the tile the Pencil, Line, Rectangle and Fill tools write. If the current tool does not paint tiles, the Pencil is selected for you.
+- **Objects** shows every object the chosen game's own editor can place, with its name. Click one, then click a cell on the map to place it (drag for objects that move along a path).
+- **Borders** shows the chosen game's adaptive border brushes (rock, grass and so on). Click one to paint with it.
+
+With game artwork loaded (see above) the pictures are the game's own graphics, and tile numbers whose picture is blank are left out; without it each entry is a coloured swatch with its number, in the same colours as the schematic canvas, and the panel offers a **Choose Game Directory** button. The same pictures appear in the object chooser of the tool bar, in **Object → Create Verified Type** and in front of every record in the Objects panel. Choosing something in the Palette never changes the world; only the tools do.
+
+The **Tile ID** box in the tool bar remains for typing any raw number, including ones the Palette does not show.
+
 ## Editing tiles
 
-Tools act on the **active layer** (tool bar, or **Layer → Edit Foreground / Edit bigDecor**) and write stored tile numbers. The value -1 is an empty cell.
+Tools act on the **active layer** (tool bar, or **Layer → Edit Foreground / Edit bigDecor**) and write stored tile numbers. The value -1 is an empty cell. Pick the tile in the **Palette** or type its number.
 
 | Tool | Key | What it does |
 | --- | --- | --- |
@@ -86,7 +98,7 @@ Hovering shows every cell a click would change, including cells outside the brus
 
 A world stores up to 200 object records (100 in revisions 1.0 and 1.1). A record whose type is 0 is free. The **Objects** panel lists the records in use with slot, type, start, end and current position, channel and icon, and shows how many slots are stored, in use and free.
 
-- **Place** (N) creates the object chosen in the preset list on the clicked cell. For moving objects, press on the start cell and drag to the end cell. Presets exist only for object types that the chosen game's own level editor can place, and a new object gets exactly the values that editor writes. It goes into the lowest free slot; the slot's previous leftover bytes are replaced. When the pool is full nothing is created.
+- **Place** (N) creates the object chosen in the Palette (or in the tool bar's list) on the clicked cell. For moving objects, press on the start cell and drag to the end cell. Presets exist only for object types that the chosen game's own level editor can place, and a new object gets exactly the values that editor writes. It goes into the lowest free slot; the slot's previous leftover bytes are replaced. When the pool is full nothing is created.
 - **Object** (O) selects a record by clicking it; clicking again cycles through overlapping records in slot order. Drag to move it by whole cells; drag the red end box of a path to move only the end. Moving keeps the position inside the cell exactly as stored (a few original worlds store eggs four pixels higher than the games' editors place them; they stay that way unless you change the numbers). **Object → Move One Cell** (Alt+arrows) nudges, **Duplicate** (Ctrl+D) copies a record one cell to the right, **Delete Object** (Shift+Delete) frees the slot by clearing only its type, as the games do.
 - The Objects panel edits exact numbers: travel durations, waits, the three positions, channel and icon. The stored type, the two unknown fields and the run-time fields are shown but not edited. For the two enemies drawn like a player (in a helicopter, in a tank) the channel is the colour: the games' editors offer 11, 12 and 13.
 - A record whose type the chosen game's editor cannot place (types created only while playing, or unknown numbers) is shown with its raw values and can be deleted but not changed.
