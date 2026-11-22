@@ -8,6 +8,7 @@
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QFileDialog>
+#include <QDir>
 #include <QFileInfo>
 #include <QFontDatabase>
 #include <QFormLayout>
@@ -32,6 +33,7 @@
 #include "app/metadata_dialog.hpp"
 #include "app/minimap_widget.hpp"
 #include "app/objects_panel.hpp"
+#include "app/png_export_dialog.hpp"
 #include "app/probe_report.hpp"
 #include "app/statistics_panel.hpp"
 #include "world/object_catalog.hpp"
@@ -222,6 +224,22 @@ void MainWindow::installDefaultPrompts() {
         }
         return dialog.metadata();
     };
+    prompts.exportPng =
+        [this](DocumentTab *tab) -> std::optional<std::pair<PngExportOptions, QString>> {
+        PngExportDialog dialog(tab->canvas()->renderOptions(), this);
+        if (dialog.exec() != QDialog::Accepted) {
+            return std::nullopt;
+        }
+        const QFileInfo source(tab->file().path());
+        const auto path = QFileDialog::getSaveFileName(
+            this, tr("Export World PNG"),
+            source.dir().filePath(source.completeBaseName() + QStringLiteral(".png")),
+            tr("PNG images (*.png)"));
+        if (path.isEmpty()) {
+            return std::nullopt;
+        }
+        return std::pair{dialog.options(), path};
+    };
     prompts.confirmFix = [this](DocumentTab *, const QString &description) {
         QMessageBox box(QMessageBox::Question, tr("Proposed Fix"),
                         tr("Apply this change? It is one undo step and nothing else is touched."),
@@ -306,6 +324,17 @@ void MainWindow::createActions() {
     connect(addAction(fileMenu, QStringLiteral("fileRevert"), tr("Re&vert")),
             &QAction::triggered, this, [this] { revertTab(currentTab()); });
     fileMenu->addSeparator();
+    connect(addAction(fileMenu, QStringLiteral("fileExportPng"), tr("&Export World PNG..."),
+                      QKeySequence(Qt::CTRL | Qt::Key_E)),
+            &QAction::triggered, this, [this] {
+                auto *tab = currentTab();
+                if (tab == nullptr) {
+                    return;
+                }
+                if (const auto request = prompts.exportPng(tab)) {
+                    exportPng(tab, request->first, request->second);
+                }
+            });
     connect(addAction(fileMenu, QStringLiteral("fileProperties"), tr("Document &Properties...")),
             &QAction::triggered, this, [this] { showProperties(); });
     fileMenu->addSeparator();
@@ -973,6 +1002,22 @@ bool MainWindow::locateSlot(std::size_t slot) {
     return true;
 }
 
+bool MainWindow::exportPng(DocumentTab *tab, const PngExportOptions &options,
+                           const QString &path) {
+    if (tab == nullptr) {
+        return false;
+    }
+    const auto result = exportWorldPng(tab->document().view(), tab->profile(), options, path);
+    if (!result.ok) {
+        prompts.error(tr("Export World PNG"),
+                      tr("%1 was not written.\n%2").arg(path, result.error));
+        return false;
+    }
+    statusBar()->showMessage(
+        tr("Exported %1 x %2 pixels to %3").arg(result.width).arg(result.height).arg(path), 8000);
+    return true;
+}
+
 bool MainWindow::locateFinding(const Finding &finding) {
     auto *tab = currentTab();
     if (tab == nullptr) {
@@ -1344,6 +1389,7 @@ void MainWindow::updateUi() {
     enable("fileSaveAll", anyModified);
     enable("fileRevert", hasTab);
     enable("fileProperties", hasTab);
+    enable("fileExportPng", hasTab);
     enable("fileClose", hasTab);
     enable("editUndo", hasTab && tab->document().canUndo());
     enable("editRedo", hasTab && tab->document().canRedo());

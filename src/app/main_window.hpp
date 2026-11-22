@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "app/document_tab.hpp"
+#include "app/png_export.hpp"
 #include "world/world_stats.hpp"
 
 class QAction;
@@ -49,6 +50,8 @@ struct Prompts {
     std::function<std::optional<Metadata>(DocumentTab *, int page)> editMetadata;
     // Shown with the exact byte diff before a World Doctor fix is applied.
     std::function<bool(DocumentTab *, const QString &description)> confirmFix;
+    // PNG export settings and destination; nullopt cancels.
+    std::function<std::optional<std::pair<PngExportOptions, QString>>(DocumentTab *)> exportPng;
     // Displays a read-only text report (byte differences).
     std::function<void(const QString &title, const QString &text)> showReport;
 };
@@ -89,6 +92,8 @@ public:
     bool locateOffsetRange(std::size_t offset, std::size_t size);
     bool locateCell(CellPos cell);
     bool locateSlot(std::size_t slot);
+    // Exports the tab's current world; never modifies the document.
+    bool exportPng(DocumentTab *tab, const PngExportOptions &options, const QString &path);
     // Opens the metadata editor on a page and applies the result.
     bool editMetadata(int page);
     // Runs a search; false when nothing matches.

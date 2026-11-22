@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "app/main_window.hpp"
+#include "app/png_export_dialog.hpp"
 
 #include "check.hpp"
 #include "fixture.hpp"
 
 #include <QAction>
 #include <QApplication>
+#include <QCheckBox>
 #include <QComboBox>
+#include <QImage>
 #include <QSpinBox>
 #include <QFile>
 #include <QSettings>
@@ -314,6 +317,47 @@ int main(int argc, char **argv) {
     profileCombo->setCurrentIndex(profileCombo->findData(static_cast<int>(GameProfile::speedyBlupi2)));
     CHECK(old->profile() == GameProfile::speedyBlupi2);
     CHECK(current(old) == oldInput);
+
+    // PNG export through the File menu: writes the image, reports failure,
+    // never touches the document (also for a read-only one).
+    {
+        PngExportOptions exportOptions;
+        exportOptions.pixelsPerCell = 4;
+        const auto pngPath = dir.filePath("export.png");
+        std::optional<std::pair<PngExportOptions, QString>> exportAnswer;
+        int exportPrompts = 0;
+        window.prompts.exportPng = [&](DocumentTab *) {
+            ++exportPrompts;
+            return exportAnswer;
+        };
+        CHECK(window.action("fileExportPng")->isEnabled());
+        window.action("fileExportPng")->trigger(); // cancelled
+        CHECK_EQ(exportPrompts, 1);
+        CHECK(!QFile::exists(pngPath));
+        exportAnswer = std::pair{exportOptions, pngPath};
+        window.action("fileExportPng")->trigger();
+        const QImage exported(pngPath);
+        CHECK_EQ(exported.size(), QSize(400, 400));
+        // Same pixels as the renderer (the loaded PNG only differs in its
+        // in-memory pixel format).
+        CHECK(exported.convertToFormat(QImage::Format_ARGB32_Premultiplied) ==
+              renderWorldForExport(old->document().view(), exportOptions));
+        const auto errorsBefore = errors.size();
+        CHECK(!window.exportPng(old, exportOptions, pngPath + "/nope.png"));
+        CHECK_EQ(errors.size(), errorsBefore + 1);
+        CHECK(!old->document().isModified());
+        CHECK(current(old) == oldInput);
+
+        PngExportDialog dialog(old->canvas()->renderOptions());
+        CHECK(dialog.estimateText().contains("6400 x 6400"));
+        CHECK(dialog.estimateText().contains("about 156.")); // 163,840,000 bytes
+        dialog.findChild<QComboBox *>("pngScaleCombo")->setCurrentIndex(3);
+        CHECK(dialog.estimateText().contains("800 x 800"));
+        CHECK_EQ(dialog.options().pixelsPerCell, 8);
+        CHECK(!dialog.options().render.showForeground); // follows the canvas view
+        dialog.findChild<QCheckBox *>("pngTransparent")->setChecked(true);
+        CHECK(dialog.options().render.transparentBackground);
+    }
 
     // Closing the window with only clean tabs succeeds.
     CHECK(window.close());

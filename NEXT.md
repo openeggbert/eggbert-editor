@@ -24,6 +24,7 @@ Implemented and covered by asset-free tests:
 - `src/world/hex_model.hpp`: `offsetLabel`, `offsetCalculation` (spelled-out arithmetic), `decodeScalarAt` (signed/unsigned, POINT components, name bytes), `parseHexPattern`, `formatHex`, `findBytes` with wrap, `sectionJumps`. `src/app/hex_view.cpp`: virtualized read-only hex widget (section tints, changed/unsaved marks, selection, keyboard, copy). `src/app/inspector_panel.cpp`: Binary Inspector dock with jump (offset, `cell x,y`, `big x,y`, `slot n`, section), hex/ASCII search, bookmarks per tab, row width, original/current/side-by-side, details strip; two-way synchronisation with canvas cursor and object selection guarded against echo.
 - `src/world/doctor.hpp`: `runDoctor(view, profile)` with 28 rules (`doctorRules()`), each finding carrying rule ID, severity, confidence, judged profile, message, evidence, exact byte range, semantic location (header field/element, layer and all concerned cells grouped by value, slot/field) and an optional declarative `DoctorFix` (only `HDR-NAME-UNTERMINATED` has one). `src/app/diagnostics_panel.cpp`: Diagnostics dock (summary, severity filters, list, detail with basis and bytes, fix review), reruns on every document or profile change; `MainWindow::locateFinding` synchronises canvas, objects and inspector; `reviewFix` applies a fix as one named undo step after `prompts.confirmFix`; World → Validate, Compare with Original/Saved (`formatByteDifferences`); a full audit summary is shown with every save and never blocks it.
 - Not implemented from the plan's rule list, for lack of independent evidence: blocked starts (needs per-tile collision data, which this repository does not carry) and suspicious adaptive borders (comes with milestone 5).
+- `src/app/png_export.cpp`, `png_export_dialog.cpp`: `estimatePngExport`, `renderWorldForExport` (512-pixel bands through the canvas renderer), `exportWorldPng` (atomic `QSaveFile`, text metadata `Software`, `EggbertProfile`, `EggbertRenderer`, `EggbertSettings`), dialog with size and memory estimate, File → Export World PNG.
 - `src/app/metadata_dialog.cpp`: World and Player Starts pages; OK is disabled for an unstorable title or a changed music/region outside the chosen profile's verified range (unknown profile locks both); notes for titles over 40 bytes and for files whose title the games ignore. World menu: Metadata, Player Starts, Copy Selected Start to All Four. Start tool with a start selector.
 - `src/app/minimap_widget.cpp`, `statistics_panel.cpp`: Minimap dock (composite/foreground/bigDecor, viewport outline, click/drag pans the canvas) and World Statistics dock (tree of the headless numbers plus unsaved and changed-since-opened byte ranges; activating a row calls `MainWindow::locateTileValue/locateObjects/locateStart/locateOffsetRange`, which move the view and mark results without touching the document). View menu toggles and Reset Layout. The canvas keeps the world fitted until the user changes the view.
 - `src/app/probe_report.cpp`: plain-text probe report plus decoded summary (name with escaped non-printable bytes, music/region/world, `posDecor`/`dimDecor`, four starts, non-zero reserved fields, per-layer count of cells that differ from -1, object slot counts). Shown by **File → Document Properties**.
@@ -35,9 +36,9 @@ Verification on 2026-11-22, Ubuntu 24.04, GCC 13.3.0, CMake 3.28.3, Ninja, Qt 6.
 ```sh
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
 cmake --build build --parallel              # no warnings
-ctest --test-dir build --output-on-failure  # 23/23 passed: layout, le_reader, world_probe, world_view, world_document, world_stats, offset_map, tile_tools, metadata, object_ops, hex_model, doctor, view_transform, probe_report, document_file, world_renderer, main_window, docks, tools, metadata_ui, objects_ui, inspector, doctor_ui
+ctest --test-dir build --output-on-failure  # 24/24 passed: layout, le_reader, world_probe, world_view, world_document, world_stats, offset_map, tile_tools, metadata, object_ops, hex_model, doctor, view_transform, probe_report, document_file, world_renderer, png_export, main_window, docks, tools, metadata_ui, objects_ui, inspector, doctor_ui
 cmake -S . -B build-asan -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DEGGBERT_SANITIZE=ON
-cmake --build build-asan --parallel && ctest --test-dir build-asan   # 23/23 passed under ASan/UBSan
+cmake --build build-asan --parallel && ctest --test-dir build-asan   # 24/24 passed under ASan/UBSan
 ```
 
 Commit `c8f7a77` (binary inspector) was pushed green in Release but with a use-after-free that the sanitizer run reported in `main_window` (the hex views kept a pointer to the document replaced by Revert/Reload); the next commit fixes it with `DocumentTab::documentReplaced` and a regression check in `inspector`. Always run the sanitizer suite to completion before committing.
@@ -48,11 +49,14 @@ Commit `c8f7a77` (binary inspector) was pushed green in Release but with a use-a
 
 Verified and reported observations are recorded with citations in `docs/research/evidence.md` (sources: `blupi_recon` at `e05e22b990abb782c37a0d9fafa864d86a27e29f`; archived `eggbert-generator` bundle at `069c409611eb779e9066e8d492faed4550dac9a8`). Uncommitted background notes on object placement, adaptive borders and rendering exist only in the development scratch area; each fact must be re-read at its citation and entered in `evidence.md` when the slice that depends on it is implemented. No original executable or retail sample has been tested yet; the research-data host `drive.openeggbert.com` is on the environment allowlist, but the automated download was refused by the session's permission layer and awaits the user's decision.
 
-## Next task: full-world PNG export (milestone 7a)
+## Next task: verified adaptive brushes (milestone 5)
 
-1. Headless-ish `src/app/png_export.hpp/.cpp` (Qt Gui only): `PngExportOptions` (scale as pixels per cell from 64 down, visible layers/objects/starts/paths/grid/labels, solid or transparent background, renderer: schematic now, artwork when milestone 3c lands), `estimateExport(options)` giving pixel dimensions and estimated memory, and `exportWorldPng(view, profile, options, path)` that renders in horizontal bands through the same `renderWorld` as the canvas so a native 6400 × 6400 image never needs more than one band plus the output, writes PNG text metadata (profile, renderer version, settings, editor version) and reports failure without leaving a partial file.
-2. Tests: native and reduced sizes have exact dimensions; chosen pixels equal the canvas renderer's for an asymmetric scene (alignment across band borders, corners, transposition); transparent background; visibility options; metadata round trip via `QImageReader`; unwritable destination; deterministic output (two exports are byte-identical).
-3. UI: File → Export World PNG with a dialog showing dimensions and estimated memory before export; the document is never modified.
+Evidence first. Re-read in `blupi_recon` at the pinned commit and record in `docs/research/evidence.md`: `AdaptBorder` and `AdaptMidBorder` (`src/decor.cpp`, `games/sb2/src/decor.cpp`), `IsRightBorder` and its per-icon rule list, the adjacency tables (80 entries in SB1, 144 in SB2: lookup `table[(i / 16) * 16 + mask]` with mask bits below 1, above 2, right 4, left 8), when adaptation runs (edited cell plus four orthogonal neighbours, editor only), map-edge behavior, random variants, and SB2's cheese/cave and lightning special cases. The scratch notes summarise these but every table value must be re-read before use; a family is offered only when its complete rule is recorded.
+
+1. Headless `src/world/adaptive.hpp/.cpp`: provenance-tagged family rule data per profile; `adaptCell` computing the icon for a cell from its neighbours; `adaptiveStroke(builder, cells, family, random)` that writes the footprint, re-adapts required orthogonal neighbours, records the random variants actually chosen (injected generator) and reports every changed cell, including those outside the footprint.
+2. Tests: all 16 adjacency masks for every offered family, map edges and corners, multi-cell stroke order independence where the rule is order independent (and a recorded order where it is not), deterministic replay of recorded variants, undo/redo restoring exact bytes, no change on open/save/profile switch/export.
+3. UI: an Adaptive brush tool with a family chooser limited to the chosen profile, a preview of all cells that will change (footprint and side effects), one undo step per stroke. The raw pencil stays as it is.
+4. World Doctor rule for suspicious verified borders, only for offered families.
 
 ## Slice roadmap toward the 1.0 gate
 
@@ -72,7 +76,7 @@ Completed slices are ticked only when their tests are green and committed.
 - [ ] 5 Verified adaptive brushes
 - [x] 6a Read-only binary inspector
 - [x] 6b Basic World Doctor (without blocked-start and adaptive-border rules, see above)
-- [ ] 7a Full-world PNG export
+- [x] 7a Full-world PNG export (schematic renderer; artwork follows 3c)
 - [ ] 7a2 Workspace polish: themes, Mapping/Objects/Validation layouts, Reset Layout, shortcuts overview, preferences
 - [ ] 7b User guide, notices, Linux packaging, smoke tests, opt-in local-sample matrix
 

@@ -72,6 +72,10 @@ qt_add_library(eggbert_app STATIC
     src/app/main_window.hpp
     src/app/objects_panel.cpp
     src/app/objects_panel.hpp
+    src/app/png_export.cpp
+    src/app/png_export.hpp
+    src/app/png_export_dialog.cpp
+    src/app/png_export_dialog.hpp
     src/app/probe_report.cpp
     src/app/probe_report.hpp
     src/app/view_transform.hpp
@@ -105,7 +109,7 @@ if(BUILD_TESTING)
     endforeach()
 
     # Application tests run without a display.
-    foreach(name probe_report document_file world_renderer main_window docks tools metadata_ui objects_ui inspector doctor_ui)
+    foreach(name probe_report document_file world_renderer png_export main_window docks tools metadata_ui objects_ui inspector doctor_ui)
         add_executable(${name}-test tests/${name}_test.cpp)
         target_link_libraries(${name}-test PRIVATE eggbert_app Qt6::Test)
         add_test(NAME ${name} COMMAND ${name}-test)
