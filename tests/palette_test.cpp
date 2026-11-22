@@ -471,6 +471,17 @@ int main(int argc, char **argv) {
         click(palette->tileList(), itemWith(palette->tileList(), 185));
         CHECK(tab->activeLayer() == SectionKind::foreground);
         CHECK_EQ(static_cast<int>(tab->tileId()), 185);
+        // The adaptive brush works on the foreground only: with it active, a
+        // foreground tile keeps it, a bigDecor picture switches to the pencil.
+        tab->setAdaptiveBrush(QString::fromLatin1(DocumentTab::adaptiveTileBrush));
+        tab->setTool(Tool::adaptive);
+        click(palette->tileList(), itemWith(palette->tileList(), 185));
+        CHECK(tab->tool() == Tool::adaptive);
+        CHECK(palette->showTileGroup("scenery"));
+        click(palette->tileList(), itemWith(palette->tileList(), 21));
+        CHECK(tab->activeLayer() == SectionKind::bigDecor);
+        CHECK(tab->tool() == Tool::pencil);
+        window.action("layerActiveForeground")->trigger();
         CHECK(!tab->document().isModified());
 
         // The World tab changes the header, one undo step per choice.
@@ -523,6 +534,23 @@ int main(int argc, char **argv) {
             if (offset != 212 && offset != 216 && offset != 222 && offset != 224) {
                 CHECK(header[offset] == headerBefore[offset]);
             }
+        }
+        // The music of a game directory can be played even when its pictures
+        // cannot be used (here: no executable, so no sprite positions).
+        {
+            const auto musicOnly = makeGame(dir.filePath("music-only"), true);
+            addMusic(musicOnly);
+            CHECK(QFile::remove(musicOnly.root + "/GAME.EXE"));
+            CHECK(!window.loadArtwork(musicOnly.root, GameProfile::speedyBlupi2));
+            CHECK(window.artworkFor(GameProfile::speedyBlupi2) == nullptr);
+            CHECK(window.gameDirectoryFor(GameProfile::speedyBlupi2) != nullptr);
+            tab->setProfile(GameProfile::speedyBlupi2);
+            QApplication::processEvents();
+            CHECK(window.playMusic(1));
+            CHECK(window.musicPlayer()->isPlaying());
+            window.musicPlayer()->stop();
+            tab->setProfile(GameProfile::speedyBlupi1);
+            QApplication::processEvents();
         }
         int undone = 0;
         while (tab->document().isModified() && tab->document().undo()) {

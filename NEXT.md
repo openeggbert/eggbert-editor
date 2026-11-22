@@ -72,11 +72,14 @@ Documentation audit (2026-11-22, by hand against the source): every keyboard sho
 
 Verified and reported observations are recorded with citations in `docs/research/evidence.md` (sources: `blupi_recon` at `e05e22b990abb782c37a0d9fafa864d86a27e29f`; archived `eggbert-generator` bundle at `069c409611eb779e9066e8d492faed4550dac9a8`). Uncommitted background notes on object placement, adaptive borders and rendering exist only in the development scratch area; each fact must be re-read at its citation and entered in `evidence.md` when the slice that depends on it is implemented. Original installations of Speedy Eggbert 1 and 2 were read on 2026-11-22 (supplied by the owner; the automated download from `drive.openeggbert.com` had been refused by the session's permission layer). No game binary was executed.
 
-## Next task: the two approved checks, then the owner's review
+## Results of the two approved checks (2026-11-22)
 
-1. Run the steps of `.github/workflows/ci.yml` on the final commit in the prepared clean Ubuntu 24.04 system (`/tmp/eggbert-ci3` in the development container; owner approved) and record the result here.
-2. Run the independent audit of `docs/user-guide.md`, `README.md` and `docs/format-notes.md` against the code (owner approved) and correct what it finds.
-3. Show the owner the animated editor (screenshots or a short recording) and ask what, if anything, is still missing for 1.0.
+- **CI steps in a clean system.** A minimal Ubuntu 24.04 system (`debootstrap --variant=minbase`, then `cmake ninja-build g++ dpkg-dev` as a hosted runner has them, then the workflow's `qt6-base-dev`: CMake 3.28.3, GCC 13.3.0, Qt 6.4.2) ran every step of `.github/workflows/ci.yml` on commit `5a5f3d8`: job *build-and-test* — configure, build (0 warnings), `ctest` exit 0 (sample test skipped), `cpack` producing the TGZ and DEB; job *sanitizers* — configure, build (0 warnings), `ctest` exit 0. The sanitizer needs `/proc`, which a bare chroot lacks; with it mounted the job passes. The hosted workflow itself has still not run (no pull request, owner's decision).
+- **Independent documentation audit.** A second reviewer compared `docs/user-guide.md`, `README.md` and `docs/format-notes.md` with the code and reported 23 mismatches (none in the format notes). Six were fixed in the code because the documented behaviour was the better one: second-game tiles 384/385 are now drawn before objects; picking a bigDecor picture while the adaptive tile brush is active switches to the Pencil; music plays from a chosen game directory even when its pictures are unusable (`MainWindow::gameDirectoryFor`); the PNG dialog has a backdrop option recorded in `EggbertSettings`; Save As shows the World Doctor summary like Save; the 1/2 path badges are drawn down to five pixels per cell, so they show when the whole world is in view. The rest were wording corrections in the guide and README. The reviewer could not check statements about the games themselves (it had no access to the research sources); those rest on `docs/research/evidence.md`.
+
+## Next task: slice A of the promoted roadmap (interface)
+
+See `plan.md`, **Promotion of the roadmap**, and the checklist below. Slice A: icon tool bar, welcome page when no world is open, drag and drop of files, a zoom control in the status bar, the chosen game remembered per file, and the game (profile and artwork) recognised from the folder a world is opened from. Each control must drive an already tested action; tests are offscreen UI tests with generated game directories.
 
 Release-gate status on 2026-11-22 (evidence in this file and the tests named above):
 

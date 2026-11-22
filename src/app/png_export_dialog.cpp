@@ -48,6 +48,15 @@ PngExportDialog::PngExportDialog(const RenderOptions &initial,
     artwork_ = addBox(QStringLiteral("pngArtwork"), tr("Draw with game artwork"),
                       available_ != nullptr && initial.artwork != nullptr);
     artwork_->setEnabled(available_ != nullptr && available_->usable());
+    backdrop_ = addBox(QStringLiteral("pngBackdrop"), tr("Backdrop picture (with game artwork)"),
+                       initial.showBackdrop);
+    const auto syncBackdrop = [this] {
+        backdrop_->setEnabled(artwork_->isEnabled() && artwork_->isChecked() &&
+                              !transparent_->isChecked());
+    };
+    connect(artwork_, &QCheckBox::toggled, this, syncBackdrop);
+    connect(transparent_, &QCheckBox::toggled, this, syncBackdrop);
+    syncBackdrop();
 
     estimate_ = new QLabel(this);
     estimate_->setObjectName(QStringLiteral("pngEstimate"));
@@ -73,6 +82,7 @@ PngExportOptions PngExportDialog::options() const {
     options.render.showGrid = grid_->isChecked();
     options.render.showLabels = labels_->isChecked();
     options.render.transparentBackground = transparent_->isChecked();
+    options.render.showBackdrop = backdrop_->isChecked();
     if (artwork_->isChecked() && artwork_->isEnabled()) {
         options.render.artwork = available_;
     }

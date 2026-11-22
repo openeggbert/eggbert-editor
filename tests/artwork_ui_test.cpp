@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "app/main_window.hpp"
+#include "app/png_export.hpp"
 #include "app/png_export_dialog.hpp"
 #include "app/smoke_test.hpp"
 
@@ -142,6 +143,23 @@ int main(int argc, char **argv) {
             CHECK(withArtwork.estimateText().contains("uses no game artwork"));
             PngExportDialog without(canvas->renderOptions(), nullptr);
             CHECK(!without.findChild<QCheckBox *>("pngArtwork")->isEnabled());
+            // The backdrop can be chosen only with artwork on an opaque
+            // background, and the choice reaches the export options.
+            CHECK(!without.findChild<QCheckBox *>("pngBackdrop")->isEnabled());
+            auto *backdropBox = withArtwork.findChild<QCheckBox *>("pngBackdrop");
+            CHECK(!backdropBox->isEnabled()); // artwork was switched off above
+            box->setChecked(true);
+            CHECK(backdropBox != nullptr && backdropBox->isEnabled() && backdropBox->isChecked());
+            CHECK(withArtwork.options().render.showBackdrop);
+            backdropBox->setChecked(false);
+            CHECK(!withArtwork.options().render.showBackdrop);
+            CHECK(describeExportSettings(withArtwork.options()).endsWith("backdrop=0"));
+            backdropBox->setChecked(true);
+            CHECK(describeExportSettings(withArtwork.options()).endsWith("backdrop=1"));
+            withArtwork.findChild<QCheckBox *>("pngTransparent")->setChecked(true);
+            CHECK(!backdropBox->isEnabled());
+            CHECK(describeExportSettings(withArtwork.options()).endsWith("backdrop=0"));
+            CHECK(describeExportSettings(without.options()).endsWith("backdrop=0"));
             CHECK(without.options().render.artwork == nullptr);
         }
         // The world file is never told about the directory.

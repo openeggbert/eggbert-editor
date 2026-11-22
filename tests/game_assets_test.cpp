@@ -3,6 +3,8 @@
 #include "app/png_export.hpp"
 #include "app/world_renderer.hpp"
 
+#include "world/animation.hpp"
+
 #include "check.hpp"
 #include "fixture.hpp"
 #include "generated_game.hpp"
@@ -511,6 +513,73 @@ int main(int argc, char **argv) {
         const auto big88 = window(secondWorld, secondOptions, 30 * 64, 20 * 64 - 16, 64);
         CHECK(big88.pixelColor(5, 15) == background);
         CHECK(big88.pixelColor(5, 16) == spriteColor(2, 88)); // 2 down, 2 up
+
+        // The second game draws tiles 384 and 385 before the objects: an
+        // item on such a tile stays visible, on any other tile it is hidden.
+        put16(secondBytes, fxCellOffset(fxForegroundOffset, 40, 40), 384);
+        put16(secondBytes, fxCellOffset(fxForegroundOffset, 42, 40), 9);
+        const auto item = [&](std::size_t slot, int cellX) {
+            const auto base = fxSlotOffset(fxRevision13, slot);
+            put16(secondBytes, base, 5);
+            for (const std::size_t field : {12, 20, 28}) {
+                put32(secondBytes, base + field, cellX * 64);
+                put32(secondBytes, base + field + 4, 40 * 64);
+            }
+            put16(secondBytes, base + 42, 10);
+            put16(secondBytes, base + 44, 3);
+        };
+        item(0, 40);
+        item(1, 42);
+        const WorldView layered(secondBytes);
+        CHECK(window(layered, secondOptions, 40 * 64, 40 * 64, 64).pixelColor(30, 30) ==
+              spriteColor(1, 3));
+        CHECK(window(layered, secondOptions, 40 * 64, 40 * 64, 64).pixelColor(62, 62) ==
+              spriteColor(0, 384)); // the tile shows around the 60-pixel item
+        CHECK(window(layered, secondOptions, 42 * 64, 40 * 64, 64).pixelColor(30, 30) ==
+              spriteColor(0, 9));
+        // In the first game 384 is an ordinary number.
+        CHECK(!stillTileFrame(GameProfile::speedyBlupi1, SectionKind::foreground, 384).early);
+    }
+
+    // The 1 and 2 at the ends of a path are still drawn when the whole world
+    // is in view (about eight screen pixels per cell).
+    {
+        auto small = blankWorld(fxRevision13);
+        const auto base = fxSlotOffset(fxRevision13, 0);
+        put16(small, base, 4);
+        put32(small, base + 12, 40 * 64);
+        put32(small, base + 16, 40 * 64);
+        put32(small, base + 20, 60 * 64);
+        put32(small, base + 24, 40 * 64);
+        put32(small, base + 28, 40 * 64);
+        put32(small, base + 32, 40 * 64);
+        put16(small, base + 42, 10);
+        put16(small, base + 44, 57);
+        RenderOptions overview;
+        overview.showLabels = false;
+        const auto picture = renderWorldImage(WorldView(small), 0.125, overview); // 8 px per cell
+        const auto hasMarker = [&](int cellX, const QImage &image) {
+            for (int y = 40 * 8; y < 40 * 8 + 12; ++y) {
+                for (int x = cellX * 8; x < cellX * 8 + 12; ++x) {
+                    if (image.pixelColor(x, y) == pathMarkerColor()) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        };
+        CHECK(hasMarker(40, picture));
+        CHECK(hasMarker(60, picture));
+        CHECK(!hasMarker(50, picture));
+        // Too small to mean anything: left out below five pixels per cell.
+        const auto tiny = renderWorldImage(WorldView(small), 0.0625, overview);
+        bool any = false;
+        for (int y = 0; y < tiny.height() && !any; ++y) {
+            for (int x = 0; x < tiny.width() && !any; ++x) {
+                any = tiny.pixelColor(x, y) == pathMarkerColor();
+            }
+        }
+        CHECK(!any);
     }
     return test::finish("game_assets");
 }

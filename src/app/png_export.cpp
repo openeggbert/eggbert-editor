@@ -46,10 +46,14 @@ QString describeExportSettings(const PngExportOptions &options) {
     const auto &render = options.render;
     return QStringLiteral("pixelsPerCell=%1 foreground=%2 bigDecor=%3 objects=%4 starts=%5 "
                           "paths=%6 grid=%7 labels=%8 transparent=%9")
-        .arg(clampedPixelsPerCell(options))
-        .arg(flag(render.showForeground), flag(render.showBigDecor), flag(render.showObjects),
-             flag(render.showStarts), flag(render.showPaths), flag(render.showGrid),
-             flag(render.showLabels), flag(render.transparentBackground));
+               .arg(clampedPixelsPerCell(options))
+               .arg(flag(render.showForeground), flag(render.showBigDecor),
+                    flag(render.showObjects), flag(render.showStarts), flag(render.showPaths),
+                    flag(render.showGrid), flag(render.showLabels),
+                    flag(render.transparentBackground)) +
+           QStringLiteral(" backdrop=%1")
+               .arg(flag(render.artwork != nullptr && render.showBackdrop &&
+                         !render.transparentBackground));
 }
 
 QImage renderWorldForExport(const WorldView &world, const PngExportOptions &options) {

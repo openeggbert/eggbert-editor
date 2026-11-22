@@ -39,6 +39,7 @@ private:
     QCheckBox *labels_ = nullptr;
     QCheckBox *transparent_ = nullptr;
     QCheckBox *artwork_ = nullptr;
+    QCheckBox *backdrop_ = nullptr;
     std::shared_ptr<const GameAssets> available_;
     QLabel *estimate_ = nullptr;
 };

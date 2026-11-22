@@ -1060,8 +1060,10 @@ void MainWindow::createDocks(QMenu *viewMenu) {
         // A picked tile is meant to be painted: keep a painting tool, or
         // switch to the pencil from a tool that does not paint tiles.
         const auto tool = tab->tool();
+        // (The adaptive brush always works on the foreground, so it is kept
+        // only for a foreground tile.)
         const bool adaptiveWithTile =
-            tool == Tool::adaptive &&
+            tool == Tool::adaptive && wanted == SectionKind::foreground &&
             tab->adaptiveBrush() == QString::fromLatin1(DocumentTab::adaptiveTileBrush);
         if (tool != Tool::pencil && tool != Tool::line && tool != Tool::rectangle &&
             tool != Tool::fill && !adaptiveWithTile) {
@@ -1556,6 +1558,11 @@ std::shared_ptr<const GameAssets> MainWindow::artworkFor(GameProfile profile) co
     return artwork_[index];
 }
 
+std::shared_ptr<const GameAssets> MainWindow::gameDirectoryFor(GameProfile profile) const {
+    const auto index = artworkIndex(profile);
+    return index < 0 ? nullptr : artwork_[index];
+}
+
 bool MainWindow::loadArtwork(const QString &directory, GameProfile profile) {
     const auto index = artworkIndex(profile);
     if (index < 0) {
@@ -1815,7 +1822,13 @@ bool MainWindow::saveTabAs(DocumentTab *tab) {
     addRecentFile(tab->file().path());
     tabs_->setTabToolTip(tabs_->indexOf(tab), tab->file().path());
     tab->notifyDocumentChanged();
-    statusBar()->showMessage(tr("Saved %1").arg(tab->file().path()), 4000);
+    // As with Save: a full audit that informs and never blocks.
+    const auto report = runDoctor(tab->document().view(), tab->profile());
+    statusBar()->showMessage(tr("Saved %1 - World Doctor: %2 error(s), %3 warning(s)")
+                                 .arg(tab->file().path())
+                                 .arg(report.count(Severity::error))
+                                 .arg(report.count(Severity::warning)),
+                             8000);
     return true;
 }
 
@@ -1949,8 +1962,9 @@ void MainWindow::rebuildPresets(GameProfile profile) {
 
 bool MainWindow::playMusic(int number) {
     auto *tab = currentTab();
-    // The music belongs to the game, whether or not its pictures are shown.
-    const auto assets = tab != nullptr ? artworkFor(tab->profile()) : nullptr;
+    // The music belongs to the game directory, whether or not its pictures
+    // are shown or usable.
+    const auto assets = tab != nullptr ? gameDirectoryFor(tab->profile()) : nullptr;
     if (assets == nullptr) {
         music_->stop();
         musicNote_ = tr("Choose the game directory (View menu) to listen to its music.");
@@ -1965,7 +1979,7 @@ bool MainWindow::playMusic(int number) {
 
 void MainWindow::updateMusicStatus() {
     auto *tab = currentTab();
-    const bool haveGame = tab != nullptr && artworkFor(tab->profile()) != nullptr;
+    const bool haveGame = tab != nullptr && gameDirectoryFor(tab->profile()) != nullptr;
     auto text = music_->statusText();
     if (!music_->isPlaying() && !musicNote_.isEmpty()) {
         text = musicNote_;

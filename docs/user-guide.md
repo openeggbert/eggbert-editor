@@ -26,9 +26,9 @@ The file does not say which game it belongs to. Choose **Speedy Blupi / Eggbert 
 
 ## The canvas
 
-By default the canvas draws the world schematically, without any game artwork: every stored tile number has its own stable colour, bigDecor tiles cover two by two cells, objects are outlined boxes with their type and slot, player starts are numbered discs, and motion paths are dashed lines with an end box. The two ends of a path are marked **1** (where the object starts) and **2** (where it turns back), in both kinds of drawing. It can also draw with the artwork of a game you have (see *Game artwork*).
+By default the canvas draws the world schematically, without any game artwork: every stored tile number has its own stable colour (numbers below -1 share one warning colour), bigDecor tiles cover two by two cells, objects are outlined boxes with their type and slot, player starts are numbered discs, and motion paths are dashed lines with an end box. While motion paths are shown, the two ends of a path are marked **1** (where the object starts) and **2** (where it turns back), in both kinds of drawing, down to about five screen pixels per cell. It can also draw with the artwork of a game you have (see *Game artwork*).
 
-The canvas is **animated**, as the games' own level editors are: with game artwork, lava, water, wind, fans, springs and the other animated tiles change their picture 20 times a second, and in both kinds of drawing objects travel along their paths with their stored durations and waits and change their picture as they do in the games. This is for looking only. Time passing never changes the world: the file stores each object's start, end and timing, and those are what you edit. As in the games' editors, every object starts from its start point when a world is opened, and an object you have just edited starts again from there. A moving object can be picked with the Object tool where it currently is, at its start cell, or at its stored position. **View → Animate** switches animation off and on; switched off, the canvas shows exactly the stored state. Exported pictures always show the stored state.
+The canvas is **animated**, as the games' own level editors are: the games' clock runs at 20 ticks a second. With game artwork, lava, water, wind, fans, springs and the other animated tiles cycle through their pictures (most change every second to fourth tick) and objects change their picture as they do in the games; in both kinds of drawing objects travel along their paths with their stored durations and waits. This is for looking only. Time passing never changes the world: the file stores each object's start, end and timing, and those are what you edit. As in the games' editors, every object starts from its start point when a world is opened, and an object you have just edited starts again from there. While animation is on, a moving object can be picked with the Object tool where it currently is, at its start cell, or at its stored position (the centre of the clicked cell must lie on the object); with animation off, at its stored position. **View → Animate** switches animation off and on; switched off, the canvas shows exactly the stored state. Exported pictures always show the stored state.
 
 - Pan: middle mouse button, Alt+drag, the mouse wheel (Shift for horizontal), or the **Browse** tool.
 - Zoom: Ctrl+wheel zooms around the pointer; **View → Zoom In / Zoom Out / Actual Pixels / Fit World / Fit Selection**.
@@ -41,9 +41,9 @@ The status bar shows the cell under the pointer with the stored value and file o
 
 The editor contains no game artwork and works fully without it. If you have a game, **View → Game Artwork Directory** lets you choose its directory (the one containing `DATA`, `IMAGE08` and the game's `.exe`). The editor shows what it recognised — a first-game directory has `DATA/demo200.blp`, a second-game directory `DATA/demo300.blp` — and you can correct the game. One directory is remembered per game as a local preference; it is never stored in a world file.
 
-The directory is only read, never changed. The editor reads the sprite sheets (`object.blp`, `element.blp`, `explo.blp`, `blupi000.blp` to `blupi003.blp`, which are ordinary bitmaps) and looks up the position of each sprite inside the game's own executable. A table of positions is used only when all of it fits the sheet it belongs to. **View → Game Artwork Report** lists what was found and what was not.
+The directory is only read, never changed. The editor reads the sprite sheets (`object.blp`, `element.blp`, `explo.blp`, `blupi000.blp` to `blupi003.blp`, which are ordinary bitmaps) and looks up the position of each sprite inside the game's own executable. A table of positions is used only when it fits the sheet it belongs to (the height of a table's last entry may be shortened to fit). **View → Game Artwork Report** lists what was found and what was not.
 
-**View → Draw with Game Artwork** switches between artwork and the schematic drawing. A tab uses artwork only when its chosen game matches a loaded directory. The backdrop picture of the world's background, bigDecor, objects, tiles and starts are drawn in the games' order, with pure blue as the transparent colour; anything the artwork does not provide keeps its schematic placeholder. The backdrop is tiled and, on the canvas, scrolls at two thirds of the map's speed as in the games; **View → Show Backdrop Picture** switches it off. The minimap always stays schematic.
+**View → Draw with Game Artwork** switches between artwork and the schematic drawing. A tab uses artwork only when its chosen game matches a loaded directory. The backdrop picture of the world's background, bigDecor, objects, tiles and starts are drawn in the games' order (ordinary tiles, lifts, then lava, water, wind, fans and traps on top; in the second game two tile numbers go behind the objects), with pure blue as the transparent colour; anything the artwork does not provide keeps its schematic placeholder. The backdrop is tiled and, on the canvas, scrolls at two thirds of the map's speed as in the games; **View → Show Backdrop Picture** switches it off on the canvas. The minimap always stays schematic.
 
 Artwork drawing has been checked with installations of Speedy Eggbert 1 and Speedy Eggbert 2: every tile, bigDecor picture, object and start stored in their worlds is found and drawn. Other editions have not been tried. If something is drawn in the wrong place, switch to the schematic drawing, which shows exactly what is stored, and please report it.
 
@@ -51,9 +51,9 @@ Artwork drawing has been checked with installations of Speedy Eggbert 1 and Spee
 
 The **Palette** panel on the left (**View → Palette**) is where you pick what the tools paint and place, by picture rather than by number. It has four tabs.
 
-**Tiles.** The strip at the top lists groups; the grid below shows the tiles of the chosen group, starting with the empty cell. The groups are the buttons of the game's own level editor — for example *Scenery* (trees, houses and other big pictures), *Rock and tech blocks*, *Buildings and decor* — with their kinds in the same order, followed by *Other tiles* (tiles in none of the groups), *All tiles* and *All bigDecor*. Hover over a tile to see its kind and number. Click a tile to paint with it: the layer it belongs to becomes the active layer, and the Pencil is selected unless a tile-painting tool is already active. Tiles that the games' editors fit to their neighbours (rock, grass, cheese and so on) are painted with the adaptive brush, which does the same.
+**Tiles.** The strip at the top lists groups; the grid below shows the tiles of the chosen group, starting with the empty cell. Once a game is chosen, there is one group for each button of that game's own level editor that offers tiles — in the first game for example *Scenery* (trees, houses and other big pictures), *Rock and tech blocks*, *Buildings and decor* — with their kinds in the same order, followed by *Other tiles* (tiles in none of the groups). *All tiles* and *All bigDecor* are always there. Hover over a tile to see its kind and number. Click a tile to paint with it: the layer it belongs to becomes the active layer, and the Pencil is selected unless a tile-painting tool is already active. Tiles that the games' editors fit to their neighbours (rock, grass, cheese and so on) are painted with the adaptive brush, which does the same, when they are picked from one of the editor's groups; in *Other tiles* and *All tiles* every number is a raw tile.
 
-**Objects.** The same way for everything the chosen game's editor can place: *All objects*, then one group per editor button, such as *Lifts, cases and enemies* or *Bonuses and goal*. Click an object, then click a cell on the map to place it (drag for objects that move along a path).
+**Objects.** The same way for everything the chosen game's editor can place: *All objects*, then one group for each editor button that offers objects, such as *Lifts, cases and enemies* or *Bonuses and goal* in the first game. Click an object, then click a cell on the map to place it (drag for objects that move along a path).
 
 **Borders.** The chosen game's adaptive border brushes. Click one to paint with it.
 
@@ -61,15 +61,15 @@ The **Palette** panel on the left (**View → Palette**) is where you pick what 
 
 - *World size*: one screen, wide (scrolls horizontally), tall (scrolls vertically) or large (scrolls both ways).
 - *Background*: the backdrop picture the game shows behind the world. Click one to use it.
-- *Music*: no music or one of the game's pieces. With **Play when chosen** ticked, choosing a piece also plays it; **Play**/**Stop** does so for the marked piece. The games' music is MIDI, and the editor has no synthesizer of its own: it uses a MIDI player installed on your system (FluidSynth with a sound font, TiMidity++ or WildMIDI), or the command you store under `music/command` in the editor's settings file (`%f` stands for the file). Without one the panel says so. Listening needs the game directory, because the music files are the game's.
+- *Music*: no music or one of the game's pieces. With **Play when chosen** ticked, choosing a piece also plays it; **Play**/**Stop** does so for the marked piece. The games' music is MIDI, and the editor has no synthesizer of its own: it uses the command stored under `music/command` in the editor's settings file if there is one (`%f` stands for the file), otherwise the first of FluidSynth (with a sound font in a system sound-font directory), TiMidity++ and WildMIDI that is installed. The player is looked for when the editor starts. Without one the panel says so. Listening needs the game directory to be chosen (View → Game Artwork Directory), because the music files are the game's; its pictures need not be usable.
 
-With game artwork loaded (see above) the pictures are the game's own graphics, and in *All tiles* numbers whose picture is blank are left out; without it each entry is a coloured swatch with its number, in the same colours as the schematic canvas, and the panel offers a **Choose Game Directory** button. The same pictures appear in the object chooser of the tool bar, in **Object → Create Verified Type** and in front of every record in the Objects panel. Choosing a tile, object or brush never changes the world; only the tools and the World tab do.
+With game artwork loaded and **View → Draw with Game Artwork** switched on, the pictures are the game's own graphics, and in *Other tiles*, *All tiles* and *All bigDecor* numbers without a visible picture are left out; otherwise each entry is a coloured swatch with its number, in the same colours as the schematic canvas, and, once a game is chosen, the panel offers a **Choose Game Directory** button. The same pictures appear in the object chooser of the tool bar, in **Object → Create Verified Type** and in front of every record in the Objects panel. Choosing a tile, object or brush never changes the world; only the tools and the World tab do.
 
 The groups are a way to find things, not a limit: the **Tile ID** box in the tool bar remains for typing any raw number. Player starts are placed with the Start tool.
 
 ## Editing tiles
 
-Tools act on the **active layer** (tool bar, or **Layer → Edit Foreground / Edit bigDecor**) and write stored tile numbers. The value -1 is an empty cell. Pick the tile in the **Palette** or type its number.
+Tools act on the **active layer** (tool bar, or **Layer → Edit Foreground / Edit bigDecor**) and write stored tile numbers; the Adaptive tool always works on the foreground. The value -1 is an empty cell. Pick the tile in the **Palette** or type its number.
 
 | Tool | Key | What it does |
 | --- | --- | --- |
@@ -83,7 +83,7 @@ Tools act on the **active layer** (tool bar, or **Layer → Edit Foreground / Ed
 | Fill | F | replaces the connected area of equal values |
 | Adaptive | A | paints and recomputes border forms (see below) |
 
-These tools are *raw*: they never touch the other layer or any object. A selection limits every tool to its cells. **Edit** has Cut, Copy, Paste (at the cell cursor), Delete, Select All / None / Invert; **Layer** has Fill Selection, Replace Value, Clear Selection and Flip. A paste that reaches past the map edge is clipped and says how many cells were dropped. Tiles can be pasted within a tab, or between tabs set to the same game; tile numbers mean different things in the two games, so other pastes are refused.
+Except for Adaptive these tools are *raw*: they never touch the other layer or any object. A selection limits the cells a tool paints (Adaptive may still re-form neighbours outside it, and Paste is not limited by it). **Edit** has Cut, Copy, Paste (at the cell cursor), Delete, Select All / None / Invert; **Layer** has Fill Selection, Replace Value, Clear Selection and Flip. A paste that reaches past the map edge is clipped and says how many cells were dropped. Tiles can be pasted within a tab, or between tabs set to the same game; tile numbers mean different things in the two games, so other pastes are refused.
 
 A layer can be locked (**Layer → Lock**) or shown alone (**Isolate Active Layer**). Before an edit that changes more than 64 cells the editor shows how many cells and bytes, and which offsets, will change.
 
@@ -102,7 +102,7 @@ Hovering shows every cell a click would change, including cells outside the brus
 - The title is stored as single bytes (Windows-1252) in a 100-byte field. The games let a player type 40 characters; a longer title is allowed with a note. Bytes after the end of the title are left as they are. The games read the title only from revision 1.3 files.
 - Music and region are limited to the values the chosen game offers (music 0–10 with 0 meaning none; region 0–23 in the first game and 0–31 in the second). A stored value outside that range is kept until you change it.
 - A world that does not scroll in a direction is one screen in that direction: 10 cells wide or 480 pixels high.
-- The **Start** tool (P) moves the start selected in the tool bar to the clicked cell, at the same position inside the cell that the games' editors use; clicking the start's own cell turns it around. **World → Copy Selected Start to All Four** copies one start to the others. Single-player games use start 1.
+- The **Start** tool (P) moves the start selected in the tool bar to the clicked cell, at the same position inside the cell that the games' editors use; clicking the cell where the start already sits at that position turns it around. **World → Copy Selected Start to All Four** copies one start to the others. Single-player games use start 1.
 
 ## Objects
 
@@ -119,7 +119,7 @@ The 200-slot limit is a hard limit of the format. The games also need free slots
 
 Each tab has its own Undo/Redo history (Ctrl+Z, Ctrl+Shift+Z); every stroke, shape, paste, dialog or command is one step. Undo works past the last save.
 
-**Save** (Ctrl+S) writes the file through a temporary file that replaces the original in one step, so a failed save leaves the original intact. Before writing, the editor compares the file on disk with what it last read or wrote. If something else changed, shortened, lengthened or removed it, nothing is written and you choose between reloading the disk version, saving your version under another name, or cancelling. **Save As** writes to another file, **Save All** saves every modified tab, **Revert** reloads from disk.
+**Save** (Ctrl+S) writes the file through a temporary file that replaces the original in one step, so a failed save leaves the original intact. Before writing, the editor compares the file on disk with what it last read or wrote. If something else changed, shortened, lengthened or removed it, nothing is written and you choose between reloading the disk version (if the file still exists), saving your version under another name, or cancelling. **Save As** writes to another file, **Save All** saves every modified tab, **Revert** reloads from disk.
 
 Read-only documents can be copied with Save As; the copy is byte-identical.
 
@@ -133,7 +133,7 @@ The **Minimap** shows the whole world and outlines the part visible on the canva
 
 ## World Doctor
 
-**World → Validate** (F8) opens the Diagnostics panel. World Doctor checks structure and known limits; it never changes the world and it does not judge whether a world can be completed or is fun. The list refreshes after every edit, and a summary is shown with every save without blocking it.
+**World → Validate** (F8) opens the Diagnostics panel. World Doctor checks structure and known limits; it never changes the world and it does not judge whether a world can be completed or is fun. The list refreshes after every edit, and a summary is shown with every Save and Save As without blocking it.
 
 Each finding has a rule ID, a severity (error, warning or note), the game it was judged for and the basis of the rule: a structural fact, something read in the game's source, a value outside a verified range, something reported but not re-checked, or an estimate. Double-clicking a finding shows it on the canvas, in the Objects panel and in the Binary Inspector.
 
@@ -145,13 +145,13 @@ Only one repair is offered: ending a title that fills its whole field. It is sho
 
 **View → Binary Inspector** (Ctrl+B) shows the whole file as a hex dump. It cannot change anything. Header, foreground, bigDecor, object records and any extra bytes are tinted differently; bytes changed since the file was opened are highlighted and unsaved bytes underlined.
 
-For the byte under the cursor it shows the offset, the structural name (for example `header.music`, `foreground[3][70]`, `objects[137].posEnd.y`), the arithmetic that leads there, the value as signed and unsigned little-endian number, and the original and saved values. Cells are stored column by column: cell (x, y) of a layer is at `layer start + 2 × (100 × x + y)`.
+For the byte under the cursor it shows the offset, the structural name (for example `header.music`, `foreground[3][70]`, `objects[137].posEnd.y`), the arithmetic that leads there, the value as signed and unsigned little-endian number, the original value and, for a byte with unsaved changes, the saved value. Cells are stored column by column: cell (x, y) of a layer is at `layer start + 2 × (100 × x + y)`.
 
 Type an offset (`1608` or `0x648`), `cell 3,70`, `big 3,70` or `slot 137` to jump; pick a section from the list; search for hex bytes or ASCII text; set bookmarks; choose 8 to 32 bytes per row; view the original bytes or original and current side by side. The inspector follows the cell cursor and the selected object, and clicking a byte moves the canvas there.
 
 ## Exporting a picture
 
-**File → Export World PNG** (Ctrl+E) writes one image of the complete world: 6,400 × 6,400 pixels at the native 64 pixels per cell, or smaller. Choose the layers and overlays and a solid or transparent background; the dialog shows the size and the memory needed first. The picture is drawn with the same code as the canvas and records the game profile, the kind of drawing and the settings in its metadata. It is schematic unless you tick **Draw with game artwork** (available when artwork for the tab's game is loaded). Pictures drawn with artwork contain copyrighted material of the game's owners: keep them for your own use unless you have permission to share them.
+**File → Export World PNG** (Ctrl+E) writes one image of the complete world: 6,400 × 6,400 pixels at the native 64 pixels per cell, or smaller. Choose the layers and overlays, a solid or transparent background and, with artwork, whether the world's backdrop picture is drawn (tiled from the top-left corner, without the canvas's scrolling shift); the dialog shows the size and the memory needed first. The picture is drawn with the same code as the canvas and records the game profile, the kind of drawing and the settings in its metadata. It is schematic unless you tick **Draw with game artwork** (available when artwork for the tab's game is loaded). Pictures drawn with artwork contain copyrighted material of the game's owners: keep them for your own use unless you have permission to share them.
 
 ## Appearance and layout
 

@@ -143,6 +143,9 @@ public:
     // preference. Loading never writes to the directory.
     bool loadArtwork(const QString &directory, GameProfile profile);
     [[nodiscard]] std::shared_ptr<const GameAssets> artworkFor(GameProfile profile) const;
+    // The chosen game directory of a profile even when its pictures cannot
+    // be used (its music can still be played); null when none was chosen.
+    [[nodiscard]] std::shared_ptr<const GameAssets> gameDirectoryFor(GameProfile profile) const;
     [[nodiscard]] bool artworkEnabled() const { return artworkEnabled_; }
     void setArtworkEnabled(bool enabled);
     // Display-only animation on every canvas (View -> Animate).

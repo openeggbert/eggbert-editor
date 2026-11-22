@@ -331,21 +331,11 @@ void renderWorld(QPainter &painter, const WorldView &world, const ViewTransform 
         painter.fillRect(rect, color);
     };
 
-    // Object bodies, highest slot first as the engines iterate.
-    if (objects && options.showObjects) {
-        for (std::size_t remaining = objects->slotCount(); remaining > 0; --remaining) {
-            const auto record = *objects->record(remaining - 1);
-            if (!record.isFree() && !isLift(record.type)) {
-                drawObjectBody(remaining - 1, record);
-            }
-        }
-    }
-
     // Foreground cells. With artwork the games' order applies: ordinary
     // tiles, then lifts, then the tiles of the second pass (lava, water,
     // wind, fans, traps), which so cover what is inside them. The schematic
     // drawing shows every stored number in one pass.
-    enum class Pass { all, ordinary, late };
+    enum class Pass { all, early, ordinary, late };
     const auto drawForeground = [&](Pass pass) {
         const auto layer = world.foreground();
         if (!layer || !options.showForeground) {
@@ -359,7 +349,9 @@ void renderWorld(QPainter &painter, const WorldView &world, const ViewTransform 
                     continue;
                 }
                 const auto frame = frameOf(SectionKind::foreground, id, x, y);
-                if ((pass == Pass::ordinary && frame.late) || (pass == Pass::late && !frame.late)) {
+                if ((pass == Pass::early && !frame.early) ||
+                    (pass == Pass::ordinary && (frame.late || frame.early)) ||
+                    (pass == Pass::late && !frame.late)) {
                     continue;
                 }
                 if (art != nullptr && frame.animated && frame.icon == layout::emptyCell) {
@@ -387,6 +379,21 @@ void renderWorld(QPainter &painter, const WorldView &world, const ViewTransform 
             }
         }
     };
+    // The second game draws two tiles (384, 385) before everything else of
+    // the foreground and the objects.
+    if (art != nullptr) {
+        drawForeground(Pass::early);
+    }
+    // Object bodies, highest slot first as the engines iterate.
+    if (objects && options.showObjects) {
+        for (std::size_t remaining = objects->slotCount(); remaining > 0; --remaining) {
+            const auto record = *objects->record(remaining - 1);
+            if (!record.isFree() && !isLift(record.type)) {
+                drawObjectBody(remaining - 1, record);
+            }
+        }
+    }
+
     drawForeground(art != nullptr ? Pass::ordinary : Pass::all);
 
     if (objects && options.showObjects && art != nullptr) {
@@ -423,8 +430,8 @@ void renderWorld(QPainter &painter, const WorldView &world, const ViewTransform 
                 painter.drawRect(end.adjusted(1, 1, -2, -2));
                 // The two ends, numbered as the games' editors do: 1 where
                 // the object starts, 2 where it turns back.
-                if (cellScreen >= 12.0) {
-                    const double radius = std::clamp(cellScreen * 0.2, 6.0, 13.0);
+                if (cellScreen >= 5.0) {
+                    const double radius = std::clamp(cellScreen * 0.3, 5.0, 13.0);
                     auto font = painter.font();
                     font.setPixelSize(static_cast<int>(radius * 1.5));
                     font.setBold(true);
