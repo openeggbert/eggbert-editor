@@ -19,6 +19,10 @@ class QSpinBox;
 class QTabWidget;
 class QDockWidget;
 
+class QListWidget;
+class QSlider;
+class QStackedWidget;
+
 namespace eggbert {
 
 struct FindQuery {
@@ -166,8 +170,17 @@ public:
     // Looks up a menu or toolbar command by its stable object name.
     [[nodiscard]] QAction *action(const QString &objectName) const;
 
+    // The page shown while no world is open (open, recent worlds, game
+    // directory).
+    [[nodiscard]] QWidget *welcomePage() const { return welcome_; }
+    [[nodiscard]] bool welcomeVisible() const;
+    // The game remembered for a file from an earlier session, or unknown.
+    [[nodiscard]] static GameProfile rememberedProfile(const QString &path);
+
 protected:
     void closeEvent(QCloseEvent *event) override;
+    void dragEnterEvent(QDragEnterEvent *event) override;
+    void dropEvent(QDropEvent *event) override;
 
 private:
     void createActions();
@@ -199,6 +212,17 @@ private:
     StatisticsPanel *statistics_ = nullptr;
     ObjectsPanel *objects_ = nullptr;
     PalettePanel *palette_ = nullptr;
+    QStackedWidget *central_ = nullptr;
+    QWidget *welcome_ = nullptr;
+    QListWidget *welcomeRecent_ = nullptr;
+    QSlider *zoomSlider_ = nullptr;
+    std::vector<std::pair<Tool, QAction *>> toolActions_;
+    void refreshToolIcons();
+    void refreshWelcome();
+    static void rememberProfile(const QString &path, GameProfile profile);
+    // Profile and artwork from the folder a world lies in (a game's DATA
+    // folder); only reads.
+    void adoptGameOfFolder(DocumentTab *tab);
     MusicPlayer *music_ = nullptr;
     // Why music cannot be played right now, when that is not the player's fault.
     QString musicNote_;

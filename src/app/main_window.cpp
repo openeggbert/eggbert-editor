@@ -3,6 +3,7 @@
 
 #include <QAction>
 #include <QActionGroup>
+#include <QApplication>
 #include <QCheckBox>
 #include <QCloseEvent>
 #include <QComboBox>
@@ -32,6 +33,16 @@
 #include <QVBoxLayout>
 
 #include <QDockWidget>
+#include <QDragEnterEvent>
+#include <QDropEvent>
+#include <QHBoxLayout>
+#include <QListWidget>
+#include <QMimeData>
+#include <QSlider>
+#include <QStackedWidget>
+#include <QUrl>
+
+#include <cmath>
 
 #include "app/appearance.hpp"
 #include "app/diagnostics_panel.hpp"
@@ -43,6 +54,7 @@
 #include "app/music_player.hpp"
 #include "app/palette_panel.hpp"
 #include "app/sprite_icons.hpp"
+#include "app/tool_icons.hpp"
 #include "app/png_export_dialog.hpp"
 #include "app/probe_report.hpp"
 #include "app/statistics_panel.hpp"
@@ -84,7 +96,69 @@ MainWindow::MainWindow() {
     tabs_->setDocumentMode(true);
     tabs_->setTabsClosable(true);
     tabs_->setMovable(true);
-    setCentralWidget(tabs_);
+    // The central area: a welcome page while nothing is open, else the tabs.
+    central_ = new QStackedWidget(this);
+    welcome_ = new QWidget(central_);
+    welcome_->setObjectName(QStringLiteral("welcomePage"));
+    {
+        auto *outer = new QVBoxLayout(welcome_);
+        outer->addStretch(1);
+        auto *column = new QVBoxLayout;
+        column->setSpacing(10);
+        auto *title = new QLabel(tr("Eggbert Editor"), welcome_);
+        auto titleFont = title->font();
+        titleFont.setPointSizeF(titleFont.pointSizeF() * 2.0);
+        titleFont.setBold(true);
+        title->setFont(titleFont);
+        column->addWidget(title);
+        auto *subtitle = new QLabel(
+            tr("Lossless editor for the worlds of Speedy Blupi / Speedy Eggbert 1 and 2.\n"
+               "Open a world file, or drop one onto this window."),
+            welcome_);
+        subtitle->setWordWrap(true);
+        column->addWidget(subtitle);
+        auto *buttons = new QHBoxLayout;
+        auto *open = new QPushButton(tr("Open World..."), welcome_);
+        open->setObjectName(QStringLiteral("welcomeOpen"));
+        connect(open, &QPushButton::clicked, this, [this] {
+            if (auto *item = action(QStringLiteral("fileOpen"))) {
+                item->trigger();
+            }
+        });
+        auto *game = new QPushButton(tr("Choose Game Directory..."), welcome_);
+        game->setObjectName(QStringLiteral("welcomeGame"));
+        game->setToolTip(tr("Select the directory of a game you have, so worlds are drawn with "
+                            "its graphics. The directory is only read."));
+        connect(game, &QPushButton::clicked, this, [this] {
+            if (auto *item = action(QStringLiteral("viewArtworkDirectory"))) {
+                item->trigger();
+            }
+        });
+        buttons->addWidget(open);
+        buttons->addWidget(game);
+        buttons->addStretch(1);
+        column->addLayout(buttons);
+        auto *recentLabel = new QLabel(tr("Recent worlds"), welcome_);
+        column->addWidget(recentLabel);
+        welcomeRecent_ = new QListWidget(welcome_);
+        welcomeRecent_->setObjectName(QStringLiteral("welcomeRecent"));
+        welcomeRecent_->setMaximumHeight(220);
+        connect(welcomeRecent_, &QListWidget::itemActivated, this,
+                [this](QListWidgetItem *item) { openPath(item->data(Qt::UserRole).toString()); });
+        connect(welcomeRecent_, &QListWidget::itemClicked, this,
+                [this](QListWidgetItem *item) { openPath(item->data(Qt::UserRole).toString()); });
+        column->addWidget(welcomeRecent_);
+        auto *row = new QHBoxLayout;
+        row->addStretch(1);
+        row->addLayout(column, 3);
+        row->addStretch(1);
+        outer->addLayout(row);
+        outer->addStretch(2);
+    }
+    central_->addWidget(welcome_);
+    central_->addWidget(tabs_);
+    setCentralWidget(central_);
+    setAcceptDrops(true);
     connect(tabs_, &QTabWidget::tabCloseRequested, this,
             [this](int index) { closeTab(tabAt(index)); });
     connect(tabs_, &QTabWidget::currentChanged, this, [this] { updateUi(); });
@@ -97,6 +171,23 @@ MainWindow::MainWindow() {
     statusBar()->addWidget(cellLabel_, 1);
     statusBar()->addPermanentWidget(poolLabel_);
     statusBar()->addPermanentWidget(accessLabel_);
+    // Zoom: the slider covers the whole range evenly in ratio steps.
+    zoomSlider_ = new QSlider(Qt::Horizontal, this);
+    zoomSlider_->setObjectName(QStringLiteral("zoomSlider"));
+    zoomSlider_->setRange(0, 1000);
+    zoomSlider_->setFixedWidth(140);
+    zoomSlider_->setToolTip(tr("Zoom"));
+    connect(zoomSlider_, &QSlider::valueChanged, this, [this](int value) {
+        if (updating_) {
+            return;
+        }
+        if (auto *tab = currentTab()) {
+            const double ratio = ViewTransform::maximumScale / ViewTransform::minimumScale;
+            tab->canvas()->setZoom(ViewTransform::minimumScale * std::pow(ratio, value / 1000.0));
+            updateStatus();
+        }
+    });
+    statusBar()->addPermanentWidget(zoomSlider_);
     statusBar()->addPermanentWidget(zoomLabel_);
 
     installDefaultPrompts();
@@ -833,6 +924,8 @@ void MainWindow::createActions() {
     addToolBarBreak();
     auto *toolBar = addToolBar(tr("Tools"));
     toolBar->setObjectName(QStringLiteral("toolsToolBar"));
+    toolBar->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+    toolBar->setIconSize(QSize(28, 28));
     auto *toolGroup = new QActionGroup(this);
     const auto addTool = [&](const QString &name, const QString &text, Tool tool,
                              const QKeySequence &shortcut) {
@@ -842,6 +935,7 @@ void MainWindow::createActions() {
         item->setShortcut(shortcut);
         toolGroup->addAction(item);
         toolBar->addAction(item);
+        toolActions_.emplace_back(tool, item);
         connect(item, &QAction::triggered, this, [this, tool] {
             if (auto *tab = currentTab()) {
                 tab->setTool(tool);
@@ -969,6 +1063,8 @@ void MainWindow::createActions() {
         }
         if (auto *tab = currentTab()) {
             tab->setProfile(static_cast<GameProfile>(profileCombo_->itemData(index).toInt()));
+            // An explicit choice is remembered for this file.
+            rememberProfile(tab->file().path(), tab->profile());
         }
     });
 
@@ -1262,6 +1358,122 @@ void MainWindow::setTheme(const QString &key) {
                                               : "viewThemeSystem";
     if (auto *item = action(QString::fromLatin1(name))) {
         item->setChecked(true);
+    }
+    refreshToolIcons();
+}
+
+void MainWindow::refreshToolIcons() {
+    const auto ink = QApplication::palette().color(QPalette::WindowText);
+    for (const auto &[tool, item] : toolActions_) {
+        item->setIcon(toolIcon(tool, ink));
+    }
+}
+
+bool MainWindow::welcomeVisible() const {
+    return central_->currentWidget() == welcome_;
+}
+
+void MainWindow::refreshWelcome() {
+    central_->setCurrentWidget(tabCount() == 0 ? welcome_ : static_cast<QWidget *>(tabs_));
+    if (tabCount() != 0) {
+        return;
+    }
+    const auto files = recentFiles();
+    QStringList shown;
+    for (int row = 0; row < welcomeRecent_->count(); ++row) {
+        shown << welcomeRecent_->item(row)->data(Qt::UserRole).toString();
+    }
+    if (shown == files) {
+        return;
+    }
+    welcomeRecent_->clear();
+    for (const auto &path : files) {
+        auto *item = new QListWidgetItem(QFileInfo(path).fileName(), welcomeRecent_);
+        item->setData(Qt::UserRole, path);
+        item->setToolTip(path);
+    }
+}
+
+GameProfile MainWindow::rememberedProfile(const QString &path) {
+    const auto key = samePathKey(path);
+    for (const auto &entry : QSettings().value(QStringLiteral("files/games")).toStringList()) {
+        if (entry.mid(2) == key) {
+            return entry.startsWith(QLatin1Char('2'))   ? GameProfile::speedyBlupi2
+                   : entry.startsWith(QLatin1Char('1')) ? GameProfile::speedyBlupi1
+                                                        : GameProfile::unknown;
+        }
+    }
+    return GameProfile::unknown;
+}
+
+void MainWindow::rememberProfile(const QString &path, GameProfile profile) {
+    const auto key = samePathKey(path);
+    QSettings settings;
+    auto entries = settings.value(QStringLiteral("files/games")).toStringList();
+    entries.removeIf([&](const QString &entry) { return entry.mid(2) == key; });
+    if (profile != GameProfile::unknown) {
+        entries.prepend((profile == GameProfile::speedyBlupi2 ? QStringLiteral("2|")
+                                                               : QStringLiteral("1|")) +
+                        key);
+    }
+    while (entries.size() > 300) {
+        entries.removeLast();
+    }
+    settings.setValue(QStringLiteral("files/games"), entries);
+}
+
+void MainWindow::adoptGameOfFolder(DocumentTab *tab) {
+    // An explicit earlier choice for this file wins.
+    if (const auto remembered = rememberedProfile(tab->file().path());
+        remembered != GameProfile::unknown) {
+        tab->setProfile(remembered);
+        return;
+    }
+    // A world inside a game's DATA folder belongs to that game.
+    const QFileInfo info(tab->file().path());
+    const auto folder = info.dir();
+    if (folder.dirName().compare(QLatin1String("data"), Qt::CaseInsensitive) != 0) {
+        return;
+    }
+    auto gameDirectory = folder;
+    if (!gameDirectory.cdUp()) {
+        return;
+    }
+    const auto detected = detectGameProfile(gameDirectory.absolutePath());
+    if (detected.profile == GameProfile::unknown) {
+        return;
+    }
+    tab->setProfile(detected.profile);
+    // Its graphics too, unless a directory was already chosen for that game.
+    if (gameDirectoryFor(detected.profile) == nullptr) {
+        loadArtwork(gameDirectory.absolutePath(), detected.profile);
+    }
+    statusBar()->showMessage(
+        tr("%1: recognised from its folder as %2.")
+            .arg(info.fileName(), profileDisplayName(detected.profile)),
+        8000);
+}
+
+void MainWindow::dragEnterEvent(QDragEnterEvent *event) {
+    if (event->mimeData()->hasUrls()) {
+        for (const auto &url : event->mimeData()->urls()) {
+            if (url.isLocalFile()) {
+                event->acceptProposedAction();
+                return;
+            }
+        }
+    }
+}
+
+void MainWindow::dropEvent(QDropEvent *event) {
+    bool opened = false;
+    for (const auto &url : event->mimeData()->urls()) {
+        if (url.isLocalFile() && QFileInfo(url.toLocalFile()).isFile()) {
+            opened = openPath(url.toLocalFile()) != nullptr || opened;
+        }
+    }
+    if (opened) {
+        event->acceptProposedAction();
     }
 }
 
@@ -1758,6 +1970,7 @@ DocumentTab *MainWindow::openPath(const QString &path) {
         tab->canvas()->setRenderOptions(options);
     }
     connectTab(tab);
+    adoptGameOfFolder(tab);
     const auto index = tabs_->addTab(tab, tab->title());
     tabs_->setTabToolTip(index, tab->file().path());
     tabs_->setCurrentIndex(index);
@@ -2043,6 +2256,7 @@ void MainWindow::showProperties() {
 
 void MainWindow::updateUi() {
     updating_ = true;
+    refreshWelcome();
     auto *tab = currentTab();
     for (int index = 0; index < tabCount(); ++index) {
         tabs_->setTabText(index, tabAt(index)->title());
@@ -2283,6 +2497,7 @@ void MainWindow::updateStatus() {
     if (tab == nullptr) {
         cellLabel_->setText(tr("Open a world file to begin."));
         zoomLabel_->clear();
+        zoomSlider_->setEnabled(false);
         accessLabel_->clear();
         poolLabel_->clear();
         return;
@@ -2290,6 +2505,14 @@ void MainWindow::updateStatus() {
     const auto cell = tab->canvas()->hoveredCell().value_or(tab->canvas()->cursorCell());
     cellLabel_->setText(tab->describeCell(cell));
     zoomLabel_->setText(tr("%1%").arg(qRound(tab->canvas()->zoom() * 100)));
+    {
+        const QSignalBlocker blocker(zoomSlider_);
+        const double ratio = ViewTransform::maximumScale / ViewTransform::minimumScale;
+        zoomSlider_->setEnabled(true);
+        zoomSlider_->setValue(qRound(
+            1000.0 * std::log(tab->canvas()->zoom() / ViewTransform::minimumScale) /
+            std::log(ratio)));
+    }
     const auto capacity = poolCapacity(tab->document().view());
     poolLabel_->setText(capacity.stored == 0 ? QString()
                                              : tr("Objects %1/%2, %3 free")

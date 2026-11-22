@@ -6,7 +6,7 @@ It is an editor for one world at a time. It does not manage campaigns, does not 
 
 ## Opening a world
 
-**File → Open World** (Ctrl+O) opens one or more files, each in its own tab. Files named on the command line open too.
+**File → Open World** (Ctrl+O) opens one or more files, each in its own tab. Files named on the command line open too, and so do files dropped onto the window. While nothing is open, the window shows a welcome page with **Open World**, **Choose Game Directory** and the worlds you opened recently.
 
 A world file carries no signature. The editor reads the revision field at the start of the file and selects a layout:
 
@@ -22,7 +22,7 @@ Not every `.blp` file is a world. In a game's `DATA` folder the worlds are the `
 
 ### Choosing the game
 
-The file does not say which game it belongs to. Choose **Speedy Blupi / Eggbert 1** or **Speedy Blupi II / Eggbert 2** in the tool bar. The choice is per tab, is not stored in the file and never changes a byte. It selects the object presets, the adaptive brushes, the ranges offered for music and region, and the rules World Doctor applies. Until you choose, those game-specific features are unavailable; raw tile editing, starts, title and inspection work regardless.
+The file does not say which game it belongs to. When you open a world that lies in a game's `DATA` folder, the editor recognises the game from that folder (the same way as for game artwork), selects it, and uses that game directory for its graphics and music unless you already chose one for that game; the folder is only read. For any other file, choose **Speedy Blupi / Eggbert 1** or **Speedy Blupi II / Eggbert 2** in the tool bar. A choice you make there is remembered for that file on this computer and takes precedence over the folder next time. The choice is per tab, is not stored in the file and never changes a byte. It selects the object presets, the adaptive brushes, the ranges offered for music and region, and the rules World Doctor applies. Until you choose, those game-specific features are unavailable; raw tile editing, starts, title and inspection work regardless.
 
 ## The canvas
 
@@ -31,7 +31,7 @@ By default the canvas draws the world schematically, without any game artwork: e
 The canvas is **animated**, as the games' own level editors are: the games' clock runs at 20 ticks a second. With game artwork, lava, water, wind, fans, springs and the other animated tiles cycle through their pictures (most change every second to fourth tick) and objects change their picture as they do in the games; in both kinds of drawing objects travel along their paths with their stored durations and waits. This is for looking only. Time passing never changes the world: the file stores each object's start, end and timing, and those are what you edit. As in the games' editors, every object starts from its start point when a world is opened, and an object you have just edited starts again from there. While animation is on, a moving object can be picked with the Object tool where it currently is, at its start cell, or at its stored position (the centre of the clicked cell must lie on the object); with animation off, at its stored position. **View → Animate** switches animation off and on; switched off, the canvas shows exactly the stored state. Exported pictures always show the stored state.
 
 - Pan: middle mouse button, Alt+drag, the mouse wheel (Shift for horizontal), or the **Browse** tool.
-- Zoom: Ctrl+wheel zooms around the pointer; **View → Zoom In / Zoom Out / Actual Pixels / Fit World / Fit Selection**.
+- Zoom: Ctrl+wheel zooms around the pointer; the slider at the right end of the status bar covers the whole range; **View → Zoom In / Zoom Out / Actual Pixels / Fit World / Fit Selection**.
 - Keyboard: the arrow keys move a highlighted cell cursor (Shift for ten cells, Ctrl to pan); Space or Enter applies the active tool at the cursor.
 - **View** switches the grid, value labels, each layer, objects, starts and paths on and off.
 
