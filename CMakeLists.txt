@@ -54,6 +54,8 @@ target_include_directories(eggbert_world PUBLIC src)
 
 # Everything of the application except main(), so tests can link it.
 qt_add_library(eggbert_app STATIC
+    src/app/appearance.cpp
+    src/app/appearance.hpp
     src/app/diagnostics_panel.cpp
     src/app/diagnostics_panel.hpp
     src/app/document_file.cpp
@@ -70,6 +72,8 @@ qt_add_library(eggbert_app STATIC
     src/app/minimap_widget.cpp
     src/app/minimap_widget.hpp
     src/app/statistics_panel.cpp
+    src/app/smoke_test.cpp
+    src/app/smoke_test.hpp
     src/app/statistics_panel.hpp
     src/app/main_window.hpp
     src/app/objects_panel.cpp
@@ -91,6 +95,12 @@ target_link_libraries(eggbert_app PUBLIC Qt6::Widgets eggbert_world)
 target_compile_definitions(eggbert_app PUBLIC EGGBERT_EDITOR_VERSION="${PROJECT_VERSION}")
 set_target_properties(eggbert_app PROPERTIES AUTOMOC ON)
 
+# Documents shown by the Help menu, embedded so they are always available.
+set(eggbert_documents docs/user-guide.md docs/format-notes.md NOTICE.md COPYING)
+set_source_files_properties(docs/user-guide.md PROPERTIES QT_RESOURCE_ALIAS user-guide.md)
+set_source_files_properties(docs/format-notes.md PROPERTIES QT_RESOURCE_ALIAS format-notes.md)
+qt_add_resources(eggbert_app "documents" PREFIX "/docs" FILES ${eggbert_documents})
+
 qt_add_executable(eggbert-editor src/app/main.cpp)
 target_link_libraries(eggbert-editor PRIVATE eggbert_app)
 set_target_properties(eggbert-editor PROPERTIES
@@ -100,6 +110,41 @@ set_target_properties(eggbert-editor PROPERTIES
     MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
     MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
 )
+
+# Installation: the program, desktop integration and documents. Qt comes from
+# the system; nothing proprietary is installed.
+include(GNUInstallDirs)
+set(CMAKE_INSTALL_DOCDIR "${CMAKE_INSTALL_DATAROOTDIR}/doc/eggbert-editor")
+install(TARGETS eggbert-editor
+    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+    BUNDLE DESTINATION .)
+install(FILES resources/eggbert-editor.desktop
+    DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/applications")
+install(FILES resources/eggbert-editor.svg
+    DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/scalable/apps")
+install(FILES COPYING NOTICE.md README.md docs/user-guide.md docs/format-notes.md
+    DESTINATION "${CMAKE_INSTALL_DOCDIR}")
+
+set(CPACK_PACKAGE_NAME "eggbert-editor")
+set(CPACK_PACKAGE_VENDOR "Open Eggbert")
+set(CPACK_PACKAGE_CONTACT "Open Eggbert <https://github.com/openeggbert/eggbert-editor>")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
+    "Lossless editor for Speedy Blupi and Speedy Eggbert world files")
+set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/COPYING")
+set(CPACK_GENERATOR "TGZ;DEB")
+set(CPACK_SOURCE_GENERATOR "TGZ")
+set(CPACK_SOURCE_IGNORE_FILES "/build[^/]*/;/\\.git/;/CMakeUserPresets\\.json$")
+set(CPACK_DEBIAN_PACKAGE_SECTION "games")
+set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://github.com/openeggbert/eggbert-editor")
+set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
+find_program(EGGBERT_DPKG_SHLIBDEPS dpkg-shlibdeps)
+if(EGGBERT_DPKG_SHLIBDEPS)
+    set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+else()
+    set(CPACK_DEBIAN_PACKAGE_DEPENDS "libqt6widgets6 (>= 6.2)")
+endif()
+include(CPack)
 
 include(CTest)
 if(BUILD_TESTING)
@@ -111,10 +156,30 @@ if(BUILD_TESTING)
     endforeach()
 
     # Application tests run without a display.
-    foreach(name probe_report document_file world_renderer png_export main_window docks tools metadata_ui objects_ui inspector doctor_ui adaptive_ui)
+    foreach(name probe_report document_file world_renderer png_export main_window docks tools metadata_ui objects_ui inspector doctor_ui adaptive_ui workspace)
         add_executable(${name}-test tests/${name}_test.cpp)
         target_link_libraries(${name}-test PRIVATE eggbert_app Qt6::Test)
         add_test(NAME ${name} COMMAND ${name}-test)
         set_tests_properties(${name} PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     endforeach()
+
+    # The built program's own self check, then the same from an installed tree.
+    add_test(NAME smoke COMMAND eggbert-editor --smoke-test)
+    set_tests_properties(smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    # Informational options must work without any display.
+    add_test(NAME version COMMAND eggbert-editor --version)
+    set_tests_properties(version PROPERTIES
+        ENVIRONMENT "QT_QPA_PLATFORM=xcb;DISPLAY=;WAYLAND_DISPLAY="
+        PASS_REGULAR_EXPRESSION "Eggbert Editor ${PROJECT_VERSION}")
+    add_test(NAME install_smoke
+        COMMAND "${CMAKE_COMMAND}" -DBUILD_DIR=${CMAKE_BINARY_DIR}
+                -DPREFIX=${CMAKE_BINARY_DIR}/install-smoke -P
+                "${CMAKE_CURRENT_SOURCE_DIR}/tests/install_smoke.cmake")
+
+    # Opt-in check against real world files kept outside the repository.
+    add_executable(sample_matrix-test tests/sample_matrix_test.cpp)
+    target_link_libraries(sample_matrix-test PRIVATE eggbert_app Qt6::Test)
+    add_test(NAME sample_matrix COMMAND sample_matrix-test)
+    set_tests_properties(sample_matrix PROPERTIES
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen" SKIP_RETURN_CODE 77)
 endif()

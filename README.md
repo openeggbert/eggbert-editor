@@ -14,6 +14,7 @@ What works today:
 - **Binary Inspector** (View menu, Ctrl+B): a read-only hex view of the whole file that paints only visible rows. Sections are tinted, bytes changed since opening are highlighted and unsaved bytes underlined. The details strip gives the absolute and section-relative offset, the structural name (`header.music`, `foreground[3][70]`, `objects[137].posEnd.y`, `suffix+5`), the offset arithmetic, the little-endian value signed and unsigned, and the original and saved values. Jump to an offset, section, cell or slot; search hex or ASCII; copy as hex; bookmarks; 8–32 bytes per row; original, current or side-by-side. It follows the canvas cursor and the selected object, and clicking a byte moves the canvas. It has no editing path.
 - **World Doctor** (World → Validate, F8; Diagnostics dock): a non-mutating audit that reruns after every edit and with every save. Each finding has a stable rule ID, a severity, the game it was judged for, the basis of the rule (structural fact, read in the game's source, outside a verified range, reported, or estimate) and its exact byte range; double-clicking one moves the canvas, the object selection and the Binary Inspector to it. Rules cover truncation, surplus and unknown revisions; music, region, starts and title; tile values with no picture or no collision data in the chosen game and Speedy Blupi 2's load-time rewrite of 48–67; object types, channels, lift/crate icons, positions, zero-duration paths, a full pool and low headroom. It does not judge whether a world can be completed. The single offered repair (terminating a title that fills its field) is shown with its byte diff and applied as one undo step only after confirmation. **World → Compare with Original / Saved** lists every changed byte range.
 - **File → Export World PNG**: one image of the complete 100 × 100 world at the native 64 pixels per cell (6,400 × 6,400) or smaller, with the layers, objects, starts, paths, grid and labels you choose and a solid or transparent background. The dialog shows the pixel size and memory estimate first. The export uses the same drawing code and order as the canvas, is written atomically, is byte-identical for identical input and carries the profile, renderer version and settings as PNG text metadata. It currently draws schematically, without game artwork.
+- **Workspace**: dockable panels with Mapping, Objects and Validation layouts and Reset Layout; system, light and dark themes; preferences; a Help menu with the user guide, keyboard shortcuts, format notes, license and notices, and a diagnostics bundle (versions, structural report, findings and changed ranges, no world data).
 - **Save / Save As / Save All / Revert** with atomic replacement. Save refuses to overwrite a file that changed, shrank, grew or disappeared on disk since it was read and offers Reload or Save As instead. Only edited bytes change: unknown and reserved fields, inactive object slots, name padding and trailing data are preserved exactly.
 - Revisions 1.0 and 1.1, truncated files and unknown content open **read-only** with the reason shown.
 
@@ -23,7 +24,7 @@ Claude Code Cloud development is supported. Configure Qt and the optional resear
 
 ## Build and run
 
-Install a C++23-capable compiler, CMake 3.21 or newer and the Qt 6 Widgets development package, version 6.2 or newer. From the project directory, using a single-configuration generator on Linux, run
+Install a C++23-capable compiler, CMake 3.21 or newer and the Qt 6 base development package (Widgets and Test), version 6.2 or newer. From the project directory, using a single-configuration generator on Linux, run
 
 ```sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
@@ -32,7 +33,31 @@ ctest --test-dir build --output-on-failure
 ./build/eggbert-editor
 ```
 
-If CMake cannot find Qt, set `CMAKE_PREFIX_PATH` to your Qt kit directory when configuring. For a multi-configuration generator such as Visual Studio, build with `--config Release` and pass `-C Release` to CTest. On macOS, launch the generated application bundle.
+If CMake cannot find Qt, set `CMAKE_PREFIX_PATH` to your Qt kit directory when configuring. For a multi-configuration generator such as Visual Studio, build with `--config Release` and pass `-C Release` to CTest. On macOS, launch the generated application bundle. Only Linux is tested and packaged.
+
+`eggbert-editor world.blp ...` opens files given on the command line. `eggbert-editor --version` and `--help` work without a display. `eggbert-editor --smoke-test` runs an end-to-end self check that needs no game data.
+
+The tests need no game installation, no game assets and no network. Add `-DEGGBERT_SANITIZE=ON` to build with the address and undefined-behavior sanitizers.
+
+### Install and package (Linux)
+
+```sh
+cmake --install build --prefix /usr/local     # program, desktop entry, icon, documents
+cd build && cpack -G "TGZ;DEB"                # eggbert-editor-<version>-Linux.tar.gz and .deb
+```
+
+The packages depend on the distribution's Qt 6 libraries and contain no Qt binaries, fonts or game data. `NOTICE.md` lists third-party components.
+
+### Checking real world files
+
+The ordinary tests use only synthetic data. To check world files you own, point the opt-in test at directories outside the repository; it copies each file to a temporary directory and never writes to yours:
+
+```sh
+EGGBERT_SAMPLE_DIRS="sb1=/path/to/game1/DATA:sb2=/path/to/game2/DATA" \
+    ctest --test-dir build -R sample_matrix --output-on-failure
+```
+
+For every file it reports size, checksum prefix, revision and whether an untouched copy is byte-identical and a one-cell edit changes exactly two bytes after save and reopen. Without the variable the test is skipped. Never commit such files.
 
 ## Project layout
 
@@ -40,7 +65,10 @@ If CMake cannot find Qt, set `CMAKE_PREFIX_PATH` to your Qt kit directory when c
 | --- | --- |
 | `src/world/` | Revision descriptors, bounded little-endian readers, structural probe, read-only decoded views and the lossless document core (transactions, undo, changed ranges). Independent of Qt. |
 | `src/app/` | Qt application: file load/save, tabbed main window, document tab, canvas, schematic renderer and reports. |
-| `tests/` | Asset-free tests for the world library and application code. |
+| `tests/` | Asset-free tests: headless core tests, offscreen UI tests, smoke and install tests, and the opt-in local-sample check. |
+| `docs/user-guide.md`, `docs/format-notes.md` | User documentation, also embedded in the Help menu. |
+| `resources/` | Desktop entry and the project's own icon. |
+| `NOTICE.md` | Third-party notices. |
 | `plan.md` | Fixed 1.0 scope, binary layout, feature design, release criteria and compact post-1.0 roadmap. |
 | `NEXT.md` | Current implementation state and the next bounded, testable slice. |
 | `docs/research/evidence.md` | Observations from the reconstructed games that behavior relies on, with pinned revisions and how each was obtained. |

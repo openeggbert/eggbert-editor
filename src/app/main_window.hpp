@@ -52,6 +52,12 @@ struct Prompts {
     std::function<bool(DocumentTab *, const QString &description)> confirmFix;
     // PNG export settings and destination; nullopt cancels.
     std::function<std::optional<std::pair<PngExportOptions, QString>>(DocumentTab *)> exportPng;
+    // Displays a read-only document; `markdown` selects rich rendering.
+    std::function<void(const QString &title, const QString &text, bool markdown)> showDocument;
+    // Destination for a text file the user asked to save; empty cancels.
+    std::function<QString(const QString &suggestedName)> saveTextPath;
+    // Runs the preferences dialog; false when cancelled.
+    std::function<bool()> editPreferences;
     // Displays a read-only text report (byte differences).
     std::function<void(const QString &title, const QString &text)> showReport;
 };
@@ -112,6 +118,22 @@ public:
     // the place tool. False when the profile has no such preset.
     bool choosePreset(const QString &id);
     void resetLayout();
+
+    // Help content and reports.
+    [[nodiscard]] static QString resourceText(const QString &name);
+    [[nodiscard]] QString shortcutsText() const;
+    [[nodiscard]] static QString aboutText();
+    // Versions, structural report, World Doctor findings and changed byte
+    // ranges of a document; no world bytes beyond those descriptions.
+    [[nodiscard]] static QString diagnosticsBundleText(const DocumentTab *tab);
+    bool saveDiagnosticsBundle(const QString &path);
+
+    enum class DockLayout { mapping, objects, validation };
+    void applyLayout(DockLayout layout);
+    void setTheme(const QString &key);
+    // Applies stored preferences (theme, view defaults, inspector width).
+    void applyPreferences();
+    bool fitSelection();
 
     [[nodiscard]] QStringList recentFiles() const;
     // Probe report and decoded summary of a tab's current bytes.

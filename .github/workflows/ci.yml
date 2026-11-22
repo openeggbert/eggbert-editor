@@ -33,5 +33,37 @@ jobs:
       - name: Build
         run: cmake --build build-ci --parallel
 
+      # Asset-free: unit tests, offscreen UI tests, the program's own smoke
+      # test and the same smoke test from an installed tree. The local-sample
+      # check is skipped because no world files are available here.
       - name: Test
         run: ctest --test-dir build-ci --output-on-failure
+
+      - name: Package
+        run: cd build-ci && cpack -G "TGZ;DEB"
+
+  sanitizers:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Install Qt
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends qt6-base-dev
+
+      - name: Configure with address and undefined-behavior sanitizers
+        run: >-
+          cmake -S . -B build-asan -G Ninja
+          -DCMAKE_BUILD_TYPE=RelWithDebInfo
+          -DBUILD_TESTING=ON
+          -DEGGBERT_SANITIZE=ON
+
+      - name: Build
+        run: cmake --build build-asan --parallel
+
+      - name: Test
+        run: ctest --test-dir build-asan --output-on-failure

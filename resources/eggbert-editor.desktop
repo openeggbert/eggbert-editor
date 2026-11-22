@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Eggbert Editor
+GenericName=World Editor
+Comment=Lossless editor for Speedy Blupi and Speedy Eggbert world files
+Exec=eggbert-editor %F
+Icon=eggbert-editor
+Terminal=false
+Categories=Game;Development;

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<!-- Original icon of the Eggbert Editor project; contains no game artwork. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 16 16">
+  <rect x="0.5" y="0.5" width="15" height="15" rx="3" ry="3" fill="#264678"/>
+  <rect x="2" y="11" width="12" height="3" fill="#5abe78"/>
+  <rect x="2" y="8" width="4" height="3" fill="#c89646"/>
+  <rect x="10" y="8" width="4" height="3" fill="#c89646"/>
+  <ellipse cx="8" cy="5.25" rx="2.5" ry="3.25" fill="#faf0d7"/>
+</svg>

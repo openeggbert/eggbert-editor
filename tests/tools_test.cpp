@@ -100,7 +100,7 @@ int main(int argc, char **argv) {
         for (const auto *menuAction : window.menuBar()->actions()) {
             titles << menuAction->text().remove('&');
         }
-        CHECK((titles == QStringList{"File", "Edit", "View", "World", "Layer", "Object"}));
+        CHECK((titles == QStringList{"File", "Edit", "View", "World", "Layer", "Object", "Help"}));
     }
 
     auto *tab = window.openPath(path);

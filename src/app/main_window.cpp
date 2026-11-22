@@ -3,6 +3,7 @@
 
 #include <QAction>
 #include <QActionGroup>
+#include <QCheckBox>
 #include <QCloseEvent>
 #include <QComboBox>
 #include <QDialog>
@@ -12,6 +13,7 @@
 #include <QFileInfo>
 #include <QFontDatabase>
 #include <QFormLayout>
+#include <QGuiApplication>
 #include <QInputDialog>
 #include <QLabel>
 #include <QMenu>
@@ -20,7 +22,10 @@
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QSettings>
+#include <QSaveFile>
 #include <QSpinBox>
+#include <QSysInfo>
+#include <QTextBrowser>
 #include <QStatusBar>
 #include <QTabWidget>
 #include <QToolBar>
@@ -28,6 +33,7 @@
 
 #include <QDockWidget>
 
+#include "app/appearance.hpp"
 #include "app/diagnostics_panel.hpp"
 #include "app/inspector_panel.hpp"
 #include "app/metadata_dialog.hpp"
@@ -85,6 +91,8 @@ MainWindow::MainWindow() {
 
     defaultState_ = saveState();
     rebuildPresets(GameProfile::unknown);
+    setWindowIcon(applicationIcon());
+    applyPreferences();
     QSettings settings;
     restoreGeometry(settings.value(QStringLiteral("window/geometry")).toByteArray());
     restoreState(settings.value(QStringLiteral("window/state")).toByteArray());
@@ -250,6 +258,68 @@ void MainWindow::installDefaultPrompts() {
         box.setDefaultButton(QMessageBox::Cancel);
         return box.exec() == QMessageBox::Apply;
     };
+    prompts.showDocument = [this](const QString &title, const QString &text, bool markdown) {
+        QDialog dialog(this);
+        dialog.setWindowTitle(title);
+        auto *layout = new QVBoxLayout(&dialog);
+        auto *view = new QTextBrowser(&dialog);
+        view->setOpenExternalLinks(true);
+        if (markdown) {
+            view->setMarkdown(text);
+        } else {
+            view->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
+            view->setPlainText(text);
+        }
+        layout->addWidget(view);
+        auto *buttons = new QDialogButtonBox(QDialogButtonBox::Close, &dialog);
+        connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+        layout->addWidget(buttons);
+        dialog.resize(860, 640);
+        dialog.exec();
+    };
+    prompts.saveTextPath = [this](const QString &suggestedName) {
+        return QFileDialog::getSaveFileName(this, tr("Save Text File"), suggestedName,
+                                            tr("Text files (*.txt);;All files (*)"));
+    };
+    prompts.editPreferences = [this] {
+        QDialog dialog(this);
+        dialog.setWindowTitle(tr("Preferences"));
+        auto *form = new QFormLayout(&dialog);
+        QSettings settings;
+        auto *theme = new QComboBox(&dialog);
+        theme->addItem(tr("Follow the system"), QStringLiteral("system"));
+        theme->addItem(tr("Light"), QStringLiteral("light"));
+        theme->addItem(tr("Dark"), QStringLiteral("dark"));
+        theme->setCurrentIndex(theme->findData(
+            settings.value(QStringLiteral("appearance/theme"), QStringLiteral("system"))));
+        form->addRow(tr("Theme"), theme);
+        auto *grid = new QCheckBox(tr("Show the grid in newly opened worlds"), &dialog);
+        grid->setChecked(settings.value(QStringLiteral("view/grid"), false).toBool());
+        form->addRow(grid);
+        auto *labels = new QCheckBox(tr("Show value labels in newly opened worlds"), &dialog);
+        labels->setChecked(settings.value(QStringLiteral("view/labels"), true).toBool());
+        form->addRow(labels);
+        auto *width = new QComboBox(&dialog);
+        for (const int bytes : {8, 16, 24, 32}) {
+            width->addItem(tr("%1 bytes per row").arg(bytes), bytes);
+        }
+        width->setCurrentIndex(
+            width->findData(settings.value(QStringLiteral("inspector/bytesPerRow"), 16)));
+        form->addRow(tr("Binary Inspector"), width);
+        auto *buttons =
+            new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+        connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+        connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+        form->addRow(buttons);
+        if (dialog.exec() != QDialog::Accepted) {
+            return false;
+        }
+        settings.setValue(QStringLiteral("appearance/theme"), theme->currentData());
+        settings.setValue(QStringLiteral("view/grid"), grid->isChecked());
+        settings.setValue(QStringLiteral("view/labels"), labels->isChecked());
+        settings.setValue(QStringLiteral("inspector/bytesPerRow"), width->currentData());
+        return true;
+    };
     prompts.showReport = [this](const QString &title, const QString &text) {
         QDialog dialog(this);
         dialog.setWindowTitle(title);
@@ -306,6 +376,7 @@ void MainWindow::createActions() {
     auto *worldMenu = menuBar()->addMenu(tr("&World"));
     auto *layerMenu = menuBar()->addMenu(tr("&Layer"));
     auto *objectMenu = menuBar()->addMenu(tr("&Object"));
+    auto *helpMenu = menuBar()->addMenu(tr("&Help"));
     auto *open = addAction(fileMenu, QStringLiteral("fileOpen"), tr("&Open World..."),
                            QKeySequence::Open);
     connect(open, &QAction::triggered, this, [this] {
@@ -439,6 +510,51 @@ void MainWindow::createActions() {
                 }
             });
 
+    editMenu->addSeparator();
+    connect(addAction(editMenu, QStringLiteral("editPreferences"), tr("Pre&ferences..."),
+                      QKeySequence::Preferences),
+            &QAction::triggered, this, [this] {
+                if (prompts.editPreferences()) {
+                    applyPreferences();
+                }
+            });
+
+    connect(addAction(helpMenu, QStringLiteral("helpGuide"), tr("&User Guide"),
+                      QKeySequence::HelpContents),
+            &QAction::triggered, this, [this] {
+                prompts.showDocument(tr("User Guide"),
+                                     resourceText(QStringLiteral("user-guide.md")), true);
+            });
+    connect(addAction(helpMenu, QStringLiteral("helpShortcuts"), tr("&Keyboard Shortcuts")),
+            &QAction::triggered, this, [this] {
+                prompts.showDocument(tr("Keyboard Shortcuts"), shortcutsText(), false);
+            });
+    connect(addAction(helpMenu, QStringLiteral("helpFormat"), tr("&Format Notes")),
+            &QAction::triggered, this, [this] {
+                prompts.showDocument(tr("Format Notes"),
+                                     resourceText(QStringLiteral("format-notes.md")), true);
+            });
+    helpMenu->addSeparator();
+    connect(addAction(helpMenu, QStringLiteral("helpDiagnosticsBundle"),
+                      tr("&Diagnostics Bundle...")),
+            &QAction::triggered, this, [this] {
+                const auto path = prompts.saveTextPath(QStringLiteral("eggbert-editor-diagnostics.txt"));
+                if (!path.isEmpty()) {
+                    saveDiagnosticsBundle(path);
+                }
+            });
+    connect(addAction(helpMenu, QStringLiteral("helpLicense"), tr("&License and Notices")),
+            &QAction::triggered, this, [this] {
+                prompts.showDocument(tr("License and Notices"),
+                                     resourceText(QStringLiteral("NOTICE.md")) +
+                                         QStringLiteral("\n\n----\n\n") +
+                                         resourceText(QStringLiteral("COPYING")),
+                                     false);
+            });
+    connect(addAction(helpMenu, QStringLiteral("helpAbout"), tr("&About Eggbert Editor")),
+            &QAction::triggered, this,
+            [this] { prompts.showDocument(tr("About Eggbert Editor"), aboutText(), false); });
+
     auto *layerGroup = new QActionGroup(this);
     const auto addLayerChoice = [&](const QString &name, const QString &text, SectionKind layer,
                                     const QKeySequence &shortcut) {
@@ -570,6 +686,9 @@ void MainWindow::createActions() {
     connect(addAction(viewMenu, QStringLiteral("viewFitWorld"), tr("&Fit World"),
                       QKeySequence(Qt::CTRL | Qt::Key_0)),
             &QAction::triggered, this, canvasCommand(&WorldCanvas::fitWorld));
+    connect(addAction(viewMenu, QStringLiteral("viewFitSelection"), tr("Fit &Selection"),
+                      QKeySequence(Qt::CTRL | Qt::Key_9)),
+            &QAction::triggered, this, [this] { fitSelection(); });
     viewMenu->addSeparator();
 
     struct Toggle {
@@ -610,6 +729,11 @@ void MainWindow::createActions() {
     createDocks(viewMenu);
 
     // Tool bar: tool, active layer, raw tile ID and the game profile.
+    // Two bars so the game profile and the brush settings never fall into
+    // the overflow menu: settings on the first row, tools on the second.
+    auto *documentBar = addToolBar(tr("Document Settings"));
+    documentBar->setObjectName(QStringLiteral("documentToolBar"));
+    addToolBarBreak();
     auto *toolBar = addToolBar(tr("Tools"));
     toolBar->setObjectName(QStringLiteral("toolsToolBar"));
     auto *toolGroup = new QActionGroup(this);
@@ -658,7 +782,7 @@ void MainWindow::createActions() {
     adaptiveCombo_->setObjectName(QStringLiteral("adaptiveCombo"));
     adaptiveCombo_->setToolTip(tr("What the adaptive brush paints"));
     adaptiveCombo_->setSizeAdjustPolicy(QComboBox::AdjustToContents);
-    toolBar->addWidget(adaptiveCombo_);
+    
     connect(adaptiveCombo_, &QComboBox::currentIndexChanged, this, [this](int index) {
         if (updating_ || index < 0) {
             return;
@@ -675,7 +799,7 @@ void MainWindow::createActions() {
     startSpin_->setRange(1, 4);
     startSpin_->setPrefix(tr("Start "));
     startSpin_->setToolTip(tr("Player start edited by the Start tool"));
-    toolBar->addWidget(startSpin_);
+    
     connect(startSpin_, &QSpinBox::valueChanged, this, [this](int value) {
         if (updating_) {
             return;
@@ -696,7 +820,7 @@ void MainWindow::createActions() {
     presetCombo_->setObjectName(QStringLiteral("objectPresetCombo"));
     presetCombo_->setToolTip(tr("Verified object presets of the chosen game profile"));
     presetCombo_->setSizeAdjustPolicy(QComboBox::AdjustToContents);
-    toolBar->addWidget(presetCombo_);
+    
     connect(presetCombo_, &QComboBox::currentIndexChanged, this, [this](int index) {
         if (updating_ || index < 0) {
             return;
@@ -705,12 +829,10 @@ void MainWindow::createActions() {
             tab->setPlacePreset(presetCombo_->itemData(index).toString());
         }
     });
-    toolBar->addSeparator();
-
     layerCombo_ = new QComboBox(this);
     layerCombo_->setObjectName(QStringLiteral("layerCombo"));
     layerCombo_->setToolTip(tr("Layer edited by the tools"));
-    toolBar->addWidget(layerCombo_);
+    
     connect(layerCombo_, &QComboBox::currentIndexChanged, this, [this](int index) {
         if (updating_ || index < 0) {
             return;
@@ -725,7 +847,7 @@ void MainWindow::createActions() {
     tileSpin_->setRange(-32768, 32767);
     tileSpin_->setPrefix(tr("Tile ID "));
     tileSpin_->setToolTip(tr("Raw stored tile ID written by the pencil (-1 is an empty cell)"));
-    toolBar->addWidget(tileSpin_);
+    
     connect(tileSpin_, &QSpinBox::valueChanged, this, [this](int value) {
         if (updating_) {
             return;
@@ -734,8 +856,6 @@ void MainWindow::createActions() {
             tab->setTileId(static_cast<std::int16_t>(value));
         }
     });
-    toolBar->addSeparator();
-
     profileCombo_ = new QComboBox(this);
     profileCombo_->setObjectName(QStringLiteral("profileCombo"));
     profileCombo_->setToolTip(
@@ -745,7 +865,7 @@ void MainWindow::createActions() {
          {GameProfile::unknown, GameProfile::speedyBlupi1, GameProfile::speedyBlupi2}) {
         profileCombo_->addItem(profileDisplayName(profile), static_cast<int>(profile));
     }
-    toolBar->addWidget(profileCombo_);
+    
     connect(profileCombo_, &QComboBox::currentIndexChanged, this, [this](int index) {
         if (updating_ || index < 0) {
             return;
@@ -754,6 +874,22 @@ void MainWindow::createActions() {
             tab->setProfile(static_cast<GameProfile>(profileCombo_->itemData(index).toInt()));
         }
     });
+
+    const auto labelled = [&](const QString &text, QWidget *widget) {
+        auto *label = new QLabel(text, this);
+        label->setBuddy(widget);
+        label->setContentsMargins(6, 0, 2, 0);
+        documentBar->addWidget(label);
+        documentBar->addWidget(widget);
+    };
+    labelled(tr("Game"), profileCombo_);
+    documentBar->addSeparator();
+    labelled(tr("Layer"), layerCombo_);
+    documentBar->addWidget(tileSpin_);
+    documentBar->addSeparator();
+    labelled(tr("Adaptive"), adaptiveCombo_);
+    labelled(tr("Object"), presetCombo_);
+    documentBar->addWidget(startSpin_);
 }
 
 void MainWindow::createDocks(QMenu *viewMenu) {
@@ -863,8 +999,185 @@ void MainWindow::createDocks(QMenu *viewMenu) {
     viewMenu->addAction(objectsToggle);
     viewMenu->addAction(inspectorToggle);
     viewMenu->addAction(diagnosticsToggle);
+    auto *layoutMenu = viewMenu->addMenu(tr("La&yout"));
+    connect(addAction(layoutMenu, QStringLiteral("viewLayoutMapping"), tr("&Mapping")),
+            &QAction::triggered, this, [this] { applyLayout(DockLayout::mapping); });
+    connect(addAction(layoutMenu, QStringLiteral("viewLayoutObjects"), tr("&Objects")),
+            &QAction::triggered, this, [this] { applyLayout(DockLayout::objects); });
+    connect(addAction(layoutMenu, QStringLiteral("viewLayoutValidation"), tr("&Validation")),
+            &QAction::triggered, this, [this] { applyLayout(DockLayout::validation); });
     connect(addAction(viewMenu, QStringLiteral("viewResetLayout"), tr("&Reset Layout")),
             &QAction::triggered, this, [this] { resetLayout(); });
+
+    auto *themeMenu = viewMenu->addMenu(tr("&Theme"));
+    auto *themeGroup = new QActionGroup(this);
+    const auto addTheme = [&](const QString &name, const QString &text, Theme theme) {
+        auto *item = addAction(themeMenu, name, text);
+        item->setCheckable(true);
+        themeGroup->addAction(item);
+        connect(item, &QAction::triggered, this, [this, theme] { setTheme(themeKey(theme)); });
+    };
+    addTheme(QStringLiteral("viewThemeSystem"), tr("&System"), Theme::system);
+    addTheme(QStringLiteral("viewThemeLight"), tr("&Light"), Theme::light);
+    addTheme(QStringLiteral("viewThemeDark"), tr("&Dark"), Theme::dark);
+}
+
+void MainWindow::applyLayout(DockLayout layout) {
+    const auto show = [](QDockWidget *dock, bool visible) {
+        dock->setVisible(visible);
+        if (visible) {
+            dock->raise();
+        }
+    };
+    switch (layout) {
+    case DockLayout::mapping:
+        show(objectsDock_, false);
+        show(inspectorDock_, false);
+        show(diagnosticsDock_, false);
+        show(minimapDock_, true);
+        show(statisticsDock_, true);
+        break;
+    case DockLayout::objects:
+        show(statisticsDock_, false);
+        show(inspectorDock_, false);
+        show(diagnosticsDock_, false);
+        show(minimapDock_, true);
+        show(objectsDock_, true);
+        break;
+    case DockLayout::validation:
+        show(objectsDock_, false);
+        show(minimapDock_, false);
+        show(statisticsDock_, true);
+        show(inspectorDock_, true);
+        show(diagnosticsDock_, true);
+        diagnostics_->validate();
+        break;
+    }
+}
+
+void MainWindow::setTheme(const QString &key) {
+    const auto theme = themeFromKey(key);
+    applyTheme(theme);
+    QSettings().setValue(QStringLiteral("appearance/theme"), themeKey(theme));
+    const char *name = theme == Theme::light  ? "viewThemeLight"
+                       : theme == Theme::dark ? "viewThemeDark"
+                                              : "viewThemeSystem";
+    if (auto *item = action(QString::fromLatin1(name))) {
+        item->setChecked(true);
+    }
+}
+
+void MainWindow::applyPreferences() {
+    const QSettings settings;
+    setTheme(settings.value(QStringLiteral("appearance/theme"), QStringLiteral("system")).toString());
+    inspector_->setBytesPerRow(settings.value(QStringLiteral("inspector/bytesPerRow"), 16).toInt());
+}
+
+bool MainWindow::fitSelection() {
+    auto *tab = currentTab();
+    if (tab == nullptr) {
+        return false;
+    }
+    if (const auto bounds = tab->selection().bounds()) {
+        tab->canvas()->fitCells(bounds->min, bounds->max);
+        return true;
+    }
+    if (const auto slot = tab->selectedSlot()) {
+        const auto record = tab->document().view().objects()->record(*slot);
+        const auto first = cellOfPosition(record->posStart);
+        const auto second = cellOfPosition(record->posEnd);
+        if (first && second) {
+            tab->canvas()->fitCells(*first, *second);
+            return true;
+        }
+    }
+    return false;
+}
+
+QString MainWindow::resourceText(const QString &name) {
+    QFile file(QStringLiteral(":/docs/") + name);
+    if (!file.open(QIODevice::ReadOnly)) {
+        return {};
+    }
+    return QString::fromUtf8(file.readAll());
+}
+
+QString MainWindow::shortcutsText() const {
+    QStringList lines;
+    for (const auto *item : findChildren<QAction *>()) {
+        if (item->shortcut().isEmpty() || item->objectName().isEmpty()) {
+            continue;
+        }
+        lines << QStringLiteral("%1\t%2")
+                     .arg(item->shortcut().toString(QKeySequence::NativeText).leftJustified(18),
+                          item->text().remove(QLatin1Char('&')));
+    }
+    lines.sort(Qt::CaseInsensitive);
+    lines << QString()
+          << tr("Canvas: arrow keys move the cell cursor (Shift: ten cells, Ctrl: pan); Space or "
+                "Enter applies the tool; Ctrl+wheel zooms; middle button or Alt+drag pans.");
+    return lines.join(QLatin1Char('\n'));
+}
+
+QString MainWindow::aboutText() {
+    return tr("Eggbert Editor %1\n\nA lossless desktop editor for individual world files of "
+              "Speedy Blupi / Speedy Eggbert and Speedy Blupi II / Speedy Eggbert 2.\n\n"
+              "Licensed under the GNU General Public License version 3 only. It comes with no "
+              "warranty. It contains no game artwork or game data.\n\nBuilt with Qt %2, "
+              "running on Qt %3.")
+        .arg(QStringLiteral(EGGBERT_EDITOR_VERSION), QStringLiteral(QT_VERSION_STR),
+             QString::fromLatin1(qVersion()));
+}
+
+QString MainWindow::diagnosticsBundleText(const DocumentTab *tab) {
+    QStringList lines;
+    lines << QStringLiteral("Eggbert Editor diagnostics bundle");
+    lines << QStringLiteral("Editor version: %1").arg(QStringLiteral(EGGBERT_EDITOR_VERSION));
+    lines << QStringLiteral("Qt: built with %1, running %2")
+                 .arg(QStringLiteral(QT_VERSION_STR), QString::fromLatin1(qVersion()));
+    lines << QStringLiteral("Platform: %1, %2, %3")
+                 .arg(QSysInfo::prettyProductName(), QSysInfo::currentCpuArchitecture(),
+                      QGuiApplication::platformName());
+    if (tab == nullptr) {
+        lines << QString() << QStringLiteral("No document is open.");
+        return lines.join(QLatin1Char('\n'));
+    }
+    lines << QString() << QStringLiteral("== Document ==");
+    // The file name only: a full path can reveal personal folder names.
+    lines << propertiesText(*tab).replace(tab->file().path(),
+                                          QFileInfo(tab->file().path()).fileName());
+    lines << QString() << QStringLiteral("== World Doctor ==");
+    const auto report = runDoctor(tab->document().view(), tab->profile());
+    for (const auto &finding : report.findings) {
+        const auto severity = severityName(finding.severity);
+        lines << QStringLiteral("[%1] %2 @%3+%4: %5")
+                     .arg(QString::fromUtf8(severity.data(), static_cast<qsizetype>(severity.size())),
+                          QString::fromUtf8(finding.ruleId.data(),
+                                            static_cast<qsizetype>(finding.ruleId.size())))
+                     .arg(finding.range.offset)
+                     .arg(finding.range.size)
+                     .arg(QString::fromStdString(finding.message));
+    }
+    if (report.findings.empty()) {
+        lines << QStringLiteral("No findings.");
+    }
+    lines << QString() << QStringLiteral("== Changes since opened ==");
+    lines << formatByteDifferences(tab->document(), true);
+    lines << QString() << QStringLiteral("== Unsaved changes ==");
+    lines << formatByteDifferences(tab->document(), false);
+    return lines.join(QLatin1Char('\n'));
+}
+
+bool MainWindow::saveDiagnosticsBundle(const QString &path) {
+    QSaveFile file(path);
+    const auto text = diagnosticsBundleText(currentTab()).toUtf8();
+    if (!file.open(QIODevice::WriteOnly) || file.write(text) != text.size() || !file.commit()) {
+        prompts.error(tr("Diagnostics Bundle"),
+                      tr("%1 was not written.\n%2").arg(path, file.errorString()));
+        return false;
+    }
+    statusBar()->showMessage(tr("Diagnostics bundle saved to %1").arg(path), 6000);
+    return true;
 }
 
 void MainWindow::resetLayout() {
@@ -1160,6 +1473,14 @@ DocumentTab *MainWindow::openPath(const QString &path) {
         return nullptr;
     }
     auto *tab = new DocumentTab(std::move(loaded.value()), tabs_);
+    {
+        const QSettings settings;
+        auto options = tab->canvas()->renderOptions();
+        options.showGrid = settings.value(QStringLiteral("view/grid"), options.showGrid).toBool();
+        options.showLabels =
+            settings.value(QStringLiteral("view/labels"), options.showLabels).toBool();
+        tab->canvas()->setRenderOptions(options);
+    }
     connectTab(tab);
     const auto index = tabs_->addTab(tab, tab->title());
     tabs_->setTabToolTip(index, tab->file().path());
@@ -1427,6 +1748,8 @@ void MainWindow::updateUi() {
     enable("fileRevert", hasTab);
     enable("fileProperties", hasTab);
     enable("fileExportPng", hasTab);
+    enable("viewFitSelection",
+           hasTab && (!tab->selection().empty() || tab->selectedSlot().has_value()));
     enable("fileClose", hasTab);
     enable("editUndo", hasTab && tab->document().canUndo());
     enable("editRedo", hasTab && tab->document().canRedo());
