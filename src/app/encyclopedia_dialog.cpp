@@ -9,6 +9,7 @@
 #include <QScrollArea>
 #include <QVBoxLayout>
 
+#include "app/catalog_texts.hpp"
 #include "app/game_assets.hpp"
 #include "app/sprite_icons.hpp"
 
@@ -105,9 +106,9 @@ void EncyclopediaDialog::refill() {
                 ? objectThumbnail(entry.type, entry.channel, entry.icon, artwork_.get(),
                                   thumbnailSize)
                 : tileThumbnail(entry.layer, entry.values.front(), artwork_.get(), thumbnailSize);
-        auto *item = new QListWidgetItem(QIcon(icon), text(entry.title), list_);
+        auto *item = new QListWidgetItem(QIcon(icon), catalogText(entry.title), list_);
         item->setData(Qt::UserRole, static_cast<qulonglong>(index));
-        item->setToolTip(text(entry.group));
+        item->setToolTip(catalogText(entry.group));
         if (index == previousIndex) {
             list_->setCurrentItem(item);
         }
@@ -135,7 +136,8 @@ void EncyclopediaDialog::showCurrent() {
                                                          : tr("Border family");
     details_->setText(
         QStringLiteral("<h3>%1</h3><p><b>%2</b> &middot; %3</p><p>%4</p><p><b>%5</b><br>%6</p>")
-            .arg(text(entry->title).toHtmlEscaped(), kind, text(entry->group).toHtmlEscaped(),
+            .arg(catalogText(entry->title).toHtmlEscaped(), kind,
+                 catalogText(entry->group).toHtmlEscaped(),
                  text(entry->facts).toHtmlEscaped(), tr("Evidence"),
                  text(entry->provenance).toHtmlEscaped()));
 }

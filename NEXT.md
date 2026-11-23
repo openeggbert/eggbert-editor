@@ -91,7 +91,7 @@ Verified and reported observations are recorded with citations in `docs/research
 Slices A–M are done as far as they could be verified here; of slice N the three-way merge is done and playtest traces were examined and not started (see its entry). What remains open, in the order it would be worth doing:
 
 1. **A hosted CI run** (needs the owner: a pull request or a push to `main`/`develop`). It would exercise the Linux jobs on GitHub's runners and give the first real result for the `windows-untested` and `macos-untested` jobs.
-2. **The rest of the Czech catalogue** (292 of 838 texts are still English, and the catalog names of tiles and objects are not translatable yet) and a Czech guide.
+2. **Czech for the texts the core composes** (World Doctor findings, conversion notes, report details, encyclopedia facts) — it needs those messages restructured into translatable templates — and a Czech guide.
 3. **More for Mobile Eggbert text worlds**: adding and removing object lines, selections and shapes, and names or pictures for its tiles and objects — the last only with evidence from that project, which was not gathered.
 4. **Stamps:** thumbnails and a ghost under the cursor before placing.
 5. **A reachability estimate with movement** (jumps, falls, lifts), if a bound can be cited from the sources.
@@ -117,7 +117,7 @@ The plan allows this slice "only with a verifiable design; otherwise documented 
 ### Slice L result (2026-11-23): Czech interface, accessibility, other platforms
 
 - `src/app/catalog_translator.hpp`: a `QTranslator` that reads `.ts` catalogues from the program's resources at run time (no Linguist tools in the build); unfinished or empty translations fall back to English; Czech plural forms. Language preference in **Edit → Preferences** (system, English, Čeština), applied at start.
-- `translations/eggbert-editor_cs.ts`: 838 messages extracted with `lupdate` (command in `translations/README.md`), **546 translated** — the menus, tool bar, docks and side panels, welcome page, status messages and the most used dialogs. The other 292 (mostly long explanatory sentences and report texts) are shown in English, and so are the names in the game catalogs (tile groups, object names), which are not translatable strings yet.
+- `translations/eggbert-editor_cs.ts`: 1,035 messages extracted with `lupdate` (command in `translations/README.md`), **all translated** (completed 2026-11-23 at the owner's request). The catalog names (tile entries, objects, groups, border families, run-time object types) are listed for the tools in `src/app/catalog_texts.cpp` and shown through `catalogText()`; the `translation` test fails when a catalog name is missing there or the catalogue has unfinished entries. Still English: texts composed in the Qt-free core (World Doctor findings, conversion notes, report details, the encyclopedia's facts) and the documents.
 - Accessibility: 28 controls that had no name for a screen reader (the Palette's picture lists, the Objects panel's fields, the inspector's choosers, the trees) now have accessible names; a test walks the main window and fails on any focusable control without one.
 - `CMakePresets.json` (`linux`, `linux-sanitizers`, `windows-msvc`, `macos`) and two CI jobs, `windows-untested` and `macos-untested`, allowed to fail. **Neither platform has been built or run**: there is no Windows or macOS machine here and no hosted run (the owner asked for no pull request). No package for them is claimed.
 - Tests: `translation` (language choice, plural forms, a catalogue from text including damaged input, the shipped catalogue's placeholders, accelerators and ellipses, the main window's menus in Czech with English fallback, the accessibility walk).
@@ -274,7 +274,7 @@ Order and acceptance are in `plan.md`, **Promotion of the roadmap**. Tick a slic
 - [x] I Experimental editing: typed byte edits, unverified music/region numbers, custom border rules
 - [x] J Stamps, alignment, replace in all open worlds
 - [x] K Element encyclopedia and installation gallery (the Installation dock's world list)
-- [x] L Czech interface (546 of 838 texts), accessibility names, Windows/macOS configurations (untested)
+- [x] L Czech interface (all 1,035 interface texts and catalog names), accessibility names, Windows/macOS configurations (untested)
 - [x] M Mobile Eggbert text worlds: lossless codec, description and an editing window (no conversion)
 - [ ] N Three-way merge (done: `merge` command) and playtest traces (not started: no verifiable design)
 

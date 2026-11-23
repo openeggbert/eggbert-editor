@@ -6,8 +6,13 @@
 // accessibility walk: every focusable control of the main window can be
 // named by a screen reader.
 
+#include "app/catalog_texts.hpp"
 #include "app/catalog_translator.hpp"
 #include "app/main_window.hpp"
+
+#include "world/adaptive.hpp"
+#include "world/editor_groups.hpp"
+#include "world/object_catalog.hpp"
 
 #include "check.hpp"
 #include "fixture.hpp"
@@ -20,6 +25,7 @@
 #include <QListWidget>
 #include <QMenuBar>
 #include <QRegularExpression>
+#include <QSet>
 #include <QSettings>
 #include <QSlider>
 #include <QSpinBox>
@@ -106,12 +112,50 @@ int main(int argc, char **argv) {
         CHECK(!small.loadCatalog("<other/>"));
     }
 
+    // Every catalog name the interface shows is marked for translation.
+    {
+        QSet<QString> marked;
+        for (const auto *text : catalogTexts()) {
+            marked.insert(QString::fromUtf8(text));
+        }
+        const auto covered = [&](std::string_view name) {
+            const auto text = QString::fromUtf8(name.data(), static_cast<qsizetype>(name.size()));
+            if (!text.isEmpty() && !marked.contains(text)) {
+                std::fprintf(stderr, "catalog name not marked: %s\n", qPrintable(text));
+                return false;
+            }
+            return true;
+        };
+        for (const auto profile : {GameProfile::speedyBlupi1, GameProfile::speedyBlupi2}) {
+            for (const auto &group : editorGroups(profile)) {
+                CHECK(covered(group.name));
+                for (const auto &tile : group.tiles) {
+                    CHECK(covered(tile.name));
+                }
+            }
+            for (const auto &preset : objectPresets(profile)) {
+                CHECK(covered(preset.name));
+            }
+            for (const auto &family : adaptiveFamilies(profile)) {
+                CHECK(covered(family.name));
+            }
+            for (int type = 0; type < 256; ++type) {
+                CHECK(covered(objectTypeInfo(profile, static_cast<std::int16_t>(type)).name));
+            }
+        }
+        // Untranslated, a name is shown as it is.
+        CHECK_EQ(catalogText("Treasure chest"), QString("Treasure chest"));
+        CHECK_EQ(catalogText("no such name"), QString("no such name"));
+    }
+
     // The shipped Czech catalogue.
     CatalogTranslator czech;
     CHECK(!czech.loadLanguage("xx"));
     CHECK(czech.loadLanguage("cs"));
     CHECK(czech.messageCount() >= 800);
-    CHECK(czech.translatedCount() >= 380);
+    // The shipped catalogue has no unfinished entry (identical texts in
+    // several contexts count once each, so compare with a small margin).
+    CHECK(czech.translatedCount() >= czech.messageCount() - 5);
     for (const auto &message : czech.translatedMessages()) {
         const auto source = QString::fromUtf8(message.source);
         for (const auto &form : message.forms) {

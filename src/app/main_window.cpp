@@ -63,6 +63,7 @@
 #include "app/palette_panel.hpp"
 #include "app/sprite_icons.hpp"
 #include "app/cli.hpp"
+#include "app/catalog_texts.hpp"
 #include "app/encyclopedia_dialog.hpp"
 #include "app/installation_panel.hpp"
 #include "app/text_world_editor.hpp"
@@ -4179,7 +4180,7 @@ void MainWindow::rebuildPresets(GameProfile profile) {
                             QString::fromLatin1(DocumentTab::adaptiveEraseBrush));
     for (const auto &family : adaptiveFamilies(profile)) {
         adaptiveCombo_->addItem(
-            QString::fromUtf8(family.name.data(), static_cast<qsizetype>(family.name.size())),
+            catalogText(family.name),
             QString::fromUtf8(family.id.data(), static_cast<qsizetype>(family.id.size())));
         adaptiveCombo_->setItemIcon(
             adaptiveCombo_->count() - 1,
@@ -4214,7 +4215,7 @@ void MainWindow::rebuildPresets(GameProfile profile) {
         const auto id =
             QString::fromUtf8(preset.id.data(), static_cast<qsizetype>(preset.id.size()));
         const auto name =
-            QString::fromUtf8(preset.name.data(), static_cast<qsizetype>(preset.name.size()));
+            catalogText(preset.name);
         const QIcon icon(
             objectThumbnail(preset.type, preset.channel, preset.icon, artwork, iconSize));
         presetCombo_->addItem(icon, name, id);

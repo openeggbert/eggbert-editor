@@ -22,6 +22,7 @@
 
 #include "app/document_tab.hpp"
 #include "app/game_assets.hpp"
+#include "app/catalog_texts.hpp"
 #include "app/sprite_icons.hpp"
 #include "app/world_renderer.hpp"
 #include "world/adaptive.hpp"
@@ -495,10 +496,10 @@ void PalettePanel::rebuildTileGroups() {
         for (const auto &entry : group.tiles) {
             count += entry.values.size();
         }
-        add(text(group.id), text(group.name), first.layer,
+        add(text(group.id), catalogText(group.name), first.layer,
             first.values.empty() ? layout::emptyCell : first.values.front(),
             tr("%1: %2 tile(s) in %3 kind(s), as one button of the game's own editor offers them")
-                .arg(text(group.name))
+                .arg(catalogText(group.name))
                 .arg(count)
                 .arg(group.tiles.size()));
     }
@@ -544,7 +545,7 @@ void PalettePanel::rebuildTiles() {
         shown.push_back({group.tiles.front().layer, layout::emptyCell, QString(), QString()});
         for (const auto &entry : group.tiles) {
             for (std::size_t index = 0; index < entry.values.size(); ++index) {
-                shown.push_back({entry.layer, entry.values[index], text(entry.name),
+                shown.push_back({entry.layer, entry.values[index], catalogText(entry.name),
                                  index < entry.brushes.size() ? text(entry.brushes[index])
                                                               : QString()});
             }
@@ -634,9 +635,9 @@ void PalettePanel::rebuildObjectGroups() {
             continue;
         }
         const auto *first = findObjectPreset(profile_, group.presets.front());
-        add(text(group.id), text(group.name), first,
+        add(text(group.id), catalogText(group.name), first,
             tr("%1: %2 object(s), as one button of the game's own editor offers them")
-                .arg(text(group.name))
+                .arg(catalogText(group.name))
                 .arg(group.presets.size()));
     }
     if (!hasData(objectGroups_, objectGroup_)) {
@@ -675,12 +676,12 @@ void PalettePanel::rebuildObjects() {
         auto *item = new QListWidgetItem(
             QIcon(objectThumbnail(preset->type, preset->channel, preset->icon, artwork,
                                   objectThumbnailSize)),
-            text(preset->name), objects_);
+            catalogText(preset->name), objects_);
         item->setData(Qt::UserRole, text(preset->id));
         item->setSizeHint(objects_->gridSize());
         item->setTextAlignment(Qt::AlignHCenter | Qt::AlignTop);
         item->setToolTip(tr("%1\nStored type %2. Click, then click a cell to place it%3.")
-                             .arg(text(preset->name))
+                             .arg(catalogText(preset->name))
                              .arg(preset->type)
                              .arg(preset->hasPath ? tr("; drag to set its path") : QString()));
     }
@@ -725,12 +726,12 @@ void PalettePanel::rebuild() {
             auto *item = new QListWidgetItem(
                 QIcon(tileThumbnail(SectionKind::foreground, family.seed, artwork,
                                     objectThumbnailSize)),
-                text(family.name), brushes_);
+                catalogText(family.name), brushes_);
             item->setData(Qt::UserRole, text(family.id));
             item->setSizeHint(brushes_->gridSize());
             item->setTextAlignment(Qt::AlignHCenter | Qt::AlignTop);
             item->setToolTip(tr("%1\nPaints tile %2 and recomputes the border forms around it.")
-                                 .arg(text(family.name))
+                                 .arg(catalogText(family.name))
                                  .arg(family.seed));
         }
         if (current.isValid()) {

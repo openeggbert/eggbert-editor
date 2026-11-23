@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "document_tab.hpp"
 
+#include "app/catalog_texts.hpp"
+
 #include <QFileInfo>
 #include <QLabel>
 #include <QVBoxLayout>
@@ -619,9 +621,9 @@ QString DocumentTab::objectTypeText(std::int16_t type) const {
     const auto info = objectTypeInfo(profile_, type);
     switch (info.status) {
     case ObjectTypeStatus::placeable:
-        return tr("%1 (%2)").arg(fromView(info.name)).arg(type);
+        return tr("%1 (%2)").arg(catalogText(info.name)).arg(type);
     case ObjectTypeStatus::runtimeOnly:
-        return tr("%1 (%2, created during play)").arg(fromView(info.name)).arg(type);
+        return tr("%1 (%2, created during play)").arg(catalogText(info.name)).arg(type);
     case ObjectTypeStatus::unknown:
         break;
     }
@@ -690,11 +692,11 @@ std::optional<std::size_t> DocumentTab::createObjectAt(CellPos cell,
         return std::nullopt;
     }
     if (!applyTransaction(
-            builder.build(tr("Create %1").arg(fromView(preset->name)).toStdString()))) {
+            builder.build(tr("Create %1").arg(catalogText(preset->name)).toStdString()))) {
         return std::nullopt;
     }
     setSelectedSlot(*slot);
-    emit statusMessage(tr("Created %1 in slot %2").arg(fromView(preset->name)).arg(*slot));
+    emit statusMessage(tr("Created %1 in slot %2").arg(catalogText(preset->name)).arg(*slot));
     return *slot;
 }
 
