@@ -92,6 +92,23 @@ Basis of **Convert for Other Game** (`src/world/game_convert.cpp`). "Scripted" r
 
 Checked against the two original installations (2026-11-23, private, read only): the ten music files are byte-identical between the games, so a music number plays the same tune; backdrops 0, 3, 7, 8, 11–14, 16, 17 and 22 are pixel-identical and the other shared numbers differ (many only in colour depth); all 59 stock worlds of the first game convert for the second with nothing unknown (differences: the 48–67 blocks, 19 lift or crate pictures, 11 backdrops) and all 96 of the second convert for the first when unknown values are kept (16 need no choice at all); every one of the 155 is byte-identical again after converting there and back.
 
+## Files of an installation
+
+Basis of the **Installation** dock (`src/world/installation.hpp`). Identical in both games unless noted.
+
+| Observation | Where | How |
+| --- | --- | --- |
+| Official worlds are `data\world%.3d.blp`; worlds a player designed are `data\u%.3d-%.3d.blp` (player, number) | `src/decor.cpp:279-295`; `games/sb2/src/decor.cpp:560-572` | read |
+| Saved games are `data\s%.3d-%.3d.blp`, player files `data\info%.3d.blp`, recordings `data\demo%.3d.blp`; `data\config.def` and `data\time.blp` hold settings (the second game also writes `data\bench.blp`) | `src/decor.cpp:454`; `src/event.cpp:3553`, `:3692`; `src/blupi.cpp:99`, `:623`; `games/sb2/src/decor.cpp:731`; `games/sb2/src/event.cpp:4201`, `:4341`; `games/sb2/src/pixmap.cpp:1605` | read |
+| There are 8 player slots; a player's designed worlds are numbered 1 to 20 | `src/def.h:23`; `src/event.cpp:2417-2423`; `games/sb2/src/def.h:21`; `games/sb2/src/event.cpp:3029-3035` | read |
+| The games' own play-test writes the world being designed to user world 999 and reads it back, so `uGGG-999.blp` is a scratch file | `src/event.cpp:2356` | read (write); read-back reported |
+| A network game loads official world `m_multi + 100` (first game, 1–10) or `+ 200` (second, 1–12); recordings belong to worlds from 200 (first) or 300 (second) | `src/event.cpp:1968-1973`, `:3723`; `games/sb2/src/event.cpp:2581-2586`, `:4372` | read (offsets), reported (ranges 1–10, 1–12) |
+| Hubs are recognised by number alone: world 1 and multiples of ten; a group's missions are hub + 1 to hub + 8; hubs run to 80 (first game) or 140 (second); winning world 1 leads to world 99 or 199 | `src/decblock.cpp:1598`; `src/decblupi.cpp:3572-3615`, `:4075-4086`; `games/sb2/src/decblupi.cpp:4158-4201`, `:4804-4818` | read (hub test), reported |
+| The games keep no list of designed worlds: the design screen reads one numbered file at a time, and only that file has to exist | `src/event.cpp:3596-3610`; `games/sb2/src/event.cpp:4244-4258` | reported |
+| No command-line option selects a world or a player (only `-nocd` in some builds); `data\config.def` has `FullScreen=` among others | `src/blupi.cpp`; `games/sb2/src/blupi.cpp` | reported |
+
+The role shown for an official world is derived from its number by these rules and from nothing else; what a particular installation ships is not assumed.
+
 ## New world
 
 | Observation | Where | How |

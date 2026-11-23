@@ -2,7 +2,7 @@
 
 Eggbert Editor edits individual world files of *Speedy Blupi* / *Speedy Eggbert* and *Speedy Blupi II* / *Speedy Eggbert 2*: the `.blp` world files and the exported `.xch` files, which have the same layout. It changes only the bytes you edit. Everything else in the file — reserved fields, unused object slots, text after the title, data after the end of the layout — is written back exactly as it was read.
 
-It is an editor for one world at a time. It does not manage campaigns, does not install worlds into a game and does not start the game.
+It is an editor for one world at a time. It can list the worlds of a game installation, put a world into it and take it out again, and start the game with a command you give; it does not manage campaigns.
 
 ## Opening a world
 
@@ -180,6 +180,16 @@ For the byte under the cursor it shows the offset, the structural name (for exam
 
 Type an offset (`1608` or `0x648`), `cell 3,70`, `big 3,70` or `slot 137` to jump; pick a section from the list; search for hex bytes or ASCII text; set bookmarks; choose 8 to 32 bytes per row; view the original bytes or original and current side by side. The inspector follows the cell cursor and the selected object, and clicking a byte moves the canvas there.
 
+## Working with a game installation
+
+**View → Installation** shows a dock (tabbed with the Palette) for the game directory you chose for the current world's game (**View → Game Artwork Directory**). It lists every world in the directory's `DATA` folder with a small picture of its used part: the game's own worlds (`world012.blp`) with the role their number has in the game — first world, group hub, mission, final world, network game, demo — and the worlds a player designed (`u001-003.blp`: player 1, world 3), with the title where the file stores one. A file that is not a complete world is marked. Double-click a world to open it. The games keep no list of designed worlds: a file with the right name is all it takes for the game's design screen to find it.
+
+**Deploy Current World** (also **File → Deploy to Installation**) puts the world of the current tab — as it is now, unsaved changes included — into that folder. You choose the place: a designed world of player 1 to 8, number 1 to 20 (the first free number of player 1 is offered), or one of the game's own world numbers, which makes the game play your world in its place. The dialog says whether a file is created or replaced. A replaced file is first copied to a folder in your user profile (never inside the game directory) and checked; your world is then written through a temporary file that takes the place of the target in one step, and read back. If any step fails, the game directory holds exactly what it held before. Deploying does not save the tab's own file. A file that is open in the editor is not a deploy target.
+
+**Roll Back Last Deploy** undoes the newest deploy after asking: the kept file is put back and verified, or the created file is removed. If the file was changed since the deploy (for instance by the game's own editor), it is left alone and you are told.
+
+**Playtest** (F5) starts the command you gave for the game — its program, or for example `wine` followed by it — in the game directory. The command is asked for the first time and can be changed in **Edit → Playtest Command**. The games have no option that opens a particular world, so you pick it in the game: on the title screen choose the player, then the design button, and step to the world's number.
+
 ## Experimental editing
 
 Off by default. **Edit → Preferences → Experimental editing** switches it on; the status bar then says so. It lets you write values the editor has no evidence for, so the result may be something no game expects. Three things become available:
@@ -224,4 +234,4 @@ Exit codes: 0 success, 1 findings, differences or a refused loss, 2 wrong usage 
 
 ## What the editor does not do
 
-It does not edit revisions 1.0 and 1.1 in place (convert a copy instead), does not edit bytes in the hex view itself (see **Experimental editing** for typed byte edits), does not offer objects, border brushes or music and region values it has no evidence for unless experimental editing is on (raw tile numbers and an object's numeric fields are always yours to type), does not create or renumber campaigns, does not copy worlds into a game installation, does not launch a game, and does not convert to or from the Mobile Eggbert format.
+It does not edit revisions 1.0 and 1.1 in place (convert a copy instead), does not edit bytes in the hex view itself (see **Experimental editing** for typed byte edits), does not offer objects, border brushes or music and region values it has no evidence for unless experimental editing is on (raw tile numbers and an object's numeric fields are always yours to type), does not create or renumber campaigns, and does not convert to or from the Mobile Eggbert format.

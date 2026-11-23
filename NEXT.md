@@ -45,9 +45,9 @@ Verification on 2026-11-22, Ubuntu 24.04, GCC 13.3.0, CMake 3.28.3, Ninja, Qt 6.
 ```sh
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
 cmake --build build --parallel              # no warnings
-ctest --test-dir build --output-on-failure  # 54/54 passed (55 registered): layout, le_reader, world_probe, world_view, world_document, world_stats, offset_map, tile_tools, metadata, object_ops, hex_model, doctor, adaptive, animation, atlas_table, editor_groups, revision_convert, new_world, encyclopedia, expert_edit, custom_border, game_convert, view_transform, probe_report, document_file, recovery_store, cli, world_renderer, png_export, game_assets, main_window, docks, tools, metadata_ui, objects_ui, inspector, doctor_ui, adaptive_ui, workspace, artwork_ui, palette, music_player, animation_ui, interface_ui, recovery_ui, convert_ui, new_world_ui, encyclopedia_ui, experimental_ui, convert_game_ui, cli_usage, smoke, version, install_smoke; sample_matrix skipped without EGGBERT_SAMPLE_DIRS
+ctest --test-dir build --output-on-failure  # 57/57 passed (58 registered): layout, le_reader, world_probe, world_view, world_document, world_stats, offset_map, tile_tools, metadata, object_ops, hex_model, doctor, adaptive, animation, atlas_table, editor_groups, revision_convert, new_world, encyclopedia, expert_edit, custom_border, game_convert, installation, view_transform, probe_report, document_file, recovery_store, deploy_store, cli, world_renderer, png_export, game_assets, main_window, docks, tools, metadata_ui, objects_ui, inspector, doctor_ui, adaptive_ui, workspace, artwork_ui, palette, music_player, animation_ui, interface_ui, recovery_ui, convert_ui, new_world_ui, encyclopedia_ui, experimental_ui, convert_game_ui, installation_ui, cli_usage, smoke, version, install_smoke; sample_matrix skipped without EGGBERT_SAMPLE_DIRS
 cmake -S . -B build-asan -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DEGGBERT_SANITIZE=ON
-cmake --build build-asan --parallel && ctest --test-dir build-asan   # 54/54 passed under ASan/UBSan, sample_matrix skipped
+cmake --build build-asan --parallel && ctest --test-dir build-asan   # 57/57 passed under ASan/UBSan, sample_matrix skipped
 ```
 
 Commit `c8f7a77` (binary inspector) was pushed green in Release but with a use-after-free that the sanitizer run reported in `main_window` (the hex views kept a pointer to the document replaced by Revert/Reload); the next commit fixes it with `DocumentTab::documentReplaced` and a regression check in `inspector`. Always run the sanitizer suite to completion before committing.
@@ -82,21 +82,26 @@ Verified and reported observations are recorded with citations in `docs/research
 - **CI steps in a clean system.** A minimal Ubuntu 24.04 system (`debootstrap --variant=minbase`, then `cmake ninja-build g++ dpkg-dev` as a hosted runner has them, then the workflow's `qt6-base-dev`: CMake 3.28.3, GCC 13.3.0, Qt 6.4.2) ran every step of `.github/workflows/ci.yml` on commit `5a5f3d8`: job *build-and-test* — configure, build (0 warnings), `ctest` exit 0 (sample test skipped), `cpack` producing the TGZ and DEB; job *sanitizers* — configure, build (0 warnings), `ctest` exit 0. The sanitizer needs `/proc`, which a bare chroot lacks; with it mounted the job passes. The hosted workflow itself has still not run (no pull request, owner's decision).
 - **Independent documentation audit.** A second reviewer compared `docs/user-guide.md`, `README.md` and `docs/format-notes.md` with the code and reported 23 mismatches (none in the format notes). Six were fixed in the code because the documented behaviour was the better one: second-game tiles 384/385 are now drawn before objects; picking a bigDecor picture while the adaptive tile brush is active switches to the Pencil; music plays from a chosen game directory even when its pictures are unusable (`MainWindow::gameDirectoryFor`); the PNG dialog has a backdrop option recorded in `EggbertSettings`; Save As shows the World Doctor summary like Save; the 1/2 path badges are drawn down to five pixels per cell, so they show when the whole world is in view. The rest were wording corrections in the guide and README. The reviewer could not check statements about the games themselves (it had no access to the research sources); those rest on `docs/research/evidence.md`.
 
-## Next task: slice F of the promoted roadmap (installation workspace)
+## Next task: slice G of the promoted roadmap (campaign workspace and packs)
 
-See `plan.md`, **Promotion of the roadmap**. Research is done (machine-checked notes in the development scratch area; every fact must be re-read at its citation and entered in `docs/research/evidence.md` as it is used). Facts to build on, with where to re-read them:
+See `plan.md`, **Promotion of the roadmap**. Evidence for the numbering is in `docs/research/evidence.md`, **Files of an installation**. Design to implement:
 
-- File names in `data` (both games): official `world%.3d.blp`, user worlds `u%.3d-%.3d.blp` (gamer 1–8, mission 1–20; 999 is the game's own play-test scratch file), saves `s%.3d-%.3d.blp`, `info%.3d.blp` (528 bytes), `demo%.3d.blp`, `config.def` — `src/decor.cpp:279-295`, `games/sb2/src/decor.cpp:560-572` (read for worlds; the rest reported).
-- The game keeps no list of user worlds: its design screen probes one number at a time by reading the file; only the `uGGG-NNN.blp` itself must exist (reported).
-- Hubs are purely numeric (world 1 and multiples of 10); multiplayer worlds 101–110 / 201–212; demo worlds from 200 / 300 (reported).
-- No command-line option selects a mission; `config.def` has `FullScreen=` (reported). A playtest command can therefore only start the game; the user walks to the design screen.
+1. Headless `src/world/campaign.hpp` (Qt-free): a campaign is a named set of worlds with their slots (official number, or player and number) for one game; structure review from the numbering rules alone (first world, hubs, eight missions per group, final world; what is missing or outside the scheme), each finding labelled with its basis.
+2. `src/app/campaign_pack.hpp`: manifest (JSON: format version, name, game, entries with slot, file name, size, SHA-256) written and read back unchanged; a pack is a directory or a ZIP file holding the manifest and the world files. ZIP is written and read without compression by a small reader here (no new dependency); a member with another method is refused with a clear message.
+3. Hostile input: member names with `..`, absolute paths, backslashes, drive letters, duplicates, names the manifest does not list, sizes or checksums that do not match, oversize members, truncated archives — all refused before anything is written.
+4. No retail data by default: an export offers worlds a player designed and worlds the editor itself deployed (known to `DeployStore`) or that are open; the game's own files in official slots are left out unless the user ticks a box that says what it means.
+5. UI: **File → Export Campaign Pack…** and **Import Campaign Pack…** (contents shown first; every world goes in through `DeployStore`, and a failure rolls back the ones already placed); the Installation dock groups official worlds by the campaign structure.
+6. Tests on generated installations and hand-built archives.
 
-Design to implement:
+### Slice F result (2026-11-23): installation workspace (and the gallery of slice K)
 
-1. Headless `src/world/installation.hpp` (Qt-free where possible; file access through a small interface so tests use a generated directory): classify the files of a `DATA` directory by name and probe (official world, user world of gamer G, play-test scratch, save, info, demo, other); slot names for a target (official N, user G/N).
-2. `src/app/deploy.hpp`: staged deploy of the current world bytes to a slot — write to a temporary file in the same directory, verify, keep the previous file as a backup in the editor's data directory (never inside the installation) with a manifest (path, SHA-256, time), atomic rename; rollback restores the backup byte-exactly and verifies it; a failed step leaves the installation unchanged.
-3. UI: **Installation** dock listing the worlds of the current game directory with thumbnails (this is also slice K's gallery), open on double click, **Deploy Current World…** with the slot chooser and the list of what will be replaced, **Roll Back Last Deploy**, and **Playtest** running a user-configured command (never run by tests: only the command line that would be started is tested).
-4. Tests on a generated installation: classification, deploy and rollback byte-exact, injected failures leave everything as it was, nothing written outside the chosen slot.
+- Evidence: **Files of an installation** in `docs/research/evidence.md`.
+- `src/world/installation.hpp` (Qt-free): file-name classification (official world, user world, save, player file, recording, settings), slots (`WorldSlot`, players 1–8, worlds 1–20, 999 refused as the games' scratch file), roles of official numbers per game.
+- `src/app/deploy_store.hpp`: deploy = verified backup in the user's data directory, atomic replacement, read-back, record; rollback = verified restore or removal, refused when the target changed since; failure injection for tests.
+- `src/app/installation_panel.hpp` and the **Installation** dock (hidden by default, tabbed with the Palette): worlds with cropped thumbnails, roles and titles; open on double click; **Deploy Current World…**, **Roll Back Last Deploy**, **Playtest** (also in the File menu; F5) and **Edit → Playtest Command…**. The process start goes through a prompt hook; no test starts a program.
+- Tests: `installation`, `deploy_store` (generated installation: byte-exact deploy and rollback, spelling of existing names kept, changed or damaged files refused, a failure at each step leaves installation and store unchanged, hostile names refused), `installation_ui` (listing, suggestions, unsaved bytes deployed, open files refused, rollback, the playtest command line, the real deploy dialog).
+- Checked by eye once on the second game's directory (96 worlds listed with roles and titles).
+- Not covered: a real game starting from the configured command (no game is run here); whether Windows file locking by a running game interferes with a deploy.
 
 ### Slice E result (2026-11-23): conversion between the two games
 
@@ -187,12 +192,12 @@ Order and acceptance are in `plan.md`, **Promotion of the roadmap**. Tick a slic
 - [x] C Headless command line; PNG layers and crops
 - [x] D Revision conversion (1.0/1.1 written and upgraded through converted copies)
 - [x] E Conversion between the two games with a list of what cannot be carried
-- [ ] F Installation workspace: world list, deploy with backup and rollback, playtest command
+- [x] F Installation workspace: world list, deploy with backup and rollback, playtest command
 - [ ] G Campaign workspace and packs
 - [ ] H Advanced World Doctor
 - [x] I Experimental editing: typed byte edits, unverified music/region numbers, custom border rules
 - [ ] J Stamps, alignment, batch edits
-- [ ] K Element encyclopedia (done, 2026-11-23) and installation gallery (open: comes with slice F's world list)
+- [x] K Element encyclopedia and installation gallery (the Installation dock's world list)
 - [ ] L Localization (Czech), accessibility, Windows/macOS build configurations
 - [ ] M Mobile Eggbert text worlds
 - [ ] N Three-way merge, playtest traces

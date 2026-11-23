@@ -1,6 +1,6 @@
 # Eggbert Editor
 
-A desktop editor for 2D worlds from the Windows games Speedy Blupi and Speedy Blupi II, also released as Speedy Eggbert and Speedy Eggbert 2. Its core is lossless editing of individual world files; this unreleased development version has also grown revision and game conversion, recovery, a command line and other items of the roadmap in `plan.md`. Installation deployment and campaigns are roadmap items not implemented yet. A separate Mobile Eggbert text-world profile is planned, but conversion between BLP and Mobile Eggbert worlds is intentionally unsupported in both directions.
+A desktop editor for 2D worlds from the Windows games Speedy Blupi and Speedy Blupi II, also released as Speedy Eggbert and Speedy Eggbert 2. Its core is lossless editing of individual world files; this unreleased development version has also grown revision and game conversion, recovery, a command line and other items of the roadmap in `plan.md`. Campaigns are a roadmap item not implemented yet. A separate Mobile Eggbert text-world profile is planned, but conversion between BLP and Mobile Eggbert worlds is intentionally unsupported in both directions.
 
 What works today:
 
@@ -25,6 +25,7 @@ What works today:
 - **Element Encyclopedia**: a searchable list of every catalogued tile, object and border family of the chosen game with what is stored for it and the evidence; any entry can be selected for painting or placing.
 - **Experimental editing** (off by default): typed byte edits as undoable transactions with a second confirmation for preserved ranges, unverified music and region numbers, and border rules of your own for the Adaptive brush. The revision field and the file length never change.
 - **New World** (and the `new` command) writes the world the games' own editors start a mission with, for either game.
+- **Installation** dock: the worlds of the game directory you chose, with pictures, roles and titles; **Deploy** puts the current world into a slot with a verified backup of what it replaces, **Roll Back** restores it byte for byte, **Playtest** starts a command you configure.
 - **Convert for Other Game** (and the `convert-game` command) writes a copy of a world for the other game and lists every stored value that game does not know or shows differently; unknown values are kept or removed by your choice, never silently.
 - **Convert Revision** (and the `convert` command) writes a copy of a world in revision 1.0, 1.1, 1.2 or 1.3 to a new file; anything the target cannot store is listed and dropped only on request.
 

@@ -13,7 +13,9 @@
 #include "app/recovery_store.hpp"
 #include "app/document_tab.hpp"
 #include "app/png_export.hpp"
+#include "app/deploy_store.hpp"
 #include "world/game_convert.hpp"
+#include "world/installation.hpp"
 #include "world/world_stats.hpp"
 
 class QAction;
@@ -61,6 +63,18 @@ struct Prompts {
     std::function<QString()> borderRulesPath;
     // Second confirmation before bytes in a preserved range are changed.
     std::function<bool(DocumentTab *, const QString &description)> confirmProtectedEdit;
+    // Where in the installation the tab's world goes; nullopt cancels.
+    // `dataDirectory` is the installation's data directory.
+    std::function<std::optional<WorldSlot>(DocumentTab *, WorldSlot suggested,
+                                           const QString &dataDirectory)>
+        deploySlot;
+    std::function<bool(const DeployRecord &)> confirmRollBack;
+    // The command that starts a game; nullopt cancels.
+    std::function<std::optional<QString>(GameProfile, const QString &current)> playtestCommand;
+    // Starts a detached process; replaced in tests, which never run a game.
+    std::function<bool(const QString &program, const QStringList &arguments,
+                       const QString &workingDirectory)>
+        startProcess;
     // Shown with everything the target game does not know or treats
     // differently; returns what to do with the unknown values (keep or
     // remove), or nullopt to cancel.
@@ -113,6 +127,7 @@ class ObjectsPanel;
 class MusicPlayer;
 class PalettePanel;
 class EncyclopediaDialog;
+class InstallationPanel;
 class StatisticsPanel;
 
 class MainWindow final : public QMainWindow {
@@ -239,6 +254,27 @@ public:
     // Asks for the game and a file, writes the world the games' editors
     // start with and opens it; returns the new tab or null.
     DocumentTab *createWorld();
+    [[nodiscard]] InstallationPanel *installation() const { return installation_; }
+    [[nodiscard]] DeployStore &deployStore() { return deployStore_; }
+    // Puts the tab's current bytes into the installation of its game at a
+    // slot the user chooses; the replaced file is kept for a rollback.
+    std::optional<DeployRecord> deployWorld(DocumentTab *tab);
+    // Undoes the newest deploy after a confirmation. True when undone.
+    bool rollBackLastDeploy();
+    // The slot offered first: the world's own when its file name is one,
+    // else the first free user world of player 1.
+    [[nodiscard]] WorldSlot suggestedSlot(DocumentTab *tab, const QString &dataDirectory) const;
+    struct PlaytestCommand {
+        QString program;
+        QStringList arguments;
+        QString workingDirectory;
+    };
+    // What Playtest would start for a game: the configured command, run in
+    // the game directory. nullopt when nothing is configured or no game
+    // directory is known.
+    [[nodiscard]] std::optional<PlaytestCommand> playtestCommandFor(GameProfile profile) const;
+    // Starts it (asking for the command when none is configured).
+    bool playtest();
     // Writes a copy of the tab's world for the other game (never in place)
     // and opens it with that game selected; returns the new tab or null.
     DocumentTab *convertGameOf(DocumentTab *tab);
@@ -291,6 +327,11 @@ private:
     ObjectsPanel *objects_ = nullptr;
     PalettePanel *palette_ = nullptr;
     EncyclopediaDialog *encyclopedia_ = nullptr;
+    QDockWidget *installationDock_ = nullptr;
+    InstallationPanel *installation_ = nullptr;
+    DeployStore deployStore_;
+    bool haveDeploys_ = false;
+    void refreshInstallationActions();
     bool experimental_ = false;
     std::shared_ptr<const std::vector<CustomBorderRule>> customRules_;
     void shareCustomRules();

@@ -23,6 +23,7 @@
 #include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
+#include <QProcess>
 #include <QRadioButton>
 #include <QRegularExpression>
 #include <QPlainTextEdit>
@@ -62,6 +63,7 @@
 #include "app/sprite_icons.hpp"
 #include "app/cli.hpp"
 #include "app/encyclopedia_dialog.hpp"
+#include "app/installation_panel.hpp"
 #include "app/tool_icons.hpp"
 #include "world/new_world.hpp"
 #include "world/revision_convert.hpp"
@@ -438,6 +440,106 @@ void MainWindow::installDefaultPrompts() {
         return QMessageBox::warning(this, tr("Edit Bytes"), description,
                                     QMessageBox::Yes | QMessageBox::Cancel,
                                     QMessageBox::Cancel) == QMessageBox::Yes;
+    };
+    prompts.deploySlot = [this](DocumentTab *, WorldSlot suggested,
+                                const QString &dataDirectory) -> std::optional<WorldSlot> {
+        QDialog dialog(this);
+        dialog.setWindowTitle(tr("Deploy Current World"));
+        auto *layout = new QVBoxLayout(&dialog);
+        layout->addWidget(new QLabel(
+            tr("The world of the current tab, as it is now, is put into\n%1").arg(dataDirectory),
+            &dialog));
+        auto *user = new QRadioButton(tr("As a world you designed"), &dialog);
+        user->setObjectName(QStringLiteral("deployUser"));
+        auto *official = new QRadioButton(tr("In place of one of the game's own worlds"), &dialog);
+        official->setObjectName(QStringLiteral("deployOfficial"));
+        (suggested.user ? user : official)->setChecked(true);
+        auto *form = new QFormLayout;
+        auto *gamer = new QSpinBox(&dialog);
+        gamer->setObjectName(QStringLiteral("deployGamer"));
+        gamer->setRange(1, gamerCount);
+        gamer->setValue(suggested.gamer);
+        auto *number = new QSpinBox(&dialog);
+        number->setObjectName(QStringLiteral("deployNumber"));
+        form->addRow(tr("Player"), gamer);
+        form->addRow(tr("World number"), number);
+        layout->addWidget(user);
+        layout->addWidget(official);
+        layout->addLayout(form);
+        auto *outcome = new QLabel(&dialog);
+        outcome->setObjectName(QStringLiteral("deployOutcome"));
+        outcome->setWordWrap(true);
+        layout->addWidget(outcome);
+        auto *buttons =
+            new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+        layout->addWidget(buttons);
+        connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+        connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+        const auto slot = [&] {
+            return WorldSlot{user->isChecked(), gamer->value(), number->value()};
+        };
+        const auto refresh = [&] {
+            gamer->setEnabled(user->isChecked());
+            number->setRange(1, user->isChecked() ? userWorldCount : 999);
+            const auto name = QString::fromStdString(worldSlotFileName(slot()));
+            bool exists = false;
+            for (const auto &entry : QDir(dataDirectory).entryList(QDir::Files)) {
+                exists = exists || entry.compare(name, Qt::CaseInsensitive) == 0;
+            }
+            auto text = exists ? tr("%1 exists and is replaced. Its present content is kept and "
+                                    "Roll Back Last Deploy puts it back.")
+                                     .arg(name)
+                               : tr("%1 is created.").arg(name);
+            if (!user->isChecked()) {
+                text += QLatin1Char('\n') +
+                        tr("This is one of the game's own world numbers: the game will play "
+                           "your world in its place.");
+            }
+            outcome->setText(text);
+        };
+        connect(user, &QRadioButton::toggled, &dialog, refresh);
+        connect(gamer, &QSpinBox::valueChanged, &dialog, refresh);
+        connect(number, &QSpinBox::valueChanged, &dialog, refresh);
+        number->setRange(1, 999);
+        number->setValue(suggested.number);
+        refresh();
+        if (dialog.exec() != QDialog::Accepted) {
+            return std::nullopt;
+        }
+        return slot();
+    };
+    prompts.confirmRollBack = [this](const DeployRecord &record) {
+        return QMessageBox::question(
+                   this, tr("Roll Back Last Deploy"),
+                   record.hadPrevious
+                       ? tr("Put back what %1 held before the deploy of %2?")
+                             .arg(record.targetPath,
+                                  QLocale().toString(record.time.toLocalTime(),
+                                                     QLocale::ShortFormat))
+                       : tr("Remove %1, which the deploy of %2 created?")
+                             .arg(record.targetPath,
+                                  QLocale().toString(record.time.toLocalTime(),
+                                                     QLocale::ShortFormat))) ==
+               QMessageBox::Yes;
+    };
+    prompts.playtestCommand = [this](GameProfile,
+                                     const QString &current) -> std::optional<QString> {
+        bool accepted = false;
+        const auto text = QInputDialog::getText(
+            this, tr("Playtest Command"),
+            tr("The command that starts this game on your computer (for example the game's "
+               "program, or wine followed by it).\nIt is started in the game directory. The "
+               "games have no option to open a particular world, so you still choose it in "
+               "the game."),
+            QLineEdit::Normal, current, &accepted);
+        if (!accepted) {
+            return std::nullopt;
+        }
+        return text.trimmed();
+    };
+    prompts.startProcess = [](const QString &program, const QStringList &arguments,
+                              const QString &workingDirectory) {
+        return QProcess::startDetached(program, arguments, workingDirectory);
     };
     prompts.convertGame = [this](DocumentTab *tab, GameProfile target,
                                  const std::vector<GameConversionNote> &notes)
@@ -891,6 +993,13 @@ void MainWindow::createActions() {
     connect(addAction(fileMenu, QStringLiteral("fileConvertGame"),
                       tr("Convert for Other &Game...")),
             &QAction::triggered, this, [this] { convertGameOf(currentTab()); });
+    connect(addAction(fileMenu, QStringLiteral("fileDeploy"), tr("&Deploy to Installation...")),
+            &QAction::triggered, this, [this] { deployWorld(currentTab()); });
+    connect(addAction(fileMenu, QStringLiteral("fileRollBack"), tr("Roll &Back Last Deploy")),
+            &QAction::triggered, this, [this] { rollBackLastDeploy(); });
+    connect(addAction(fileMenu, QStringLiteral("filePlaytest"), tr("Pla&ytest"),
+                      QKeySequence(Qt::Key_F5)),
+            &QAction::triggered, this, [this] { playtest(); });
     connect(addAction(fileMenu, QStringLiteral("fileSnapshot"), tr("Take S&napshot...")),
             &QAction::triggered, this, [this] { takeSnapshot(currentTab()); });
     connect(addAction(fileMenu, QStringLiteral("fileSnapshots"), tr("Snaps&hots...")),
@@ -1010,6 +1119,21 @@ void MainWindow::createActions() {
             });
 
     editMenu->addSeparator();
+    connect(addAction(editMenu, QStringLiteral("editPlaytestCommand"),
+                      tr("Pla&ytest Command...")),
+            &QAction::triggered, this, [this] {
+                auto *tab = currentTab();
+                const auto profile = tab != nullptr ? tab->profile() : GameProfile::unknown;
+                if (profile == GameProfile::unknown) {
+                    return;
+                }
+                const auto key = QStringLiteral("playtest/command%1")
+                                     .arg(profile == GameProfile::speedyBlupi1 ? 1 : 2);
+                if (const auto text =
+                        prompts.playtestCommand(profile, QSettings().value(key).toString())) {
+                    QSettings().setValue(key, *text);
+                }
+            });
     connect(addAction(editMenu, QStringLiteral("editBytes"), tr("Edit &Bytes...")),
             &QAction::triggered, this, [this] { editBytes(currentTab()); });
     connect(addAction(editMenu, QStringLiteral("editBorderRules"),
@@ -1502,6 +1626,27 @@ void MainWindow::createDocks(QMenu *viewMenu) {
     palette_ = new PalettePanel(paletteDock_);
     paletteDock_->setWidget(palette_);
     addDockWidget(Qt::LeftDockWidgetArea, paletteDock_);
+    installationDock_ = new QDockWidget(tr("Installation"), this);
+    installationDock_->setObjectName(QStringLiteral("installationDock"));
+    installation_ = new InstallationPanel(installationDock_);
+    installationDock_->setWidget(installation_);
+    addDockWidget(Qt::LeftDockWidgetArea, installationDock_);
+    tabifyDockWidget(paletteDock_, installationDock_);
+    installationDock_->hide();
+    paletteDock_->raise();
+    connect(installation_, &InstallationPanel::openRequested, this,
+            [this](const QString &path) { openPath(path); });
+    connect(installation_, &InstallationPanel::deployRequested, this,
+            [this] { deployWorld(currentTab()); });
+    connect(installation_, &InstallationPanel::rollBackRequested, this,
+            [this] { rollBackLastDeploy(); });
+    connect(installation_, &InstallationPanel::playtestRequested, this, [this] { playtest(); });
+    connect(installation_, &InstallationPanel::chooseDirectoryRequested, this, [this] {
+        if (auto *item = action(QStringLiteral("viewArtworkDirectory"))) {
+            item->trigger();
+        }
+    });
+    haveDeploys_ = !deployStore_.records().empty();
     connect(palette_, &PalettePanel::tileChosen, this, [this](int layer, int value) {
         auto *tab = currentTab();
         if (tab == nullptr || !tab->document().isWritable()) {
@@ -1593,6 +1738,10 @@ void MainWindow::createDocks(QMenu *viewMenu) {
     paletteToggle->setObjectName(QStringLiteral("viewPalette"));
     paletteToggle->setText(tr("&Palette"));
 
+    auto *installationToggle = installationDock_->toggleViewAction();
+    installationToggle->setObjectName(QStringLiteral("viewInstallation"));
+    installationToggle->setText(tr("&Installation"));
+
     auto *objectsToggle = objectsDock_->toggleViewAction();
     objectsToggle->setObjectName(QStringLiteral("viewObjectsDock"));
     objectsToggle->setText(tr("Ob&jects Panel"));
@@ -1648,6 +1797,7 @@ void MainWindow::createDocks(QMenu *viewMenu) {
     statisticsToggle->setText(tr("World S&tatistics"));
     viewMenu->addAction(statisticsToggle);
     viewMenu->addAction(paletteToggle);
+    viewMenu->addAction(installationToggle);
     viewMenu->addAction(objectsToggle);
     viewMenu->addAction(inspectorToggle);
     viewMenu->addAction(diagnosticsToggle);
@@ -2715,6 +2865,183 @@ DocumentTab *MainWindow::createWorld() {
     return opened;
 }
 
+void MainWindow::refreshInstallationActions() {
+    auto *tab = currentTab();
+    const auto profile = tab != nullptr ? tab->profile() : GameProfile::unknown;
+    const auto game = gameDirectoryFor(profile);
+    const auto directory = game != nullptr ? game->directory() : QString();
+    if (installation_->gameDirectory() != directory) {
+        installation_->setInstallation(directory, profile);
+    }
+    bool complete = false;
+    if (tab != nullptr) {
+        const auto &probe = tab->document().probe();
+        complete = probe.descriptor != nullptr && (probe.status == ProbeStatus::sizeMatches ||
+                                                   probe.status == ProbeStatus::surplus);
+    }
+    QString hint;
+    if (haveDeploys_) {
+        const auto records = deployStore_.records();
+        if (!records.empty()) {
+            hint = tr("Puts back %1").arg(records.front().targetPath);
+        }
+    }
+    installation_->setActions(complete, haveDeploys_, hint);
+}
+
+WorldSlot MainWindow::suggestedSlot(DocumentTab *tab, const QString &dataDirectory) const {
+    if (tab != nullptr) {
+        const auto name = classifyDataFileName(
+            QFileInfo(tab->file().path()).fileName().toStdString());
+        if (const auto own = worldSlotOf(name)) {
+            return *own;
+        }
+    }
+    const auto existing = QDir(dataDirectory).entryList(QDir::Files);
+    for (int number = 1; number <= userWorldCount; ++number) {
+        const auto name = QString::fromStdString(worldSlotFileName({true, 1, number}));
+        const bool taken = std::ranges::any_of(existing, [&](const QString &entry) {
+            return entry.compare(name, Qt::CaseInsensitive) == 0;
+        });
+        if (!taken) {
+            return {true, 1, number};
+        }
+    }
+    return {true, 1, 1};
+}
+
+std::optional<DeployRecord> MainWindow::deployWorld(DocumentTab *tab) {
+    if (tab == nullptr) {
+        return std::nullopt;
+    }
+    const auto dataDirectory = installation_->dataDirectory();
+    if (dataDirectory.isEmpty()) {
+        prompts.error(tr("Deploy Current World"),
+                      tr("Choose the directory of this world's game first (View > Game Artwork "
+                         "Directory); it must contain a DATA folder."));
+        return std::nullopt;
+    }
+    const auto &probe = tab->document().probe();
+    if (probe.descriptor == nullptr ||
+        (probe.status != ProbeStatus::sizeMatches && probe.status != ProbeStatus::surplus)) {
+        prompts.error(tr("Deploy Current World"),
+                      tr("Only a complete world can be deployed."));
+        return std::nullopt;
+    }
+    const auto slot = prompts.deploySlot(tab, suggestedSlot(tab, dataDirectory), dataDirectory);
+    if (!slot) {
+        return std::nullopt;
+    }
+    const auto fileName = QString::fromStdString(worldSlotFileName(*slot));
+    if (fileName.isEmpty()) {
+        prompts.error(tr("Deploy Current World"),
+                      tr("That is not a slot the games use (players 1 to 8, worlds 1 to 20)."));
+        return std::nullopt;
+    }
+    // A file that is open in the editor would be changed behind its tab.
+    const auto key = samePathKey(QDir(dataDirectory).filePath(fileName)).toLower();
+    for (int index = 0; index < tabCount(); ++index) {
+        if (samePathKey(tabAt(index)->file().path()).toLower() == key) {
+            prompts.error(tr("Deploy Current World"),
+                          tr("%1 is open in the editor. Close that tab or save into it instead.")
+                              .arg(fileName));
+            return std::nullopt;
+        }
+    }
+    const auto result = deployStore_.deploy(dataDirectory, fileName, tab->document().currentBytes());
+    if (!result) {
+        prompts.error(tr("Deploy Current World"), result.error());
+        return std::nullopt;
+    }
+    haveDeploys_ = true;
+    installation_->refresh();
+    updateUi();
+    const auto report = runDoctor(tab->document().view(), tab->profile());
+    statusBar()->showMessage(tr("Deployed to %1 - World Doctor: %2 error(s), %3 warning(s)")
+                                 .arg(result->targetPath)
+                                 .arg(report.count(Severity::error))
+                                 .arg(report.count(Severity::warning)),
+                             10000);
+    return *result;
+}
+
+bool MainWindow::rollBackLastDeploy() {
+    const auto records = deployStore_.records();
+    if (records.empty()) {
+        haveDeploys_ = false;
+        updateUi();
+        return false;
+    }
+    const auto &record = records.front();
+    if (!prompts.confirmRollBack(record)) {
+        return false;
+    }
+    const auto result = deployStore_.rollBack(record);
+    if (!result) {
+        prompts.error(tr("Roll Back Last Deploy"), result.error());
+        return false;
+    }
+    haveDeploys_ = records.size() > 1;
+    installation_->refresh();
+    updateUi();
+    statusBar()->showMessage(tr("%1 is as it was before the deploy").arg(record.targetPath),
+                             8000);
+    return true;
+}
+
+std::optional<MainWindow::PlaytestCommand>
+MainWindow::playtestCommandFor(GameProfile profile) const {
+    const auto game = gameDirectoryFor(profile);
+    if (game == nullptr || profile == GameProfile::unknown) {
+        return std::nullopt;
+    }
+    const auto text = QSettings()
+                          .value(QStringLiteral("playtest/command%1")
+                                     .arg(profile == GameProfile::speedyBlupi1 ? 1 : 2))
+                          .toString();
+    auto parts = QProcess::splitCommand(text);
+    if (parts.isEmpty()) {
+        return std::nullopt;
+    }
+    PlaytestCommand command;
+    command.program = parts.takeFirst();
+    command.arguments = parts;
+    command.workingDirectory = game->directory();
+    return command;
+}
+
+bool MainWindow::playtest() {
+    auto *tab = currentTab();
+    const auto profile = tab != nullptr ? tab->profile() : GameProfile::unknown;
+    if (gameDirectoryFor(profile) == nullptr) {
+        prompts.error(tr("Playtest"),
+                      tr("Open a world, choose its game and that game's directory first."));
+        return false;
+    }
+    const auto key =
+        QStringLiteral("playtest/command%1").arg(profile == GameProfile::speedyBlupi1 ? 1 : 2);
+    if (!playtestCommandFor(profile)) {
+        const auto text = prompts.playtestCommand(profile, QSettings().value(key).toString());
+        if (!text || text->isEmpty()) {
+            return false;
+        }
+        QSettings().setValue(key, *text);
+    }
+    const auto command = playtestCommandFor(profile);
+    if (!command) {
+        return false;
+    }
+    if (!prompts.startProcess(command->program, command->arguments, command->workingDirectory)) {
+        prompts.error(tr("Playtest"),
+                      tr("%1 could not be started. Change the command in Edit > Playtest "
+                         "Command.")
+                          .arg(command->program));
+        return false;
+    }
+    statusBar()->showMessage(tr("Started %1").arg(command->program), 6000);
+    return true;
+}
+
 DocumentTab *MainWindow::convertGameOf(DocumentTab *tab) {
     if (tab == nullptr || tab->profile() == GameProfile::unknown) {
         return nullptr;
@@ -3129,6 +3456,11 @@ void MainWindow::updateUi() {
         item->setEnabled(experimental_);
     }
     experimentalLabel_->setVisible(experimental_);
+    refreshInstallationActions();
+    enable("fileDeploy", installation_->deployButton()->isEnabled());
+    enable("fileRollBack", haveDeploys_);
+    enable("filePlaytest", hasTab && gameDirectoryFor(tab->profile()) != nullptr);
+    enable("editPlaytestCommand", hasTab && tab->profile() != GameProfile::unknown);
     enable("fileConvertRevision", hasTab);
     enable("fileConvertGame", hasTab && tab->profile() != GameProfile::unknown);
     enable("fileSnapshots", hasTab);
