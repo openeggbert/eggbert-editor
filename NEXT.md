@@ -45,9 +45,9 @@ Verification on 2026-11-22, Ubuntu 24.04, GCC 13.3.0, CMake 3.28.3, Ninja, Qt 6.
 ```sh
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
 cmake --build build --parallel              # no warnings
-ctest --test-dir build --output-on-failure  # 60/60 passed (61 registered): layout, le_reader, world_probe, world_view, world_document, world_stats, offset_map, tile_tools, metadata, object_ops, hex_model, doctor, adaptive, animation, atlas_table, editor_groups, revision_convert, new_world, encyclopedia, expert_edit, custom_border, game_convert, installation, campaign, view_transform, probe_report, document_file, recovery_store, deploy_store, campaign_pack, cli, world_renderer, png_export, game_assets, main_window, docks, tools, metadata_ui, objects_ui, inspector, doctor_ui, adaptive_ui, workspace, artwork_ui, palette, music_player, animation_ui, interface_ui, recovery_ui, convert_ui, new_world_ui, encyclopedia_ui, experimental_ui, convert_game_ui, installation_ui, campaign_ui, cli_usage, smoke, version, install_smoke; sample_matrix skipped without EGGBERT_SAMPLE_DIRS
+ctest --test-dir build --output-on-failure  # 62/62 passed (63 registered): layout, le_reader, world_probe, world_view, world_document, world_stats, offset_map, tile_tools, metadata, object_ops, hex_model, doctor, adaptive, animation, atlas_table, editor_groups, revision_convert, new_world, encyclopedia, expert_edit, custom_border, game_convert, installation, campaign, campaign_doors, reachability, view_transform, probe_report, document_file, recovery_store, deploy_store, campaign_pack, cli, world_renderer, png_export, game_assets, main_window, docks, tools, metadata_ui, objects_ui, inspector, doctor_ui, adaptive_ui, workspace, artwork_ui, palette, music_player, animation_ui, interface_ui, recovery_ui, convert_ui, new_world_ui, encyclopedia_ui, experimental_ui, convert_game_ui, installation_ui, campaign_ui, cli_usage, smoke, version, install_smoke; sample_matrix skipped without EGGBERT_SAMPLE_DIRS
 cmake -S . -B build-asan -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DEGGBERT_SANITIZE=ON
-cmake --build build-asan --parallel && ctest --test-dir build-asan   # 60/60 passed under ASan/UBSan, sample_matrix skipped
+cmake --build build-asan --parallel && ctest --test-dir build-asan   # 62/62 passed under ASan/UBSan, sample_matrix skipped
 ```
 
 Commit `c8f7a77` (binary inspector) was pushed green in Release but with a use-after-free that the sanitizer run reported in `main_window` (the hex views kept a pointer to the document replaced by Revert/Reload); the next commit fixes it with `DocumentTab::documentReplaced` and a regression check in `inspector`. Always run the sanitizer suite to completion before committing.
@@ -82,13 +82,23 @@ Verified and reported observations are recorded with citations in `docs/research
 - **CI steps in a clean system.** A minimal Ubuntu 24.04 system (`debootstrap --variant=minbase`, then `cmake ninja-build g++ dpkg-dev` as a hosted runner has them, then the workflow's `qt6-base-dev`: CMake 3.28.3, GCC 13.3.0, Qt 6.4.2) ran every step of `.github/workflows/ci.yml` on commit `5a5f3d8`: job *build-and-test* — configure, build (0 warnings), `ctest` exit 0 (sample test skipped), `cpack` producing the TGZ and DEB; job *sanitizers* — configure, build (0 warnings), `ctest` exit 0. The sanitizer needs `/proc`, which a bare chroot lacks; with it mounted the job passes. The hosted workflow itself has still not run (no pull request, owner's decision).
 - **Independent documentation audit.** A second reviewer compared `docs/user-guide.md`, `README.md` and `docs/format-notes.md` with the code and reported 23 mismatches (none in the format notes). Six were fixed in the code because the documented behaviour was the better one: second-game tiles 384/385 are now drawn before objects; picking a bigDecor picture while the adaptive tile brush is active switches to the Pencil; music plays from a chosen game directory even when its pictures are unusable (`MainWindow::gameDirectoryFor`); the PNG dialog has a backdrop option recorded in `EggbertSettings`; Save As shows the World Doctor summary like Save; the 1/2 path badges are drawn down to five pixels per cell, so they show when the whole world is in view. The rest were wording corrections in the guide and README. The reviewer could not check statements about the games themselves (it had no access to the research sources); those rest on `docs/research/evidence.md`.
 
-## Next task: slice H of the promoted roadmap (advanced World Doctor)
+## Next task: slice J of the promoted roadmap (stamps, alignment, batch edits)
 
-See `plan.md`, **Promotion of the roadmap**: "reachability estimate and cross-world checks; findings carry their basis; estimates are labelled; no finding on the original worlds without review". Design to implement:
+See `plan.md`, **Promotion of the roadmap**: "each operation is one undo step per document with a preview". Design to implement:
 
-1. Cross-world checks (facts in `docs/research/evidence.md`, **Files of an installation**; door tiles must be re-read at `src/decblupi.cpp:4075-4086` and `games/sb2/src/decblupi.cpp:4804-4818` and entered there first): for the installation's official worlds, the door tiles of world 1 name group hubs and the door tiles of a hub name its missions; report a door whose target world file is missing, and a mission no door leads to. Headless `src/world/campaign_doors.hpp` taking a map of number → world bytes; shown in **Campaign Overview**.
-2. Reachability estimate inside one world, clearly labelled an estimate: cells the player could stand on (empty cell above a solid one, by the shared collision classes: solid / passable — the classification of tiles 0–245 needs evidence rows first) connected by walking and bounded jumps; report treasures and the goal that lie in no standable region connected to a start. The jump bound must come from evidence or be stated as an assumption in the finding's basis. If no defensible bound can be cited, ship only the "object is enclosed by solid cells on all four sides" structural check.
-3. Both as World Doctor rules with confidence `estimate`, off the error and warning counts by default; run over all 155 original worlds and review every finding before enabling a rule.
+1. Stamps: a rectangular piece of both tile layers (and optionally the objects standing in it) saved under a name in the user's data directory with the game it came from; **Edit → Save Selection as Stamp…**, a Stamps tab in the Palette with thumbnails, placing a stamp with a ghost preview as one undo step (tiles only where the stamp has them, objects through `createObjects` so the pool limit holds). Stamp files are the editor's own small format, validated on load.
+2. Alignment of selected objects: align starts to the left / top / cell grid, distribute evenly — on object records only, one undo step, preview of the affected slots.
+3. Batch edit across open worlds: **Replace Value** in all open writable tabs of the same game, with a per-document count preview and one undo step per document.
+4. Tests for each, including refusal on read-only tabs and atomicity when the pool is full.
+
+### Slice H result (2026-11-23): cross-world door checks and a reachability estimate
+
+- Evidence: **Doors between worlds** and **Reachability** in `docs/research/evidence.md`.
+- `src/world/campaign_doors.hpp` (Qt-free): `doorCode`, `doorTarget`, `doorTiles`, `reviewDoors` (a door whose target world is absent; a hub or mission no door leads to). Shown at the end of **Campaign Overview** with its basis.
+- `src/world/reachability.hpp` (Qt-free): `tileFullySolid` (the games' block test over their collision tables) and `estimateReachability`; World Doctor rule `REACH-CUT-OFF` (note, confidence estimate; 30 rules now).
+- Review on the originals, as the plan requires before a rule is enabled: the door review reports nothing on either installation (59 and 96 worlds) — which also confirms the door rule itself; the estimate reported ten second-game worlds, all with teleporters, so it is not made for worlds with teleporters or key doors, and with that exception reports nothing on 131 worlds (59 + 72).
+- Tests: `campaign_doors`, `reachability` (walls, gaps, non-block tiles, any of the four starts, per-game blocks, the exception, when no estimate is made, the Doctor finding), `doctor` (rule catalogue), `campaign_ui` (overview text).
+- Limits, stated in the finding and the guide: no jump, fall, vehicle or lift model, so nothing is ever called reachable; map changes during play are not modelled. A reachability estimate with a jump bound was not attempted: no bound could be cited.
 
 ### Slice G result (2026-11-23): campaign overview and packs
 
@@ -202,7 +212,7 @@ Order and acceptance are in `plan.md`, **Promotion of the roadmap**. Tick a slic
 - [x] E Conversion between the two games with a list of what cannot be carried
 - [x] F Installation workspace: world list, deploy with backup and rollback, playtest command
 - [x] G Campaign overview and packs (ZIP and folder)
-- [ ] H Advanced World Doctor
+- [x] H Cross-world door checks and a labelled reachability estimate
 - [x] I Experimental editing: typed byte edits, unverified music/region numbers, custom border rules
 - [ ] J Stamps, alignment, batch edits
 - [x] K Element encyclopedia and installation gallery (the Installation dock's world list)

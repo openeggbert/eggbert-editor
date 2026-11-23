@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "world/doctor.hpp"
 
+#include "world/reachability.hpp"
+
 #include <algorithm>
 #include <map>
 
@@ -51,6 +53,8 @@ constexpr RuleInfo rules[] = {
     {"OBJ-POOL-FULL", Severity::warning, "Every object slot is in use."},
     {"OBJ-LOW-HEADROOM", Severity::note, "Few object slots are free (estimate)."},
     {"OBJ-FREE-STALE", Severity::note, "Free object slots hold other non-zero bytes."},
+    {"REACH-CUT-OFF", Severity::note,
+     "A treasure or goal lies where no path of free cells leads from a start (estimate)."},
 };
 
 const RuleInfo &rule(std::string_view id) {
@@ -531,6 +535,27 @@ const Finding *DoctorReport::first(std::string_view ruleId) const {
     return nullptr;
 }
 
+void checkReachability(Report &report) {
+    const auto estimate = estimateReachability(report.world(), report.profile());
+    if (!estimate.made) {
+        return;
+    }
+    const auto objects = report.world().objects();
+    for (const auto slot : estimate.cutOffSlots) {
+        const auto record = *objects->record(slot);
+        auto &finding = report.add(
+            "REACH-CUT-OFF", Confidence::estimate,
+            std::string(record.type == 7 ? "The goal" : "The treasure") + " in slot " +
+                num(static_cast<long long>(slot)) + " at (" + num(record.posStart.x) + ", " +
+                num(record.posStart.y) +
+                ") is in a cell that no chain of cells free of fully solid tiles connects to a "
+                "start. Unless the game changes the map while playing (a block destroyed, a "
+                "crate pushed), it cannot be collected. Jumps, falls and lifts are not judged.",
+            "docs/research/evidence.md, reachability", *objects->slotRange(slot), true);
+        finding.slot = slot;
+    }
+}
+
 DoctorReport runDoctor(const WorldView &world, GameProfile profile) {
     Report report(world, profile);
     checkStructure(report);
@@ -539,6 +564,7 @@ DoctorReport runDoctor(const WorldView &world, GameProfile profile) {
     checkLayer(report, SectionKind::bigDecor);
     checkBorders(report);
     checkObjects(report);
+    checkReachability(report);
     return report.take();
 }
 

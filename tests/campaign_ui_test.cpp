@@ -136,6 +136,11 @@ int main(int argc, char **argv) {
         CHECK(text.contains("[note] World 99"));
         CHECK(!text.contains("world030")); // not a complete world
         CHECK(text.contains("Basis: numbering rules"));
+        // The generated worlds hold no door tiles: nothing leads anywhere.
+        CHECK(text.contains("Doors between the official worlds:"));
+        CHECK(text.contains("[note] No door of these worlds leads to world 10."));
+        CHECK(text.contains("[note] No door of these worlds leads to world 12."));
+        CHECK(!text.contains("[warning] World"));
     }
 
     // Export: what is not the game's own, as one ZIP file.

@@ -82,7 +82,7 @@ Basis of **Convert for Other Game** (`src/world/game_convert.cpp`). "Scripted" r
 | The header, cell and object structures are declared identically, and both loaders read the same header fields | `src/decor.h:27-51`, `:99-115`; `games/sb2/src/decor.h:27-51`, `:99-115`; `src/decor.cpp:383-403`; `games/sb2/src/decor.cpp:654-669` | reported |
 | The object type constants (72 names, values 1–58, 90–100, 200–203) and the channel constants are the same in both `def.h` files | `src/def.h:995-1066`, `:699`; `games/sb2/src/def.h:993-1064`, `:697` | scripted |
 | The first game's code never names types 18, 39–44, 46–57 and 90–100; the second game's code never names type 58 (an effect the first game creates while playing) | search of `src/*.cpp` and `games/sb2/src/*.cpp` for each constant name; `src/decblupi.cpp:2320` | scripted |
-| The collision entries of tiles 0–236 are identical in both games; tiles 237–245 have none in either | `src/obstacle.h`, `games/sb2/src/obstacle.h` | scripted |
+| The collision entries of tiles 0–236 are identical in both games; tiles 237–245 have none in either | `table_decor_quart`: `src/decblock.cpp:480-600`, `games/sb2/src/decblock.cpp:408-630` | scripted |
 | The first game draws a tile only when its number is below the table's count (246) and tests collisions only below `MAXQUART` (237): second-game tiles 246–440 are neither drawn nor solid there | `src/pixmap.cpp:788-790`; `src/pixtables.h:314-315`; `src/decblupi.cpp:3805` | read |
 | The first game's back-layer table has 54 pictures, the second's 100; a larger number is skipped | `src/pixmap.cpp:818-820`; `src/pixtables.h:755-756`; `games/sb2/src/pixtables.h:390-391` | read (first game), reported |
 | The second game's tile table gives numbers 48–67 a one-pixel rectangle, and its loader rewrites stored foreground 48–67 to 215; object records are not rewritten. In the first game 48–67 are twenty ordinary solid blocks (editor group "Dream") | `games/sb2/src/pixtables.h:154-160`; `games/sb2/src/decor.cpp:675-684`; `src/decdesign.cpp:212-217` | read (second game), reported |
@@ -108,6 +108,29 @@ Basis of the **Installation** dock (`src/world/installation.hpp`). Identical in 
 | No command-line option selects a world or a player (only `-nocd` in some builds); `data\config.def` has `FullScreen=` among others | `src/blupi.cpp`; `games/sb2/src/blupi.cpp` | reported |
 
 The role shown for an official world is derived from its number by these rules and from nothing else; what a particular installation ships is not assumed.
+
+## Doors between worlds
+
+Basis of the door part of **Campaign Overview** (`src/world/campaign_doors.cpp`).
+
+| Observation | Where | How |
+| --- | --- | --- |
+| A door is a foreground tile under the player (30 pixels in): tiles 158–165, 166–173 and 174–181 each stand for 1–8 and tile 184 for 99 in the first game; the second game adds 309 and 310 for 9, 411–415 and 416–420 for 10–14, and 184 stands for 199 | `src/decblupi.cpp:4075-4086`; `games/sb2/src/decblupi.cpp:4804-4818` | read |
+| Leaving through a door in world 1 continues at that number times ten; elsewhere number 99 leads to world 1 and any other number to the world's group hub (`mission / 10 * 10`) plus the number | `src/decblupi.cpp:3597-3615` | read (first game); the second game's arm with 199 reported |
+
+Checked against the two original installations (2026-11-23, private, read only): applying these rules to every official world, every door of the first world, the hubs and the missions leads to a world file that exists, and every hub and mission has a door leading to it — 59 worlds of the first game and 96 of the second, no exception.
+
+## Reachability
+
+Basis of World Doctor's `REACH-CUT-OFF` (`src/world/reachability.cpp`), which is an estimate.
+
+| Observation | Where | How |
+| --- | --- | --- |
+| The games call a tile a block when all sixteen of its collision quarters are set | `src/decblupi.cpp:4171-4179` (`IsBlocIcon`); table `src/decblock.cpp:480-600`, `games/sb2/src/decblock.cpp:408-630` | read (test), scripted (table) |
+| By that test the blocks are tiles 0–14, 23–27, 30–44, 48–67, 78–84, 96–107, 139–153, 156–157, 186–197 and 209–234 in both games, and in the second also 246–250, 254–255, 257–258, 261–263, 283–284, 301, 304, 338, 340–363, 373–374 and 386–397 | the same tables | scripted |
+| The second game has teleporters (tiles 330–333) and doors opened by keys (334–336) | `games/sb2/src/decblupi.cpp:5032-5044`, `:5021` | read |
+
+The estimate connects cells that hold no block, horizontally and vertically, starting from the four starts, and reports a treasure (type 5) or goal (type 7) whose cell is not connected. It does not model jumping, falling, vehicles or lifts, so it can only say "cut off", never "reachable"; and the games can change the map while playing (explosions, pushed crates, key doors), which is why it is labelled an estimate and reported as a note. It is not made for a second-game world with teleporters or key doors. Reviewed on the original worlds (2026-11-23, private): without that exception ten second-game worlds are reported, each of which contains teleporters; with it the estimate is made for all 59 worlds of the first game and 72 of 96 of the second and reports nothing.
 
 ## New world
 

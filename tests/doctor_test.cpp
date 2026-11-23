@@ -105,7 +105,7 @@ int main() {
             CHECK(ids.insert(std::string(info.id)).second);
             CHECK(!info.summary.empty());
         }
-        CHECK_EQ(ids.size(), std::size_t{29});
+        CHECK_EQ(ids.size(), std::size_t{30}); // 29 of the 1.0 scope and REACH-CUT-OFF
     }
 
     // --- Structure -----------------------------------------------------

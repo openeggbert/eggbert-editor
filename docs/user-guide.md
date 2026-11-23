@@ -164,11 +164,13 @@ The **Minimap** shows the whole world and outlines the part visible on the canva
 
 ## World Doctor
 
-**World → Validate** (F8) opens the Diagnostics panel. World Doctor checks structure and known limits; it never changes the world and it does not judge whether a world can be completed or is fun. The list refreshes after every edit, and a summary is shown with every Save and Save As without blocking it.
+**World → Validate** (F8) opens the Diagnostics panel. World Doctor checks structure and known limits; it never changes the world and it does not judge whether a world can be completed (one labelled estimate apart) or is fun. The list refreshes after every edit, and a summary is shown with every Save and Save As without blocking it.
 
 Each finding has a rule ID, a severity (error, warning or note), the game it was judged for and the basis of the rule: a structural fact, something read in the game's source, a value outside a verified range, something reported but not re-checked, or an estimate. Double-clicking a finding shows it on the canvas, in the Objects panel and in the Binary Inspector.
 
 Findings include: a truncated file, extra bytes, an unknown revision; music or region outside the game's range; a start outside the world or with an unusual direction; a title without a terminator, longer than 40 bytes or ignored by the game; tile numbers below -1, without a picture or without collision data in the chosen game; Speedy Blupi II's replacement of stored values 48–67 by 215 when it loads a world; border tiles whose form differs from what the game's editor would produce; objects of a type created only while playing or unknown to the game, with an unexpected channel, outside the world, or with a path and a zero duration; a full object pool and a nearly full one.
+
+One finding is an estimate about play rather than about the file: **REACH-CUT-OFF** reports a treasure or goal whose cell is not connected to any start by cells free of fully solid tiles (up, down, left, right). Such an object can only be collected if the game changes the map while playing. The estimate knows nothing of jumping, falling, vehicles or lifts, so the absence of this note does not mean a world can be completed; and it is not made for Speedy Blupi II worlds that contain teleporters or key doors. It is a note, labelled as an estimate, and reports nothing on the original worlds of either game.
 
 Only one repair is offered: ending a title that fills its whole field. It is shown with the exact byte it changes and applied as one undo step after you confirm. **World → Compare with Original** and **Compare with Saved** list every changed byte range with old and new bytes.
 
@@ -192,7 +194,7 @@ Type an offset (`1608` or `0x648`), `cell 3,70`, `big 3,70` or `slot 137` to jum
 
 ### Campaigns and packs
 
-**File → Campaign Overview** lists the worlds of the installation in the order the game reaches them — the first world, each group's hub followed by its missions, the final world, network and demo worlds, other numbers, then designed worlds — and says what the numbering alone shows: a missing world 1, a hub whose missions are absent or missions whose hub is absent, numbers outside the scheme. It rests only on the games' numbering rules; it does not look at the doors inside the worlds.
+**File → Campaign Overview** lists the worlds of the installation in the order the game reaches them — the first world, each group's hub followed by its missions, the final world, network and demo worlds, other numbers, then designed worlds — and says what the numbering alone shows: a missing world 1, a hub whose missions are absent or missions whose hub is absent, numbers outside the scheme. Below that it follows the door tiles of the official worlds — from the first world a door leads to its number times ten, elsewhere to the group's hub plus its number, and the exit door back to the first world — and reports a door that leads to a world file that is not there, and a hub or mission that no door leads to.
 
 **File → Export Campaign Pack** writes worlds of the installation, with a manifest (name, game, and for each world its place, size and SHA-256), as one ZIP file or as a folder. The designed worlds and the worlds this editor itself deployed are offered ticked. Files in the game's own world numbers that the editor did not put there are most likely the game's originals: they are listed but cannot be ticked until you tick the box saying that a pack containing them must not be passed on. The ZIP is written without compression and opens in any ZIP program.
 
@@ -242,4 +244,4 @@ Exit codes: 0 success, 1 findings, differences or a refused loss, 2 wrong usage 
 
 ## What the editor does not do
 
-It does not edit revisions 1.0 and 1.1 in place (convert a copy instead), does not edit bytes in the hex view itself (see **Experimental editing** for typed byte edits), does not offer objects, border brushes or music and region values it has no evidence for unless experimental editing is on (raw tile numbers and an object's numeric fields are always yours to type), does not renumber campaigns or check that the doors inside hub worlds lead to worlds that exist, and does not convert to or from the Mobile Eggbert format.
+It does not edit revisions 1.0 and 1.1 in place (convert a copy instead), does not edit bytes in the hex view itself (see **Experimental editing** for typed byte edits), does not offer objects, border brushes or music and region values it has no evidence for unless experimental editing is on (raw tile numbers and an object's numeric fields are always yours to type), does not renumber campaigns, and does not convert to or from the Mobile Eggbert format.

@@ -66,6 +66,7 @@
 #include "app/installation_panel.hpp"
 #include "app/tool_icons.hpp"
 #include "world/new_world.hpp"
+#include "world/campaign_doors.hpp"
 #include "world/revision_convert.hpp"
 #include "app/png_export_dialog.hpp"
 #include "app/probe_report.hpp"
@@ -3225,6 +3226,43 @@ QString MainWindow::campaignOverview() const {
                      .arg(QString::fromUtf8(findings.front().basis.data(),
                                             static_cast<qsizetype>(findings.front().basis.size())));
     }
+    // Doors: which worlds the door tiles of the official worlds lead to.
+    std::map<int, QByteArray> contents;
+    for (const auto &entry : installation_->entries()) {
+        QFile file(entry.path);
+        if (entry.complete && entry.name.kind == DataFileKind::officialWorld &&
+            file.open(QIODevice::ReadOnly)) {
+            contents[entry.name.number] = file.readAll();
+        }
+    }
+    std::map<int, WorldView> views;
+    for (const auto &[number, bytes] : contents) {
+        const std::span<const std::byte> span(
+            reinterpret_cast<const std::byte *>(bytes.constData()),
+            static_cast<std::size_t>(bytes.size()));
+        views.emplace(number, WorldView(span, probeWorld(span)));
+    }
+    const auto doors = reviewDoors(campaign.game, views);
+    lines << QString() << tr("Doors between the official worlds:");
+    for (const auto &missing : doors.missingTargets) {
+        lines << tr("[warning] World %1 has a door (tile %2 at cell %3, %4) to world %5, which "
+                    "is not in the installation.")
+                     .arg(missing.world)
+                     .arg(missing.tile)
+                     .arg(missing.cell.x)
+                     .arg(missing.cell.y)
+                     .arg(missing.target);
+    }
+    for (const auto number : doors.unreferenced) {
+        lines << tr("[note] No door of these worlds leads to world %1.").arg(number);
+    }
+    if (doors.missingTargets.empty() && doors.unreferenced.empty()) {
+        lines << tr("Every door leads to a world that is present, and every hub and mission "
+                    "has a door leading to it.");
+    }
+    lines << tr("Basis: the games' door rule (from world 1 a door leads to its number times "
+                "ten; elsewhere to the group's hub plus its number, and tile 184 back to "
+                "world 1).");
     return lines.join(QLatin1Char('\n'));
 }
 
