@@ -228,6 +228,106 @@ int main() {
         CHECK(mentions(TextWorld::parse(badObject).problems(), "the object field posEnd"));
     }
 
+    // Whole object lines: removing, duplicating and adding change exactly
+    // those lines, whatever the line endings and the end of the file.
+    {
+        const std::string first = text.substr(text.find("MoveObject: type=5"));
+        const auto firstLine = first.substr(0, first.find('\n') + 1);
+        const auto secondLine = first.substr(firstLine.size());
+        const auto head = text.substr(0, text.size() - first.size());
+        CHECK_EQ(textWorldMostObjects, std::size_t{200});
+
+        auto removed = TextWorld::parse(text);
+        CHECK(removed.removeObject(0));
+        CHECK(removed.write() == head + secondLine);
+        CHECK_EQ(removed.objectCount(), std::size_t{1});
+        CHECK_EQ(*removed.objectValue(0, "type"), 1);
+        CHECK(!removed.removeObject(1));
+        CHECK(removed.removeObject(0));
+        CHECK(removed.write() == head);
+        CHECK(!removed.removeObject(0));
+
+        auto doubled = TextWorld::parse(text);
+        CHECK(doubled.duplicateObject(0));
+        CHECK(doubled.write() == head + firstLine + firstLine + secondLine);
+        CHECK_EQ(doubled.objectCount(), std::size_t{3});
+        CHECK(!doubled.duplicateObject(3));
+        CHECK(doubled.problems().empty());
+
+        auto grown = TextWorld::parse(text);
+        CHECK(grown.addObject(12, {640, 128}, 10, 33));
+        const std::string added = "MoveObject: type=12 stepAdvance=1 stepRecede=1 timeStopStart=0 "
+                                  "timeStopEnd=0 posStart=640;128 posEnd=640;128 "
+                                  "posCurrent=640;128 step=1 time=0 phase=0 channel=10 icon=33 \n";
+        CHECK(grown.write() == text + added);
+        CHECK_EQ(*grown.objectValue(2, "type"), 12);
+        CHECK(*grown.objectPoint(2, "posCurrent") == (Point{640, 128}));
+        CHECK_EQ(*grown.objectValue(2, "icon"), 33);
+        CHECK(grown.problems().empty());
+        CHECK(!grown.addObject(0, {0, 0}, 1, 1)); // type 0 would end the game's list
+
+        // A world without objects, with and without a final line break.
+        auto bare = TextWorld::parse(head);
+        CHECK(bare.addObject(12, {640, 128}, 10, 33));
+        CHECK(bare.write() == head + added);
+        const auto open = head.substr(0, head.size() - 1);
+        auto unfinished = TextWorld::parse(open);
+        CHECK(unfinished.addObject(12, {640, 128}, 10, 33));
+        CHECK(unfinished.write() == head + added.substr(0, added.size() - 1));
+        // The last line of a file without a final break.
+        const auto cut = text.substr(0, text.size() - 1);
+        auto tail = TextWorld::parse(cut);
+        CHECK(tail.duplicateObject(1));
+        CHECK(tail.write() == text + secondLine.substr(0, secondLine.size() - 1));
+        CHECK(tail.removeObject(2) && tail.write() == cut);
+        CHECK(tail.addObject(12, {640, 128}, 10, 33));
+        CHECK(tail.write() == text + added.substr(0, added.size() - 1));
+        CHECK(tail.removeObject(2) && tail.removeObject(1));
+        CHECK(tail.write() == head + firstLine.substr(0, firstLine.size() - 1));
+
+        // Windows line ends are continued.
+        const auto windows = [](const std::string &unix) {
+            std::string converted;
+            for (const char character : unix) {
+                converted += character == '\n' ? std::string("\r\n") : std::string(1, character);
+            }
+            return converted;
+        };
+        auto dos = TextWorld::parse(windows(text));
+        CHECK(dos.addObject(12, {640, 128}, 10, 33));
+        CHECK(dos.write() == windows(text + added));
+        CHECK(dos.duplicateObject(2) && dos.write() == windows(text + added + added));
+        CHECK(dos.removeObject(3) && dos.removeObject(0));
+        CHECK(dos.write() == windows(head + secondLine + added));
+        auto dosCut = TextWorld::parse(windows(cut));
+        CHECK(dosCut.duplicateObject(1));
+        CHECK(dosCut.write() ==
+              windows(text) + secondLine.substr(0, secondLine.size() - 1));
+        CHECK(dosCut.removeObject(2) && dosCut.write() == windows(cut));
+        CHECK(dosCut.addObject(12, {640, 128}, 10, 33));
+        CHECK(dosCut.write() == windows(text) + added.substr(0, added.size() - 1));
+
+        // The pool of the game: no more than 200 object lines are made, and
+        // what the game would not read is reported.
+        auto full = TextWorld::parse(text);
+        while (full.objectCount() < 200) {
+            CHECK(full.duplicateObject(0));
+        }
+        CHECK(!full.duplicateObject(0));
+        CHECK(!full.addObject(12, {0, 0}, 1, 1));
+        CHECK(full.problems().empty());
+        const auto over = TextWorld::parse(full.write() + firstLine);
+        CHECK(mentions(over.problems(), "There are 201 object lines; the game reads the first 200."));
+        auto stopped = TextWorld::parse(text);
+        CHECK(stopped.setObjectValue(0, "type", 0));
+        CHECK(mentions(stopped.problems(), "the game stops reading objects here and ignores the 1 "
+                                           "object line(s) after it"));
+        // A last object of type 0 hides nothing.
+        auto ending = TextWorld::parse(text);
+        CHECK(ending.setObjectValue(1, "type", 0));
+        CHECK(!mentions(ending.problems(), "stops reading"));
+    }
+
     // The description.
     {
         const auto report = world.describe();

@@ -162,6 +162,8 @@ Basis of `src/world/text_world.cpp`. Source: `mobile-eggbert` at `dd0a592d878c7b
 | A field's value is the text between `name=` and the next space; without that space the field is not read | `Worlds.cpp:386-418` | read |
 | A point field is `name=x;y` followed by a space | `Worlds.cpp:486-540` | read |
 | A tile of `Decor` (and `BigDecor`) at column x, row y is entry y of the comma-separated line x + 1 lines below the section line; an empty entry is -1 | `Worlds.cpp:543-575` | read |
+| A world's objects are read from the first 200 `MoveObject:` lines in order, line n into object n, stopping at the first line whose `type` is 0; the thirteen fields read are `type`, `stepAdvance`, `stepRecede`, `timeStopStart`, `timeStopEnd`, `posStart`, `posEnd`, `posCurrent`, `step`, `time`, `phase`, `channel`, `icon` | `src/WindowsPhoneSpeedyBlupi/Decor.cpp:11342-11370`; `include/WindowsPhoneSpeedyBlupi/Decor.hpp:185` | read |
+| A number field that is missing or not a number reads as 0 | `Worlds.cpp:443-463` | read |
 
 Checked against that repository's 78 world files (2026-11-23, private, read only): each consists of one `DescFile:` line, a `Decor:` and a `BigDecor:` block of 100 lines and 3,560 `MoveObject:` lines in total; every file is written back byte for byte by the codec and none has a shape problem.
 

@@ -99,6 +99,25 @@ int main() {
         }
         CHECK_EQ(undone, TextWorldDocument::historyLimit);
     }
+    // Whole object lines are steps too, undone to the exact text.
+    {
+        TextWorldDocument lines(original);
+        const auto count = lines.world().objectCount();
+        CHECK(count >= 1);
+        CHECK(lines.duplicateObject(0));
+        CHECK_EQ(lines.undoLabel(), std::string("Duplicate object 1"));
+        CHECK(lines.addObject(12, {640, 128}, 10, 33));
+        CHECK_EQ(lines.undoLabel(), std::string("Add object"));
+        CHECK(lines.removeObject(0));
+        CHECK_EQ(lines.undoLabel(), std::string("Remove object 1"));
+        CHECK_EQ(lines.world().objectCount(), count + 1);
+        CHECK(!lines.removeObject(count + 5));
+        CHECK(!lines.addObject(0, {0, 0}, 1, 1));
+        CHECK(lines.undo() && lines.undo() && lines.undo());
+        CHECK(lines.text() == original && !lines.isModified());
+        CHECK(lines.redo() && lines.redo() && lines.redo());
+        CHECK_EQ(lines.world().objectCount(), count + 1);
+    }
     // A file that is not a world still loads and writes back unchanged.
     {
         TextWorldDocument odd("just some text\nwith two lines");

@@ -12,6 +12,7 @@
 #include <QApplication>
 #include <QComboBox>
 #include <QFile>
+#include <QLabel>
 #include <QListWidget>
 #include <QPushButton>
 #include <QSpinBox>
@@ -169,6 +170,51 @@ int main(int argc, char **argv) {
     CHECK(editor->path() == otherPath);
     CHECK(editor->saveAs(dir.filePath("no/such/dir/x.txt")) == false);
     CHECK_EQ(editorErrors.size(), qsizetype{2});
+
+    // Whole object lines: Add, Duplicate and Remove are each one undo step
+    // and act on the table's current row.
+    {
+        const auto before = text(editor);
+        auto *objectTable = editor->objectTable();
+        const auto rows = objectTable->rowCount();
+        objectTable->setCurrentCell(-1, -1);
+        CHECK(editor->addObjectButton()->isEnabled());
+        CHECK(!editor->duplicateObjectButton()->isEnabled());
+        CHECK(!editor->removeObjectButton()->isEnabled());
+        CHECK(!editor->duplicateSelectedObject() && !editor->removeSelectedObject());
+        CHECK(text(editor) == before);
+
+        editor->addObjectButton()->click();
+        CHECK_EQ(objectTable->rowCount(), rows + 1);
+        CHECK_EQ(objectTable->currentRow(), rows);
+        CHECK_EQ(objectTable->item(rows, 0)->text(), QString("1")); // its type
+        CHECK(editor->statusLabel()->text().contains("added with type 1"));
+        CHECK(text(editor).size() > before.size());
+        CHECK(text(editor).startsWith(before.left(before.size() - 1)));
+        CHECK(editor->duplicateObjectButton()->isEnabled());
+        CHECK(editor->removeObjectButton()->isEnabled());
+        const auto withNew = text(editor);
+
+        objectTable->setCurrentCell(0, 0);
+        editor->duplicateObjectButton()->click();
+        CHECK_EQ(objectTable->rowCount(), rows + 2);
+        CHECK_EQ(objectTable->currentRow(), 1);
+        for (int column = 0; column < objectTable->columnCount(); ++column) {
+            CHECK(objectTable->item(1, column)->text() == objectTable->item(0, column)->text());
+        }
+        CHECK(editor->statusLabel()->text().contains("Object 1 copied as object 2"));
+
+        editor->removeObjectButton()->click();
+        CHECK_EQ(objectTable->rowCount(), rows + 1);
+        CHECK(text(editor) == withNew);
+        CHECK(editor->statusLabel()->text().contains("Object 2 removed"));
+        // Three steps back: the exact text from before.
+        editor->undoButton()->click();
+        editor->undoButton()->click();
+        editor->undoButton()->click();
+        CHECK(text(editor) == before);
+        CHECK_EQ(objectTable->rowCount(), rows);
+    }
 
     // Closing with unsaved changes asks; the main window asks through it.
     CHECK(editor->paintCell(70, 70));

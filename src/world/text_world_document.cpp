@@ -50,6 +50,23 @@ bool TextWorldDocument::setObjectPoint(std::size_t index, std::string_view name,
                  [&](TextWorld &world) { return world.setObjectPoint(index, name, value); });
 }
 
+bool TextWorldDocument::removeObject(std::size_t index) {
+    return apply("Remove object " + std::to_string(index + 1),
+                 [&](TextWorld &world) { return world.removeObject(index); });
+}
+
+bool TextWorldDocument::duplicateObject(std::size_t index) {
+    return apply("Duplicate object " + std::to_string(index + 1),
+                 [&](TextWorld &world) { return world.duplicateObject(index); });
+}
+
+bool TextWorldDocument::addObject(long long type, Point position, long long channel,
+                                  long long icon) {
+    return apply("Add object", [&](TextWorld &world) {
+        return world.addObject(type, position, channel, icon);
+    });
+}
+
 bool TextWorldDocument::undo() {
     if (undo_.empty()) {
         return false;

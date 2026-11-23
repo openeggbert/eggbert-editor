@@ -46,11 +46,22 @@ public:
     [[nodiscard]] QPushButton *undoButton() const { return undo_; }
     [[nodiscard]] QPushButton *redoButton() const { return redo_; }
     [[nodiscard]] TextWorldCanvas *canvas() const { return canvas_; }
+    [[nodiscard]] QPushButton *addObjectButton() const { return addObject_; }
+    [[nodiscard]] QPushButton *duplicateObjectButton() const { return duplicateObject_; }
+    [[nodiscard]] QPushButton *removeObjectButton() const { return removeObject_; }
+    [[nodiscard]] QLabel *statusLabel() const { return status_; }
 
     // What a click on the canvas does: paint the chosen number into a cell
     // of the chosen layer, or (right button) pick the cell's number.
     bool paintCell(std::size_t x, std::size_t y);
     void pickCell(std::size_t x, std::size_t y);
+    // Whole object lines, each one undo step. A new object gets type 1 (0
+    // would end the game's list) at the start position and is meant to be
+    // given its numbers in the table; the other two act on the table's
+    // current row.
+    bool addObject();
+    bool duplicateSelectedObject();
+    bool removeSelectedObject();
     bool save();
     bool saveAs(const QString &path);
 
@@ -82,6 +93,9 @@ private:
     QPushButton *save_ = nullptr;
     QPushButton *undo_ = nullptr;
     QPushButton *redo_ = nullptr;
+    QPushButton *addObject_ = nullptr;
+    QPushButton *duplicateObject_ = nullptr;
+    QPushButton *removeObject_ = nullptr;
     QSpinBox *music_ = nullptr;
     QSpinBox *region_ = nullptr;
     QSpinBox *direction_ = nullptr;

@@ -258,7 +258,10 @@ TextWorldEditor::TextWorldEditor(QString path, std::string text, QWidget *parent
     startX_ = spin(QStringLiteral("textWorldStartX"), QStringLiteral("blupiPos x"));
     startY_ = spin(QStringLiteral("textWorldStartY"), QStringLiteral("blupiPos y"));
     tabs->addTab(worldPage, tr("World"));
-    objects_ = new QTableWidget(tabs);
+    auto *objectPage = new QWidget(tabs);
+    auto *objectLayout = new QVBoxLayout(objectPage);
+    objectLayout->setContentsMargins(0, 0, 0, 0);
+    objects_ = new QTableWidget(objectPage);
     objects_->setObjectName(QStringLiteral("textWorldObjects"));
     objects_->setAccessibleName(tr("Objects of the text world"));
     objects_->setColumnCount(static_cast<int>(std::size(objectColumns)));
@@ -268,7 +271,36 @@ TextWorldEditor::TextWorldEditor(QString path, std::string text, QWidget *parent
     }
     objects_->setHorizontalHeaderLabels(titles);
     objects_->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
-    tabs->addTab(objects_, tr("Objects"));
+    objects_->setSelectionBehavior(QAbstractItemView::SelectRows);
+    objects_->setSelectionMode(QAbstractItemView::SingleSelection);
+    objectLayout->addWidget(objects_, 1);
+    auto *objectButtons = new QHBoxLayout;
+    addObject_ = new QPushButton(tr("&Add Object"), objectPage);
+    addObject_->setObjectName(QStringLiteral("textWorldAddObject"));
+    addObject_->setToolTip(tr("Appends an object line with type 1 at the start position; give "
+                              "it its numbers in the table."));
+    duplicateObject_ = new QPushButton(tr("&Duplicate"), objectPage);
+    duplicateObject_->setObjectName(QStringLiteral("textWorldDuplicateObject"));
+    duplicateObject_->setToolTip(tr("Inserts an exact copy of the chosen object's line after it."));
+    removeObject_ = new QPushButton(tr("&Remove"), objectPage);
+    removeObject_->setObjectName(QStringLiteral("textWorldRemoveObject"));
+    removeObject_->setToolTip(tr("Removes the chosen object's line; the objects after it move "
+                                 "up by one."));
+    objectButtons->addWidget(addObject_);
+    objectButtons->addWidget(duplicateObject_);
+    objectButtons->addWidget(removeObject_);
+    objectButtons->addStretch(1);
+    objectLayout->addLayout(objectButtons);
+    tabs->addTab(objectPage, tr("Objects"));
+    connect(addObject_, &QPushButton::clicked, this, [this] { addObject(); });
+    connect(duplicateObject_, &QPushButton::clicked, this, [this] { duplicateSelectedObject(); });
+    connect(removeObject_, &QPushButton::clicked, this, [this] { removeSelectedObject(); });
+    connect(objects_, &QTableWidget::currentCellChanged, this, [this] {
+        const bool chosen = objects_->currentRow() >= 0;
+        duplicateObject_->setEnabled(
+            chosen && document_->world().objectCount() < textWorldMostObjects);
+        removeObject_->setEnabled(chosen);
+    });
     problems_ = new QListWidget(tabs);
     problems_->setObjectName(QStringLiteral("textWorldProblems"));
     problems_->setAccessibleName(tr("Shape problems of the file"));
@@ -393,6 +425,45 @@ bool TextWorldEditor::write(const QString &path, bool checkDisk) {
     return true;
 }
 
+bool TextWorldEditor::addObject() {
+    const auto start = document_->world().headerPoint("blupiPos").value_or(Point{0, 0});
+    if (!document_->addObject(1, start, 0, 0)) {
+        status_->setText(tr("No object was added: the game reads at most %1 object lines.")
+                             .arg(textWorldMostObjects));
+        return false;
+    }
+    refresh();
+    objects_->setCurrentCell(objects_->rowCount() - 1, 0);
+    status_->setText(tr("Object %1 added with type 1 at the start position. Set its numbers in "
+                        "the table.")
+                         .arg(objects_->rowCount()));
+    return true;
+}
+
+bool TextWorldEditor::duplicateSelectedObject() {
+    const auto row = objects_->currentRow();
+    if (row < 0 || !document_->duplicateObject(static_cast<std::size_t>(row))) {
+        return false;
+    }
+    refresh();
+    objects_->setCurrentCell(row + 1, 0);
+    status_->setText(tr("Object %1 copied as object %2.").arg(row + 1).arg(row + 2));
+    return true;
+}
+
+bool TextWorldEditor::removeSelectedObject() {
+    const auto row = objects_->currentRow();
+    if (row < 0 || !document_->removeObject(static_cast<std::size_t>(row))) {
+        return false;
+    }
+    refresh();
+    if (objects_->rowCount() > 0) {
+        objects_->setCurrentCell(std::min(row, objects_->rowCount() - 1), 0);
+    }
+    status_->setText(tr("Object %1 removed; the objects after it moved up by one.").arg(row + 1));
+    return true;
+}
+
 bool TextWorldEditor::save() {
     return document_->isModified() && write(path_, true);
 }
@@ -431,6 +502,7 @@ void TextWorldEditor::refresh() {
     show(startX_, start ? std::optional<long long>(start->x) : std::nullopt);
     show(startY_, start ? std::optional<long long>(start->y) : std::nullopt);
 
+    const auto chosenRow = objects_->currentRow();
     objects_->setRowCount(static_cast<int>(world.objectCount()));
     for (std::size_t index = 0; index < world.objectCount(); ++index) {
         for (int column = 0; column < static_cast<int>(std::size(objectColumns)); ++column) {
@@ -448,6 +520,14 @@ void TextWorldEditor::refresh() {
             objects_->setItem(static_cast<int>(index), column, item);
         }
     }
+    // Filling the table must not lose the chosen row.
+    if (chosenRow >= 0 && chosenRow < objects_->rowCount() && objects_->currentRow() != chosenRow) {
+        objects_->setCurrentCell(chosenRow, 0);
+    }
+    const bool full = world.objectCount() >= textWorldMostObjects;
+    addObject_->setEnabled(!full);
+    duplicateObject_->setEnabled(!full && objects_->currentRow() >= 0);
+    removeObject_->setEnabled(objects_->currentRow() >= 0);
     problems_->clear();
     const auto found = world.problems();
     for (const auto &problem : found) {

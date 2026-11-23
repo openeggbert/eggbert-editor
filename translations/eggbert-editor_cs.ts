@@ -4552,5 +4552,45 @@ Maluje dlaždici %2 a přepočítá tvary okrajů kolem ní.</translation>
    <source> - unsaved changes</source>
    <translation> - neuložené změny</translation>
   </message>
+  <message>
+   <source>&amp;Add Object</source>
+   <translation>&amp;Přidat objekt</translation>
+  </message>
+  <message>
+   <source>Appends an object line with type 1 at the start position; give it its numbers in the table.</source>
+   <translation>Připojí řádek objektu s typem 1 na startovní pozici; jeho čísla doplňte v tabulce.</translation>
+  </message>
+  <message>
+   <source>&amp;Duplicate</source>
+   <translation>&amp;Duplikovat</translation>
+  </message>
+  <message>
+   <source>Inserts an exact copy of the chosen object's line after it.</source>
+   <translation>Vloží za vybraný objekt přesnou kopii jeho řádku.</translation>
+  </message>
+  <message>
+   <source>&amp;Remove</source>
+   <translation>&amp;Odebrat</translation>
+  </message>
+  <message>
+   <source>Removes the chosen object's line; the objects after it move up by one.</source>
+   <translation>Odebere řádek vybraného objektu; objekty za ním se posunou o jedno místo výš.</translation>
+  </message>
+  <message>
+   <source>No object was added: the game reads at most %1 object lines.</source>
+   <translation>Objekt nebyl přidán: hra čte nejvýše %1 řádků objektů.</translation>
+  </message>
+  <message>
+   <source>Object %1 added with type 1 at the start position. Set its numbers in the table.</source>
+   <translation>Objekt %1 přidán s typem 1 na startovní pozici. Jeho čísla nastavte v tabulce.</translation>
+  </message>
+  <message>
+   <source>Object %1 copied as object %2.</source>
+   <translation>Objekt %1 zkopírován jako objekt %2.</translation>
+  </message>
+  <message>
+   <source>Object %1 removed; the objects after it moved up by one.</source>
+   <translation>Objekt %1 odebrán; objekty za ním se posunuly o jedno místo výš.</translation>
+  </message>
  </context>
 </TS>

@@ -233,6 +233,77 @@ bool TextWorld::setObjectPoint(std::size_t index, std::string_view name, Point v
                         std::to_string(value.x) + ";" + std::to_string(value.y));
 }
 
+bool TextWorld::removeObject(std::size_t index) {
+    if (index >= objectLines_.size()) {
+        return false;
+    }
+    const auto line = objectLines_[index];
+    const bool last = line + 1 == lines_.size();
+    lines_.erase(lines_.begin() + static_cast<std::ptrdiff_t>(line));
+    // The line before a removed last line becomes the end of the file: it
+    // loses the carriage return that belonged to its line break.
+    if (last && !lines_.empty() && !lines_.back().empty() && lines_.back().back() == '\r') {
+        lines_.back().pop_back();
+    }
+    *this = parse(write());
+    return true;
+}
+
+bool TextWorld::duplicateObject(std::size_t index) {
+    if (index >= objectLines_.size() || objectLines_.size() >= textWorldMostObjects) {
+        return false;
+    }
+    const auto line = objectLines_[index];
+    // The last line of a file without a final line break ends in nothing;
+    // its copy keeps the line ending the other lines use.
+    auto copy = lines_[line];
+    if (line + 1 == lines_.size()) {
+        if (!lines_.front().empty() && lines_.front().back() == '\r' && lines_.size() > 1) {
+            lines_[line] += '\r';
+        }
+    }
+    lines_.insert(lines_.begin() + static_cast<std::ptrdiff_t>(line) + 1, std::move(copy));
+    *this = parse(write());
+    return true;
+}
+
+bool TextWorld::addObject(long long type, Point position, long long channel, long long icon) {
+    if (type == 0 || objectLines_.size() >= textWorldMostObjects || lines_.empty()) {
+        return false;
+    }
+    const bool carriageReturns =
+        lines_.size() > 1 && !lines_.front().empty() && lines_.front().back() == '\r';
+    const auto point = std::to_string(position.x) + ";" + std::to_string(position.y);
+    std::string text = std::string(objectSection) + ": type=" + std::to_string(type) +
+                       " stepAdvance=1 stepRecede=1 timeStopStart=0 timeStopEnd=0 posStart=" +
+                       point + " posEnd=" + point + " posCurrent=" + point +
+                       " step=1 time=0 phase=0 channel=" + std::to_string(channel) +
+                       " icon=" + std::to_string(icon) + " ";
+    if (!objectLines_.empty() && objectLines_.back() + 1 < lines_.size()) {
+        // After the last object line, which ends with a line break.
+        if (carriageReturns) {
+            text += '\r';
+        }
+        lines_.insert(lines_.begin() + static_cast<std::ptrdiff_t>(objectLines_.back()) + 1,
+                      std::move(text));
+    } else if (lines_.back().empty()) {
+        // The file ends with a line break: the new line goes before the
+        // empty last element and ends with a break of its own.
+        if (carriageReturns) {
+            text += '\r';
+        }
+        lines_.insert(lines_.end() - 1, std::move(text));
+    } else {
+        // No final line break: end the last line first.
+        if (carriageReturns) {
+            lines_.back() += '\r';
+        }
+        lines_.push_back(std::move(text));
+    }
+    *this = parse(write());
+    return true;
+}
+
 std::vector<std::string> TextWorld::problems() const {
     std::vector<std::string> found;
     const auto at = [](std::size_t line) { return "Line " + std::to_string(line + 1) + ": "; };
@@ -301,6 +372,22 @@ std::vector<std::string> TextWorld::problems() const {
                                 " is missing or is not two numbers followed by a space.");
             }
         }
+    }
+    // The game reads object lines in order and stops at the first whose
+    // type is 0 or unreadable, and after its pool is full.
+    for (std::size_t index = 0; index + 1 < objectLines_.size(); ++index) {
+        if (fieldValue(lines_[objectLines_[index]], "type").value_or(0) == 0) {
+            found.push_back(at(objectLines_[index]) +
+                            "the object's type is 0 or not readable; the game stops reading "
+                            "objects here and ignores the " +
+                            std::to_string(objectLines_.size() - index - 1) +
+                            " object line(s) after it.");
+            break;
+        }
+    }
+    if (objectLines_.size() > textWorldMostObjects) {
+        found.push_back("There are " + std::to_string(objectLines_.size()) +
+                        " object lines; the game reads the first 200.");
     }
     return found;
 }

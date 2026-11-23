@@ -34,6 +34,10 @@ public:
     bool setHeaderPoint(std::string_view name, Point value);
     bool setObjectValue(std::size_t index, std::string_view name, long long value);
     bool setObjectPoint(std::size_t index, std::string_view name, Point value);
+    // Whole object lines (see TextWorld); each is one undo step.
+    bool removeObject(std::size_t index);
+    bool duplicateObject(std::size_t index);
+    bool addObject(long long type, Point position, long long channel, long long icon);
 
     [[nodiscard]] bool canUndo() const { return !undo_.empty(); }
     [[nodiscard]] bool canRedo() const { return !redo_.empty(); }

@@ -24,6 +24,9 @@ namespace eggbert {
 // of one line, so everything else, including spacing, unknown fields and
 // unknown lines, is written back byte for byte.
 
+// The game reads at most this many `MoveObject:` lines (its object pool).
+inline constexpr std::size_t textWorldMostObjects = 200;
+
 // True when the bytes begin like such a file.
 [[nodiscard]] bool looksLikeTextWorld(std::string_view text);
 
@@ -60,6 +63,18 @@ public:
     [[nodiscard]] std::optional<Point> objectPoint(std::size_t index, std::string_view name) const;
     bool setObjectValue(std::size_t index, std::string_view name, long long value);
     bool setObjectPoint(std::size_t index, std::string_view name, Point value);
+    // Whole object lines. The game takes the n-th `MoveObject:` line as its
+    // n-th object, so removing a line renumbers the ones after it.
+    // Removes the line of an object, line break included.
+    bool removeObject(std::size_t index);
+    // Inserts an exact copy of an object's line right after it. False when
+    // the world already has as many objects as the game reads.
+    bool duplicateObject(std::size_t index);
+    // Appends a line with the thirteen fields the game reads, after the last
+    // object line (or at the end of the file): the given type (not 0, which
+    // ends the game's list), channel and icon, the three positions equal,
+    // steps 1 and the rest 0. False when the world is full or the type is 0.
+    bool addObject(long long type, Point position, long long channel, long long icon);
 
     // What does not have the expected shape, one sentence each with its
     // line number. Empty for a well-formed world.
