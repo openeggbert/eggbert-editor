@@ -16,6 +16,7 @@
 #include "app/campaign_pack.hpp"
 #include "app/deploy_store.hpp"
 #include "world/game_convert.hpp"
+#include "world/merge.hpp"
 #include "world/installation.hpp"
 #include "world/world_stats.hpp"
 
@@ -83,6 +84,15 @@ struct Prompts {
     std::function<QString()> borderRulesPath;
     // Second confirmation before bytes in a preserved range are changed.
     std::function<bool(DocumentTab *, const QString &description)> confirmProtectedEdit;
+    // The base file and the other side's file for a merge into the tab.
+    std::function<std::optional<std::pair<QString, QString>>(DocumentTab *)> mergeFiles;
+    // Shown with the outcome; returns, per conflict, true to take the other
+    // side's bytes and false to keep the tab's. nullopt cancels.
+    // `mine` and `theirs` are the two sides' bytes.
+    std::function<std::optional<std::vector<bool>>(DocumentTab *, const MergeResult &,
+                                                   std::span<const std::byte> mine,
+                                                   std::span<const std::byte> theirs)>
+        resolveMerge;
     // Name of a new stamp and whether it takes the objects along.
     std::function<std::optional<std::pair<QString, bool>>(DocumentTab *)> stampName;
     // Which of the stored stamps to place; nullopt cancels.
@@ -289,6 +299,10 @@ public:
     // Asks for the game and a file, writes the world the games' editors
     // start with and opens it; returns the new tab or null.
     DocumentTab *createWorld();
+    // Merges what another world changed since a common base into the tab
+    // (which is "mine"), with every conflict decided by the user, as one
+    // undo step. True when the tab changed.
+    bool mergeInto(DocumentTab *tab);
     // Stamps live as text files in the user's data directory.
     [[nodiscard]] static QString stampDirectory();
     [[nodiscard]] std::vector<Stamp> stamps() const;

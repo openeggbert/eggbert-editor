@@ -100,6 +100,19 @@ int main() {
         const auto preferMine = mergeWorlds(base, left, right, MergePreference::mine);
         CHECK(preferMine.has_value() && preferMine->conflicts.size() == 3);
         CHECK(preferMine->bytes == left);
+        // Decided one by one: music from theirs, the cell from mine, the
+        // object from theirs; a short list means mine for the rest.
+        {
+            auto expectedMixed = base;
+            put16(expectedMixed, cell(41, 40), 7);
+            put16(expectedMixed, 222, 4);
+            put16(expectedMixed, cell(40, 40), 1);
+            put32(expectedMixed, fxSlotOffset(fxRevision13, 5) + 12, 999);
+            CHECK(resolveMerge(*none, left, right, {true, false, true}) == expectedMixed);
+            CHECK(resolveMerge(*none, left, right, {}) == left);
+            CHECK(resolveMerge(*none, left, right, {true, true, true, true}) ==
+                  mergeWorlds(base, left, right, MergePreference::theirs)->bytes);
+        }
         const auto preferTheirs = mergeWorlds(base, left, right, MergePreference::theirs);
         auto expectedTheirs = right;
         put16(expectedTheirs, cell(41, 40), 7);

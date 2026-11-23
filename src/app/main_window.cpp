@@ -68,6 +68,7 @@
 #include "app/tool_icons.hpp"
 #include "world/new_world.hpp"
 #include "world/campaign_doors.hpp"
+#include "world/hex_model.hpp"
 #include "world/revision_convert.hpp"
 #include "world/text_world.hpp"
 #include "app/png_export_dialog.hpp"
@@ -451,6 +452,126 @@ void MainWindow::installDefaultPrompts() {
         return QMessageBox::warning(this, tr("Edit Bytes"), description,
                                     QMessageBox::Yes | QMessageBox::Cancel,
                                     QMessageBox::Cancel) == QMessageBox::Yes;
+    };
+    prompts.mergeFiles = [this](DocumentTab *tab) -> std::optional<std::pair<QString, QString>> {
+        QDialog dialog(this);
+        dialog.setWindowTitle(tr("Merge Changes"));
+        auto *form = new QFormLayout(&dialog);
+        auto *intro = new QLabel(
+            tr("Brings what another copy of this world changed into %1.\nChoose the common "
+               "starting point both copies were made from, and the other copy.")
+                .arg(QFileInfo(tab->file().path()).fileName()),
+            &dialog);
+        intro->setWordWrap(true);
+        form->addRow(intro);
+        const auto chooser = [&](const QString &label, const QString &name) {
+            auto *edit = new QLineEdit(&dialog);
+            edit->setObjectName(name);
+            edit->setAccessibleName(label);
+            auto *browse = new QPushButton(tr("Browse..."), &dialog);
+            browse->setAccessibleName(tr("Browse for: %1").arg(label));
+            connect(browse, &QPushButton::clicked, &dialog, [this, edit] {
+                const auto path = QFileDialog::getOpenFileName(
+                    this, tr("Merge Changes"), QFileInfo(edit->text()).absolutePath(),
+                    tr("Blupi world files (*.blp *.BLP *.xch *.XCH);;All files (*)"));
+                if (!path.isEmpty()) {
+                    edit->setText(path);
+                }
+            });
+            auto *row = new QHBoxLayout;
+            row->addWidget(edit, 1);
+            row->addWidget(browse);
+            form->addRow(label, row);
+            return edit;
+        };
+        auto *base = chooser(tr("Common base"), QStringLiteral("mergeBase"));
+        auto *theirs = chooser(tr("Other copy"), QStringLiteral("mergeTheirs"));
+        auto *buttons =
+            new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+        form->addRow(buttons);
+        connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+        connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+        dialog.resize(560, 180);
+        if (dialog.exec() != QDialog::Accepted || base->text().isEmpty() ||
+            theirs->text().isEmpty()) {
+            return std::nullopt;
+        }
+        return std::make_pair(base->text(), theirs->text());
+    };
+    prompts.resolveMerge = [this](DocumentTab *tab, const MergeResult &result,
+                                  std::span<const std::byte> mine,
+                                  std::span<const std::byte> theirs)
+        -> std::optional<std::vector<bool>> {
+        QDialog dialog(this);
+        dialog.setWindowTitle(tr("Merge Changes"));
+        auto *layout = new QVBoxLayout(&dialog);
+        auto *summary = new QLabel(
+            tr("%1 element(s) changed only in the other copy are taken; %2 changed alike in "
+               "both; %3 changed only here stay. %4 element(s) were changed differently in both "
+               "copies: tick the ones to take from the other copy; the rest keep this world's "
+               "bytes.")
+                .arg(result.fromTheirs)
+                .arg(result.agreed)
+                .arg(result.fromMine)
+                .arg(result.conflicts.size()),
+            &dialog);
+        summary->setObjectName(QStringLiteral("mergeSummary"));
+        summary->setWordWrap(true);
+        layout->addWidget(summary);
+        auto *list = new QListWidget(&dialog);
+        list->setObjectName(QStringLiteral("mergeConflicts"));
+        list->setAccessibleName(tr("Conflicts: tick to take the other copy's bytes"));
+        const auto hex = [](std::span<const std::byte> bytes, ByteRange range) {
+            const auto shown = std::min<std::size_t>(range.size, 16);
+            return QString::fromStdString(formatHex(bytes.subspan(range.offset, shown))) +
+                   (shown < range.size ? QStringLiteral(" ...") : QString());
+        };
+        for (const auto &conflict : result.conflicts) {
+            auto *item = new QListWidgetItem(
+                tr("%1 (offset %2, %3 byte(s))\nhere: %4\nother: %5")
+                    .arg(QString::fromStdString(
+                             offsetLabel(tab->document().probe(), conflict.range.offset)))
+                    .arg(conflict.range.offset)
+                    .arg(conflict.range.size)
+                    .arg(hex(mine, conflict.range), hex(theirs, conflict.range)),
+                list);
+            item->setFlags(Qt::ItemIsUserCheckable | Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+            item->setCheckState(Qt::Unchecked);
+        }
+        list->setVisible(!result.conflicts.empty());
+        layout->addWidget(list, 1);
+        auto *all = new QHBoxLayout;
+        auto *allMine = new QPushButton(tr("Keep All of This World"), &dialog);
+        allMine->setObjectName(QStringLiteral("mergeAllMine"));
+        auto *allTheirs = new QPushButton(tr("Take All from the Other Copy"), &dialog);
+        allTheirs->setObjectName(QStringLiteral("mergeAllTheirs"));
+        allMine->setVisible(!result.conflicts.empty());
+        allTheirs->setVisible(!result.conflicts.empty());
+        all->addWidget(allMine);
+        all->addWidget(allTheirs);
+        all->addStretch(1);
+        layout->addLayout(all);
+        const auto setAll = [list](Qt::CheckState state) {
+            for (int row = 0; row < list->count(); ++row) {
+                list->item(row)->setCheckState(state);
+            }
+        };
+        connect(allMine, &QPushButton::clicked, &dialog, [setAll] { setAll(Qt::Unchecked); });
+        connect(allTheirs, &QPushButton::clicked, &dialog, [setAll] { setAll(Qt::Checked); });
+        auto *buttons =
+            new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+        layout->addWidget(buttons);
+        connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+        connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+        dialog.resize(640, 480);
+        if (dialog.exec() != QDialog::Accepted) {
+            return std::nullopt;
+        }
+        std::vector<bool> choices;
+        for (int row = 0; row < list->count(); ++row) {
+            choices.push_back(list->item(row)->checkState() == Qt::Checked);
+        }
+        return choices;
     };
     prompts.stampName = [this](DocumentTab *) -> std::optional<std::pair<QString, bool>> {
         QDialog dialog(this);
@@ -1182,6 +1303,8 @@ void MainWindow::createActions() {
     connect(addAction(fileMenu, QStringLiteral("fileConvertRevision"),
                       tr("Convert Re&vision...")),
             &QAction::triggered, this, [this] { convertRevisionOf(currentTab()); });
+    connect(addAction(fileMenu, QStringLiteral("fileMerge"), tr("&Merge Changes...")),
+            &QAction::triggered, this, [this] { mergeInto(currentTab()); });
     connect(addAction(fileMenu, QStringLiteral("fileConvertGame"),
                       tr("Convert for Other &Game...")),
             &QAction::triggered, this, [this] { convertGameOf(currentTab()); });
@@ -3150,6 +3273,81 @@ void MainWindow::setCurrentTab(DocumentTab *tab) {
     }
 }
 
+bool MainWindow::mergeInto(DocumentTab *tab) {
+    if (tab == nullptr || !tab->document().isWritable()) {
+        return false;
+    }
+    const auto files = prompts.mergeFiles(tab);
+    if (!files) {
+        return false;
+    }
+    const auto read = [this](const QString &path) -> std::optional<QByteArray> {
+        QFile file(path);
+        if (file.size() > 64 * 1024 * 1024 || !file.open(QIODevice::ReadOnly)) {
+            prompts.error(tr("Merge Changes"), tr("%1 cannot be read.").arg(path));
+            return std::nullopt;
+        }
+        return file.readAll();
+    };
+    const auto base = read(files->first);
+    const auto theirs = base ? read(files->second) : std::nullopt;
+    if (!base || !theirs) {
+        return false;
+    }
+    const auto span = [](const QByteArray &bytes) {
+        return std::span<const std::byte>(reinterpret_cast<const std::byte *>(bytes.constData()),
+                                          static_cast<std::size_t>(bytes.size()));
+    };
+    // The tab's current bytes, saved or not, are "mine".
+    const auto mineBytes = tab->document().currentBytes();
+    const std::vector<std::byte> mine(mineBytes.begin(), mineBytes.end());
+    const auto merged = mergeWorlds(span(*base), mine, span(*theirs), MergePreference::none);
+    if (!merged) {
+        prompts.error(tr("Merge Changes"), QString::fromStdString(merged.error()));
+        return false;
+    }
+    if (merged->fromTheirs == 0 && merged->conflicts.empty()) {
+        statusBar()->showMessage(
+            tr("The other copy changed nothing that this world does not already have."), 8000);
+        return false;
+    }
+    const auto choices = prompts.resolveMerge(tab, *merged, mine, span(*theirs));
+    if (!choices) {
+        return false;
+    }
+    auto wanted = resolveMerge(*merged, mine, span(*theirs), *choices);
+    // Ranges the editor preserves are never taken from another file here:
+    // they keep this world's bytes, and the user is told.
+    std::size_t preserved = 0;
+    for (const auto &range : tab->document().protectedRanges()) {
+        for (std::size_t offset = range.offset; offset < range.end() && offset < wanted.size();
+             ++offset) {
+            if (wanted[offset] != mine[offset]) {
+                wanted[offset] = mine[offset];
+                ++preserved;
+            }
+        }
+    }
+    if (!tab->replaceBytes(wanted, tr("Merge Changes from %1")
+                                       .arg(QFileInfo(files->second).fileName()))) {
+        statusBar()->showMessage(
+            preserved != 0 ? tr("Nothing was merged: the other copy differs only in bytes the "
+                                "editor preserves (%1 byte(s)).")
+                                 .arg(preserved)
+                           : tr("Nothing would change."),
+            8000);
+        return false;
+    }
+    statusBar()->showMessage(
+        preserved != 0
+            ? tr("Merged as one undo step; %1 byte(s) in preserved ranges kept this world's "
+                 "values")
+                  .arg(preserved)
+            : tr("Merged as one undo step"),
+        8000);
+    return true;
+}
+
 QString MainWindow::stampDirectory() {
     return QDir(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation))
         .filePath(QStringLiteral("stamps"));
@@ -4123,6 +4321,7 @@ void MainWindow::updateUi() {
     enable("filePlaytest", hasTab && gameDirectoryFor(tab->profile()) != nullptr);
     enable("editPlaytestCommand", hasTab && tab->profile() != GameProfile::unknown);
     enable("fileConvertRevision", hasTab);
+    enable("fileMerge", writable);
     enable("fileConvertGame", hasTab && tab->profile() != GameProfile::unknown);
     enable("fileSnapshots", hasTab);
     enable("fileProperties", hasTab);

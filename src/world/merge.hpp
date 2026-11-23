@@ -50,4 +50,12 @@ struct MergeResult {
 mergeWorlds(std::span<const std::byte> base, std::span<const std::byte> mine,
             std::span<const std::byte> theirs, MergePreference preference);
 
+// The merged world with every conflict decided one by one: `takeTheirs[i]`
+// chooses theirs for `result.conflicts[i]`, otherwise mine. Conflicts beyond
+// the end of `takeTheirs` take mine.
+[[nodiscard]] std::vector<std::byte> resolveMerge(const MergeResult &result,
+                                                  std::span<const std::byte> mine,
+                                                  std::span<const std::byte> theirs,
+                                                  const std::vector<bool> &takeTheirs);
+
 } // namespace eggbert

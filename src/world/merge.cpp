@@ -93,4 +93,20 @@ std::expected<MergeResult, std::string> mergeWorlds(std::span<const std::byte> b
     return result;
 }
 
+std::vector<std::byte> resolveMerge(const MergeResult &result, std::span<const std::byte> mine,
+                                    std::span<const std::byte> theirs,
+                                    const std::vector<bool> &takeTheirs) {
+    auto bytes = result.bytes;
+    for (std::size_t index = 0; index < result.conflicts.size(); ++index) {
+        const auto &range = result.conflicts[index].range;
+        const auto from = index < takeTheirs.size() && takeTheirs[index] ? theirs : mine;
+        if (range.end() <= from.size() && range.end() <= bytes.size()) {
+            std::copy(from.begin() + static_cast<std::ptrdiff_t>(range.offset),
+                      from.begin() + static_cast<std::ptrdiff_t>(range.end()),
+                      bytes.begin() + static_cast<std::ptrdiff_t>(range.offset));
+        }
+    }
+    return bytes;
+}
+
 } // namespace eggbert
