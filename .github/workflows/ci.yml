@@ -113,12 +113,13 @@ jobs:
         uses: actions/checkout@v5
 
       # Qt's own build: its deployment tool cannot gather a Homebrew Qt
-      # (it timed out resolving that layout's frameworks). Not 6.5: that one
-      # links the AGL framework, which current macOS SDKs no longer have.
+      # (it timed out resolving that layout's frameworks). Not 6.5 or 6.8:
+      # those link the AGL framework, which current macOS SDKs no longer
+      # have (the linker stopped with "framework 'AGL' not found").
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
-          version: "6.8.*"
+          version: "6.10.*"
 
       - name: Install Ninja
         run: brew install ninja
