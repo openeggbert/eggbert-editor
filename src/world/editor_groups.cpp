@@ -401,6 +401,7 @@ std::span<const EditorGroup> editorGroups(GameProfile profile) {
     case GameProfile::speedyBlupi1:
         return firstGameGroups;
     case GameProfile::speedyBlupi2:
+    case GameProfile::mobileEggbert:
         return secondGameGroups;
     case GameProfile::unknown:
         break;

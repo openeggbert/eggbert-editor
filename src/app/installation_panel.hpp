@@ -31,12 +31,14 @@ public:
 
     explicit InstallationPanel(QWidget *parent = nullptr);
 
-    // The game directory (the one that contains DATA) and its game; an
-    // empty directory shows how to choose one.
+    // The game directory (the one that contains DATA; for Mobile Eggbert
+    // its Content folder) and its game; an empty directory shows how to
+    // choose one.
     void setInstallation(const QString &gameDirectory, GameProfile profile);
     void refresh();
     [[nodiscard]] const QString &gameDirectory() const { return gameDirectory_; }
-    // The data directory inside it, or empty.
+    // The folder its worlds are in (DATA, or Mobile Eggbert's `worlds`), or
+    // empty.
     [[nodiscard]] const QString &dataDirectory() const { return dataDirectory_; }
     [[nodiscard]] GameProfile profile() const { return profile_; }
     [[nodiscard]] const std::vector<Entry> &entries() const { return entries_; }
@@ -54,6 +56,9 @@ public:
 
     // The data directory of a game directory, whatever its letter case.
     [[nodiscard]] static QString findDataDirectory(const QString &gameDirectory);
+    // The `worlds` folder of Mobile Eggbert, next to its Content folder (or
+    // inside the given folder); empty when there is none.
+    [[nodiscard]] static QString findPortWorldsDirectory(const QString &contentDirectory);
 
 signals:
     void openRequested(const QString &path);

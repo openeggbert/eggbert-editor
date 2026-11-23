@@ -14,12 +14,14 @@
 
 #include "check.hpp"
 #include "fixture.hpp"
+#include "generated_port.hpp"
 
 #include <algorithm>
 #include <tuple>
 
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QGuiApplication>
 #include <QImage>
 #include <QImageReader>
@@ -641,5 +643,97 @@ int main(int argc, char **argv) {
     CHECK_EQ(run({"frobnicate"}).code, 2);
     // No command changed its input.
     CHECK(readAll(path) == before);
+    // A Mobile Eggbert text world: read under its own profile, drawn with
+    // the port's pictures, and never turned into a .blp file.
+    {
+        const auto port = makePort(dir.filePath("port"));
+        const auto text = readAll(port.worldPath);
+        const auto valid = run({"validate", port.worldPath});
+        CHECK_EQ(valid.code, 0);
+        CHECK(valid.out.contains("0 error(s)"));
+        const auto withGame = run({"validate", port.worldPath, "--game", "2"});
+        CHECK_EQ(withGame.code, 2);
+        CHECK(withGame.err.contains("takes no --game"));
+        // Tile 50 is one the second Windows game replaces on loading; the
+        // port does not, so nothing is said about it here.
+        {
+            auto withTile = text;
+            withTile.replace(",,,,40", ",,,,50");
+            QFile file(dir.filePath("tile50.txt"));
+            CHECK(file.open(QIODevice::WriteOnly));
+            file.write(withTile);
+            file.close();
+            CHECK(!run({"validate", dir.filePath("tile50.txt")}).out.contains("TILE-SB2-REMAP"));
+        }
+        const auto pngPath = dir.filePath("port.png");
+        const auto png = run({"export-png", port.worldPath, pngPath, "--game-data", port.root,
+                              "--scale", "64", "--crop", "3,4,1,1", "--no-backdrop"});
+        CHECK_EQ(png.code, 0);
+        CHECK(QImage(pngPath).pixelColor(32, 32) == portColor(0, 40));
+        // Pictures of another game are refused in both directions.
+        const auto wrong = run({"export-png", path, dir.filePath("wrong.png"), "--game-data",
+                                port.root});
+        CHECK_EQ(wrong.code, 2);
+        CHECK(wrong.err.contains("for its text worlds"));
+        CHECK(!QFileInfo::exists(dir.filePath("wrong.png")));
+        const auto svg = run({"export-svg", port.worldPath, dir.filePath("port.svg")});
+        CHECK_EQ(svg.code, 0);
+        const auto scenarioPath = dir.filePath("port.scenario");
+        CHECK_EQ(run({"scenario-record", port.worldPath, scenarioPath}).code, 0);
+        CHECK_EQ(run({"scenario-check", port.worldPath, scenarioPath}).code, 0);
+        CHECK(run({"info", port.worldPath}).out.contains("Mobile Eggbert"));
+        // The commands that write .blp files do not take it.
+        CHECK_EQ(run({"convert", port.worldPath, dir.filePath("t.blp"), "--to", "1.3"}).code, 2);
+        CHECK_EQ(run({"convert-game", port.worldPath, dir.filePath("t.blp"), "--from", "2",
+                      "--to", "1"})
+                     .code,
+                 2);
+        CHECK(!QFileInfo::exists(dir.filePath("t.blp")));
+        CHECK(readAll(port.worldPath) == text);
+        // Three text worlds merge into a text world: MINE's text with the
+        // values THEIRS changed.
+        const auto put = [&](const QString &name, QByteArray content) {
+            QFile file(dir.filePath(name));
+            CHECK(file.open(QIODevice::WriteOnly));
+            file.write(content);
+            return dir.filePath(name);
+        };
+        auto mineText = text;
+        mineText.replace("music=3", "music=5");
+        auto theirsText = text;
+        theirsText.replace(",,,,40,", ",,,,40,42");
+        const auto minePath = put("mine.txt", mineText);
+        const auto theirsPath = put("theirs.txt", theirsText);
+        const auto mergedPath = dir.filePath("merged.txt");
+        const auto merged = run({"merge", port.worldPath, minePath, theirsPath, mergedPath});
+        CHECK_EQ(merged.code, 0);
+        CHECK(merged.out.contains("1 element(s) from mine, 1 from theirs"));
+        auto expected = text;
+        expected.replace("music=3", "music=5");
+        expected.replace(",,,,40,", ",,,,40,42");
+        CHECK(readAll(mergedPath) == expected);
+        // Both sides changing one value differently is a conflict here too.
+        auto otherMusic = text;
+        otherMusic.replace("music=3", "music=6");
+        const auto otherPath = put("other.txt", otherMusic);
+        const auto conflict = run({"merge", port.worldPath, minePath, otherPath,
+                                   dir.filePath("conflict.txt")});
+        CHECK_EQ(conflict.code, 1);
+        CHECK(!QFileInfo::exists(dir.filePath("conflict.txt")));
+        const auto preferred = run({"merge", port.worldPath, minePath, otherPath,
+                                    dir.filePath("conflict.txt"), "--prefer", "theirs"});
+        CHECK_EQ(preferred.code, 0);
+        CHECK(readAll(dir.filePath("conflict.txt")).contains("music=6"));
+        // new --game mobile writes the text of a new world.
+        const auto created = run({"new", dir.filePath("fresh.txt"), "--game", "mobile"});
+        CHECK_EQ(created.code, 0);
+        CHECK(created.out.contains("Mobile Eggbert text world"));
+        CHECK(readAll(dir.filePath("fresh.txt")).startsWith("DescFile: "));
+        CHECK_EQ(run({"validate", dir.filePath("fresh.txt")}).code, 0);
+        CHECK_EQ(run({"new", dir.filePath("fresh.txt"), "--game", "mobile"}).code, 2);
+        // A text world and .blp worlds do not mix.
+        CHECK_EQ(run({"merge", path, minePath, otherPath, dir.filePath("mixed.txt")}).code, 2);
+        CHECK(!QFileInfo::exists(dir.filePath("mixed.txt")));
+    }
     return test::finish("cli");
 }

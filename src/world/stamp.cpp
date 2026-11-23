@@ -198,7 +198,8 @@ std::string writeStamp(const Stamp &stamp) {
     out += "name " + stamp.name + "\n";
     out += std::string("game ") + (stamp.game == GameProfile::speedyBlupi1   ? "1"
                                    : stamp.game == GameProfile::speedyBlupi2 ? "2"
-                                                                             : "0") +
+                                   : stamp.game == GameProfile::mobileEggbert ? "mobile"
+                                                                              : "0") +
            "\n";
     out += "size " + std::to_string(stamp.width) + " " + std::to_string(stamp.height) + "\n";
     const auto layer = [&](std::string_view title, const std::vector<std::int16_t> &values) {
@@ -260,8 +261,11 @@ std::expected<Stamp, std::string> readStamp(std::string_view text) {
         stamp.game = GameProfile::speedyBlupi1;
     } else if (line == "game 2") {
         stamp.game = GameProfile::speedyBlupi2;
+    } else if (line == "game mobile") {
+        stamp.game = GameProfile::mobileEggbert;
     } else if (line != "game 0") {
-        return failAt(index, "expected \"game 0\", \"game 1\" or \"game 2\".");
+        return failAt(index, "expected \"game 0\", \"game 1\", \"game 2\" or \"game "
+                             "mobile\".");
     }
     line = next();
     if (!line.starts_with("size ") ||

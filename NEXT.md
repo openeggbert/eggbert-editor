@@ -4,7 +4,7 @@
 
 Version 1.0.0. Every part of the fixed 1.0 scope in `plan.md` is implemented and covered by asset-free tests. On 2026-11-22 the project owner first accepted the release gate without original game data and then supplied Speedy Eggbert 1 and Speedy Eggbert 2; the editor was verified against both (see **Original-data evidence** below). One defect was found and fixed that way (an ambiguous sprite-table search in the first game's executable).
 
-Since then the owner promoted the whole roadmap (see `plan.md`, **Promotion of the roadmap**) with the instruction not to publish a release: the version number is 1.0.0 but **nothing is tagged or released**, and the tree is an unreleased development version. The promoted slices A–N and the two added later (O: the rest of the roadmap list; P: demo recordings as playtest traces) are done as far as they could be verified in this environment; what could not be built — heat maps of where a player went — is stated with its reason in slice P's entry. Each slice has a result section below stating what was built, how it was tested and what is not covered. The checklist near the end of this file is the summary.
+Since then the owner promoted the whole roadmap (see `plan.md`, **Promotion of the roadmap**) with the instruction not to publish a release: the version number is 1.0.0 but **nothing is tagged or released**, and the tree is an unreleased development version. The promoted slices A–N and the two added later (O: the rest of the roadmap list; P: demo recordings as playtest traces; Q: Mobile Eggbert worlds in the full editor with the port's graphics) are done as far as they could be verified in this environment; what could not be built — heat maps of where a player went — is stated with its reason in slice P's entry. Each slice has a result section below stating what was built, how it was tested and what is not covered. The checklist near the end of this file is the summary.
 
 Implemented and covered by asset-free tests:
 
@@ -90,13 +90,26 @@ Verified and reported observations are recorded with citations in `docs/research
 
 ## Next task: none of the promoted roadmap remains except what is listed as open below
 
-Slices A–P are done as far as they could be verified here. Every bullet of `plan.md`, **Post-1.0 roadmap**, now has a slice; the one part without an implementation is the heat map of slice N (see slice P for why). What remains open, in the order it would be worth doing:
+Slices A–Q are done as far as they could be verified here. Every bullet of `plan.md`, **Post-1.0 roadmap**, now has a slice; the one part without an implementation is the heat map of slice N (see slice P for why). What remains open, in the order it would be worth doing:
 
-1. **Names or pictures for the tiles and objects of Mobile Eggbert text worlds** — only with evidence from that project that its numbers mean what the Windows games' numbers mean, which was not gathered.
+1. **For Mobile Eggbert worlds: the Campaign Overview and campaign packs** — the port's door rules beyond its numbering are not established. Text files with Windows line ends, more than 200 object lines or a type-0 line still open only in the plain text-world window (slice Q says why).
 2. **A reachability estimate with movement.** Measured and not adopted: a jump-limited model reports dozens of treasures in original worlds that can in fact be collected (see `docs/research/evidence.md`, **Reachability**); it would need a cited rule for every thing that lifts the player.
 3. **Heat maps of where a player went** — recordings hold keys, not positions (slice P).
 4. Evidence gaps listed under **Original-data evidence**: other editions, original 1.0/1.1 worlds, behaviour in the running games, the 25 eggs stored four pixels higher than the catalog writes.
 5. Still English by design: the Binary Inspector's structural names and arithmetic, citations, the diagnostics file and the command line.
+
+### Slice Q result (2026-11-23): Mobile Eggbert worlds in the full editor, with graphics
+
+The owner's instruction: the editor of Mobile Eggbert worlds must show the game's graphics and be full-featured. `plan.md` was updated first (**Mobile Eggbert in the full editor**, row Q). `mobile-eggbert` was only read (baseline `dd0a592`, `git status` there is empty); nothing was copied from it and its files are not fixtures.
+
+- **Evidence** (`docs/research/evidence.md`, **Mobile Eggbert as a game profile**): the port's loader reads exactly the values a `.blp` world stores; its border, mirror, movement and animation tables equal the second Windows game's (compared by script); `table_decor_quart` differs only in tiles 49 to 67; no tile is replaced on loading; tile 0 is read as empty; durations are scaled at load and type 54 gets fixed waits; pictures are cut from sheets on a fixed grid; worlds are numbered 1, hubs, missions, 199; with Windows line ends the last value of each line is lost.
+- **Core** (Qt-free). `GameProfile::mobileEggbert` with `tablesOf()` (the second game's catalogs) and `mobileEggbertInfo` (music 0–10, region 0–31, 441 tiles, 440 tile pictures, 100 bigDecor pictures, no loader replacement, tile 0 read as empty). `src/world/text_world_image.hpp`: `makeTextWorldImage` lays a text world out as an image in the editor's layout (the one start in all four places) or says why it cannot; `storeTextWorldImage` writes back only the values that differ, removes the lines of deleted objects, appends lines for new ones and refuses what text cannot hold (a title, differing starts, the two unexplained object numbers, changed reserved bytes); `mirrorTextWorldStart`; `newTextWorld`. `tileFullySolid` knows tiles 49 to 67 are not solid in the port. World Doctor rule `TILE-PORT-ZERO` (warning; 31 rules now). `officialWorldRole` for the port, `portWorldNumber`, `portWorldFileName`. Stamps carry `game mobile`.
+- **Application.** `DocumentFile` loads a text world into an ordinary document (`isTextWorld()`), saves it as text through the same atomic, conflict-checked path, and offers `savedContent`, `currentContent` and `documentBytesOf` so that autosaves, snapshots, deploys and merges of a text world are text too. `GameAssets::loadMobile` reads the port's sheets by the grid rule and its backdrops; `detectGameProfile` recognises the port's folder. `MainWindow`: text worlds open as tabs with the game locked to Mobile Eggbert and the pictures found from the worlds folder; New World, Save As, Merge Changes, Deploy, Roll Back, Playtest (own command, started next to `Content`), the Installation dock (the port's `worlds` folder with roles and thumbnails) work for them; Convert Revision, Convert for Other Game, the Binary Inspector, byte edits, the Campaign Overview and packs are disabled; the tile clipboard, stamps and merges never cross between text and `.blp` worlds. A file that cannot be laid out opens in the plain text-world window with the reason in the status bar.
+- **Command line.** `validate`, `export-png`, `export-batch`, `export-svg`, `scenario-record` and `scenario-check` take a text world under its own profile (`--game` is refused for it; `--game-data` must be the port's folder, and the port's folder is refused for a `.blp` world); `merge` merges three text worlds into text; `new --game mobile` writes a new text world; `convert` and `convert-game` refuse text.
+- **Tests** (asset-free; a stand-in port folder is drawn by `tests/generated_port.hpp`): `text_world_image` (layout, unchanged store is byte-identical, single-token edits, object lines removed and added, refusals, Windows line ends, the new world), `mobile_world_ui` (pictures by the grid rule, a tab with the tools, save and undo to the identical text, conflict, Save As, recovery and snapshots as text, stamps, Installation dock, deploy and roll back, playtest, merge, New World, no paste across kinds, fallback window), additions to `cli`, `doctor` and `installation`. 77 tests registered, 76 run and pass in Release and under ASan/UBSan, `sample_matrix` skipped as always here.
+- **Checked privately against the port's 78 worlds** (read only, 2026-11-23): each opens as a tab; storing an unchanged image leaves the text byte for byte; `validate` reports no error and no warning in any of them; worlds 011 and 053 were looked at in the window with the port's pictures and the Installation dock.
+- **Czech**: 1,350 messages, none unfinished; the refusals of the image are translated through `coreText`; both guides have the rewritten section **Mobile Eggbert worlds** and the same structure.
+- **Limits, stated in the guide**: the Campaign Overview and campaign packs are not offered for these worlds; the port has no music files; object durations are shown as stored, not as the port rescales them; thumbnails in the Installation dock are schematic, as for the Windows games.
 
 ### After the stop review of 2026-11-23: hosted CI, the rest of the Czech, text-world shapes
 
@@ -334,11 +347,12 @@ Order and acceptance are in `plan.md`, **Promotion of the roadmap**. Tick a slic
 - [x] I Experimental editing: typed byte edits, unverified music/region numbers, custom border rules
 - [x] J Stamps, alignment, replace in all open worlds
 - [x] K Element encyclopedia and installation gallery (the Installation dock's world list)
-- [x] L Czech interface (all 1,311 interface texts and catalog names) and guide, accessibility names, Windows/macOS built, tested and packaged in CI
-- [x] M Mobile Eggbert text worlds: lossless codec, description and an editing window (no conversion)
+- [x] L Czech interface (all 1,350 interface texts and catalog names) and guide, accessibility names, Windows/macOS built, tested and packaged in CI
+- [x] M Mobile Eggbert text worlds: lossless codec, description and an editing window (no conversion); since slice Q that window is the fallback for files the full editor cannot lay out
 - [x] O SVG export, PNG batches, campaign graph listing, world regression scenarios
 - [x] N Three-way merge (command and window); playtest traces as slice P; heat maps not built (recordings hold no positions)
 - [x] P Demo recordings: reader, `info`, read-only timeline window
+- [x] Q Mobile Eggbert worlds in the full editor with the port's graphics (text in, text out; no conversion)
 
 ## Explicit non-goals
 

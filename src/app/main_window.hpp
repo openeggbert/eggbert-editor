@@ -114,6 +114,10 @@ struct Prompts {
     std::function<std::optional<WorldSlot>(DocumentTab *, WorldSlot suggested,
                                            const QString &dataDirectory)>
         deploySlot;
+    // The world number to deploy a Mobile Eggbert world as (world%.3d.txt in
+    // `worldsDirectory`), or nothing when cancelled.
+    std::function<std::optional<int>(DocumentTab *, int suggested, const QString &worldsDirectory)>
+        deployPortNumber;
     std::function<bool(const DeployRecord &)> confirmRollBack;
     // The command that starts a game; nullopt cancels.
     std::function<std::optional<QString>(GameProfile, const QString &current)> playtestCommand;
@@ -137,6 +141,8 @@ struct Prompts {
         chooseSnapshot;
     std::function<QStringList()> openPaths;
     std::function<QString(const QString &suggestedPath)> saveAsPath;
+    // The same for a Mobile Eggbert text world.
+    std::function<QString(const QString &suggestedPath)> saveTextWorldAsPath;
     std::function<UnsavedChoice(DocumentTab *)> unsavedChanges;
     std::function<ConflictChoice(DocumentTab *, const SaveResult &)> saveConflict;
     std::function<bool(DocumentTab *)> confirmRevert;
@@ -442,7 +448,8 @@ private:
     QDockWidget *diagnosticsDock_ = nullptr;
     QDockWidget *inspectorDock_ = nullptr;
     bool syncing_ = false;
-    std::shared_ptr<const GameAssets> artwork_[2];
+    // First game, second game, Mobile Eggbert.
+    std::shared_ptr<const GameAssets> artwork_[3];
     bool artworkEnabled_ = false;
     bool animate_ = true;
     QDockWidget *objectsDock_ = nullptr;

@@ -24,6 +24,8 @@ QString profileKey(GameProfile profile) {
         return QStringLiteral("speedy-blupi-1");
     case GameProfile::speedyBlupi2:
         return QStringLiteral("speedy-blupi-2");
+    case GameProfile::mobileEggbert:
+        return QStringLiteral("mobile-eggbert");
     case GameProfile::unknown:
         break;
     }

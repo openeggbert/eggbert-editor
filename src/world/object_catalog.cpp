@@ -222,6 +222,7 @@ std::span<const ObjectTypeInfo> runtimeTypes(GameProfile profile) {
     case GameProfile::speedyBlupi1:
         return speedyBlupi1Runtime;
     case GameProfile::speedyBlupi2:
+    case GameProfile::mobileEggbert:
         return speedyBlupi2Runtime;
     case GameProfile::unknown:
         break;
@@ -236,6 +237,7 @@ std::span<const ObjectPreset> objectPresets(GameProfile profile) {
     case GameProfile::speedyBlupi1:
         return speedyBlupi1Presets;
     case GameProfile::speedyBlupi2:
+    case GameProfile::mobileEggbert:
         return speedyBlupi2Presets;
     case GameProfile::unknown:
         break;

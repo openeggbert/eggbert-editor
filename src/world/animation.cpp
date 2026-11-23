@@ -54,7 +54,7 @@ TileFrame flags(GameProfile profile, SectionKind layer, std::int16_t stored) {
     if (profile == GameProfile::unknown || layer != SectionKind::foreground) {
         return frame;
     }
-    const bool second = profile == GameProfile::speedyBlupi2;
+    const bool second = tablesOf(profile) == GameProfile::speedyBlupi2;
     // Second pass of both games (src/decblock.cpp:1461-1515,
     // games/sb2/src/decblock.cpp:1900-2015).
     if (stored == 68 || stored == 91 || stored == 92 || isWindHead(stored) || isFanHead(stored)) {
@@ -85,7 +85,7 @@ TileFrame tileFrame(GameProfile profile, SectionKind layer, std::int16_t stored,
     if (profile == GameProfile::unknown) {
         return frame;
     }
-    const bool second = profile == GameProfile::speedyBlupi2;
+    const bool second = tablesOf(profile) == GameProfile::speedyBlupi2;
     const std::uint64_t t = tick;
     const std::uint64_t cellPhase = x * 13 + y * 7;
     const auto animate = [&](std::int16_t icon) {

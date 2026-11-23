@@ -183,7 +183,8 @@ void renderWorld(QPainter &painter, const WorldView &world, const ViewTransform 
     const double cellScreen = cell * transform.scale;
     const bool labels = options.showLabels && cellScreen >= 26.0;
 
-    const bool secondGame = art != nullptr && art->profile() == GameProfile::speedyBlupi2;
+    const bool secondGame =
+        art != nullptr && tablesOf(art->profile()) == GameProfile::speedyBlupi2;
     const auto drawProfile = art != nullptr ? art->profile() : options.profile;
     const AnimationFrame *animation = options.animation.get();
     // The frame of a tile now: animated with artwork, the stored number

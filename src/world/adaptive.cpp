@@ -73,6 +73,7 @@ std::span<const MaskRow *const> rowsFor(GameProfile profile) {
     case GameProfile::speedyBlupi1:
         return speedyBlupi1Rows;
     case GameProfile::speedyBlupi2:
+    case GameProfile::mobileEggbert:
         return speedyBlupi2Rows;
     case GameProfile::unknown:
         break;
@@ -124,7 +125,7 @@ public:
         if (x < 0 || x >= limitX_ || y < 0 || y >= limitY_) {
             return true; // outside the playfield
         }
-        const bool second = profile_ == GameProfile::speedyBlupi2;
+        const bool second = tablesOf(profile_) == GameProfile::speedyBlupi2;
         const int icon = at(x, y);
         if (second) {
             // Palace joins only palace and pipes only pipes, judged from
@@ -247,7 +248,7 @@ private:
 // Variant values the second game folds back before looking a value up
 // (games/sb2/src/decor.cpp:290-313). The first game has no such step.
 int foldVariant(GameProfile profile, int icon) {
-    if (profile != GameProfile::speedyBlupi2) {
+    if (tablesOf(profile) != GameProfile::speedyBlupi2) {
         return icon;
     }
     if (icon == 156) {
@@ -286,7 +287,7 @@ int withVariant(GameProfile profile, int icon, VariantSource &variants) {
     if (icon == 35) {
         return variants.coin() ? 156 : 35;
     }
-    if (profile != GameProfile::speedyBlupi2) {
+    if (tablesOf(profile) != GameProfile::speedyBlupi2) {
         return icon;
     }
     if (icon == 251) {
@@ -332,7 +333,7 @@ void refreshCell(EditBuilder &builder, GameProfile profile, long long x, long lo
         set(withVariant(profile, form, variants));
         return;
     }
-    if (profile != GameProfile::speedyBlupi2) {
+    if (tablesOf(profile) != GameProfile::speedyBlupi2) {
         return;
     }
     // Cheese border into an empty cell or over an existing cheese border.
@@ -366,7 +367,7 @@ void refreshAround(EditBuilder &builder, GameProfile profile, CellPos cell,
     refreshCell(builder, profile, x - 1, y, variants);
     refreshCell(builder, profile, x, y + 1, variants);
     refreshCell(builder, profile, x, y - 1, variants);
-    if (profile != GameProfile::speedyBlupi2) {
+    if (tablesOf(profile) != GameProfile::speedyBlupi2) {
         return;
     }
     const auto valueAt = [&](long long row) {
@@ -411,6 +412,7 @@ std::span<const AdaptiveFamily> adaptiveFamilies(GameProfile profile) {
     case GameProfile::speedyBlupi1:
         return speedyBlupi1Families;
     case GameProfile::speedyBlupi2:
+    case GameProfile::mobileEggbert:
         return speedyBlupi2Families;
     case GameProfile::unknown:
         break;

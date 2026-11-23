@@ -44,6 +44,9 @@ struct ProfileInfo {
     // effects the game creates while playing may find the pool full.
     int lowHeadroomFreeSlots = 0;
     std::string_view headroomRationale;
+    // True when the game's loader takes a stored tile number 0 for an empty
+    // cell, in both layers.
+    bool readsTileZeroAsEmpty = false;
 };
 
 inline constexpr ProfileInfo speedyBlupi1Info{
@@ -76,6 +79,28 @@ inline constexpr ProfileInfo speedyBlupi2Info{
     "(blupi_recon e05e22b games/sb2/src/decnet.cpp:20-43, games/sb2/src/decmove.cpp:778-810).",
 };
 
+// The second game's catalog with the port's own pictures and loader: its
+// tile sheet is a grid of 20 x 22 pictures, and stored values 48 to 67 are
+// drawn as they are.
+inline constexpr ProfileInfo mobileEggbertInfo{
+    GameProfile::mobileEggbert,
+    "Mobile Eggbert",
+    {0, 10, "mobile-eggbert dd0a592: the port's 78 worlds store 0 to 10; it has no music files"},
+    {0, 31, "mobile-eggbert dd0a592 Content/backgrounds: decor000 to decor031 (four numbers "
+            "have no picture)"},
+    {0, 440, "mobile-eggbert dd0a592 src/WindowsPhoneSpeedyBlupi/Tables.cpp table_decor_quart "
+             "(441 entries)"},
+    {0, 439, "mobile-eggbert dd0a592 Content/icons/object-m.png: 20 x 22 pictures by the grid "
+             "rule of Pixmap.cpp:649-663"},
+    {0, 99, "mobile-eggbert dd0a592 Content/icons/explo.png: 10 x 10 pictures (Pixmap.cpp:548-"
+            "560)"},
+    false,
+    16,
+    "Estimate taken over from the second Windows game, whose effects the port shares "
+    "(blupi_recon e05e22b games/sb2/src/decnet.cpp:20-43, games/sb2/src/decmove.cpp:778-810).",
+    true,
+};
+
 // bigDecor value both games draw from the tile sheet as an animated plant.
 inline constexpr std::int16_t bigDecorAnimatedPlant = 203;
 
@@ -86,6 +111,8 @@ inline constexpr std::int16_t bigDecorAnimatedPlant = 203;
         return &speedyBlupi1Info;
     case GameProfile::speedyBlupi2:
         return &speedyBlupi2Info;
+    case GameProfile::mobileEggbert:
+        return &mobileEggbertInfo;
     case GameProfile::unknown:
         break;
     }

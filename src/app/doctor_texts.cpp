@@ -65,6 +65,9 @@ constexpr const char *texts[] = {
         "%1 foreground cell(s) store 48 to 67; Speedy Blupi 2 shows them as 215 after "
         "loading. The file keeps the stored values."),
     QT_TRANSLATE_NOOP("eggbert::Doctor",
+        "%1 %2 cell(s) store 0, which Mobile Eggbert reads as an empty cell: nothing is "
+        "drawn or stood on there."),
+    QT_TRANSLATE_NOOP("eggbert::Doctor",
         "%1 foreground cell(s) store %2 where the game's editor would currently give a "
         "different border form (%3 at the first of them). This can be intentional."),
     QT_TRANSLATE_NOOP("eggbert::Doctor",

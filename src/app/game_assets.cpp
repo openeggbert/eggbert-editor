@@ -85,8 +85,28 @@ void makeBlueTransparent(QImage &image) {
 
 } // namespace
 
+QString GameAssets::mobileContentDirectory(const QString &directory) {
+    for (const auto &candidate :
+         {directory, findEntry(directory, QStringLiteral("Content"), QDir::Dirs)}) {
+        if (candidate.isEmpty()) {
+            continue;
+        }
+        const auto icons = findEntry(candidate, QStringLiteral("icons"), QDir::Dirs);
+        if (!icons.isEmpty() &&
+            !findEntry(icons, QStringLiteral("object-m.png"), QDir::Files).isEmpty()) {
+            return QFileInfo(candidate).absoluteFilePath();
+        }
+    }
+    return {};
+}
+
 ProfileDetection detectGameProfile(const QString &directory) {
     ProfileDetection detection;
+    if (!GameAssets::mobileContentDirectory(directory).isEmpty()) {
+        detection.profile = GameProfile::mobileEggbert;
+        detection.evidence << tr("icons/object-m.png exists: the picture sheet of Mobile Eggbert.");
+        return detection;
+    }
     const auto data = findEntry(directory, QStringLiteral("data"), QDir::Dirs);
     if (data.isEmpty()) {
         detection.evidence << tr("No DATA folder was found, so the game cannot be recognised.");
@@ -138,6 +158,9 @@ std::optional<SpriteSheet> GameAssets::sheetForChannel(int channel) {
 
 std::shared_ptr<const GameAssets> GameAssets::load(const QString &directory,
                                                    GameProfile profile) {
+    if (profile == GameProfile::mobileEggbert) {
+        return loadMobile(directory);
+    }
     auto assets = std::make_shared<GameAssets>();
     assets->directory_ = QFileInfo(directory).absoluteFilePath();
     assets->profile_ = profile;
@@ -331,6 +354,85 @@ std::shared_ptr<const GameAssets> GameAssets::load(const QString &directory,
     return assets;
 }
 
+// The port draws every picture from a regular grid: the tile sheet in cells
+// of 64 with a one-pixel frame around each, the element and player sheets in
+// cells of 60, the bigDecor sheet in cells of 144 (mobile-eggbert dd0a592
+// src/WindowsPhoneSpeedyBlupi/Pixmap.cpp:496-560, :649-663). Nothing is read
+// from an executable.
+std::shared_ptr<const GameAssets> GameAssets::loadMobile(const QString &directory) {
+    auto assets = std::make_shared<GameAssets>();
+    assets->profile_ = GameProfile::mobileEggbert;
+    auto &report = assets->report_;
+    const auto content = mobileContentDirectory(directory);
+    assets->directory_ =
+        content.isEmpty() ? QFileInfo(directory).absoluteFilePath() : content;
+    if (content.isEmpty()) {
+        report << tr("No icons folder with object-m.png was found here or in a Content folder.");
+        return assets;
+    }
+    const auto icons = findEntry(content, QStringLiteral("icons"), QDir::Dirs);
+    assets->imageDirectory_ = findEntry(content, QStringLiteral("backgrounds"), QDir::Dirs);
+    report << tr("Pictures are read from %1; their places follow the port's grid.").arg(icons);
+
+    struct Grid {
+        const char *fileName;
+        int table;
+        int cell;
+        int frame;
+    };
+    // Sheets in the order of SpriteSheet; the three further player channels
+    // share one sheet.
+    constexpr Grid grids[spriteSheetCount] = {
+        {"object-m.png", 0, 64, 1}, {"element.png", 1, 60, 0}, {"explo.png", 2, 144, 0},
+        {"blupi.png", 3, 60, 0},    {"blupi1.png", 3, 60, 0},  {"blupi1.png", 3, 60, 0},
+        {"blupi1.png", 3, 60, 0},
+    };
+    for (std::size_t index = 0; index < spriteSheetCount; ++index) {
+        const auto &grid = grids[index];
+        const auto name = QString::fromLatin1(grid.fileName);
+        const auto path = findEntry(icons, name, QDir::Files);
+        const auto bytes = path.isEmpty() ? std::nullopt : readLimited(path);
+        auto image = bytes ? QImage::fromData(*bytes, "PNG") : QImage();
+        if (image.isNull() || image.width() > 8192 || image.height() > 8192) {
+            report << tr("%1: not found or not a readable picture.").arg(name);
+            continue;
+        }
+        // Column and row as the port computes them: the sheet's width
+        // divided by the cell, each cell preceded by its frame.
+        const int columns = image.width() / grid.cell;
+        const int pitch = grid.cell + grid.frame;
+        const int rows = (image.height() - grid.frame) / pitch;
+        if (columns <= 0 || rows <= 0 || grid.frame + (columns - 1) * pitch + grid.cell >
+                                             image.width()) {
+            report << tr("%1: too small for the port's grid.").arg(name);
+            continue;
+        }
+        assets->sheets_[index].image = image.convertToFormat(QImage::Format_ARGB32_Premultiplied);
+        assets->sheets_[index].table = grid.table;
+        auto &table = assets->tables_[static_cast<std::size_t>(grid.table)];
+        if (!assets->tableFound_[static_cast<std::size_t>(grid.table)]) {
+            for (int icon = 0; icon < columns * rows; ++icon) {
+                SpriteRect rect;
+                rect.srcX = static_cast<std::int16_t>(grid.frame + icon % columns * pitch);
+                rect.srcY = static_cast<std::int16_t>(grid.frame + icon / columns * pitch);
+                rect.width = static_cast<std::int16_t>(grid.cell);
+                rect.height = static_cast<std::int16_t>(grid.cell);
+                table.sprites.push_back(rect);
+            }
+            assets->tableFound_[static_cast<std::size_t>(grid.table)] = true;
+        }
+        report << tr("%1: %2 x %3 pictures of %4 pixels.")
+                      .arg(name)
+                      .arg(columns)
+                      .arg(rows)
+                      .arg(grid.cell);
+    }
+    report << (assets->usable()
+                   ? tr("Tiles can be drawn with this artwork.")
+                   : tr("The tile sheet is not usable, so the world is drawn schematically."));
+    return assets;
+}
+
 bool GameAssets::usable() const {
     return !sheets_[static_cast<std::size_t>(SpriteSheet::tiles)].image.isNull();
 }
@@ -343,6 +445,18 @@ std::size_t GameAssets::spriteCount(SpriteSheet sheet) const {
 QImage GameAssets::readBackdrop(int region) const {
     if (region < 0 || region > 999 || imageDirectory_.isEmpty()) {
         return {};
+    }
+    if (profile_ == GameProfile::mobileEggbert) {
+        const auto path = findEntry(
+            imageDirectory_, QStringLiteral("decor%1.png").arg(region, 3, 10, QLatin1Char('0')),
+            QDir::Files);
+        const auto bytes = path.isEmpty() ? std::nullopt : readLimited(path);
+        auto image = bytes ? QImage::fromData(*bytes, "PNG") : QImage();
+        if (image.width() < 16 || image.height() < 16 || image.width() > 4096 ||
+            image.height() > 4096) {
+            return {};
+        }
+        return image.convertToFormat(QImage::Format_RGB32);
     }
     const auto name = QStringLiteral("decor%1.blp").arg(region, 3, 10, QLatin1Char('0'));
     // The games take the true-colour copy in IMAGE16 when the display
@@ -378,8 +492,8 @@ const QImage *GameAssets::backdrop(int region) const {
 }
 
 QString GameAssets::musicFile(int music) const {
-    if (music < 1 || music > 999) {
-        return {};
+    if (music < 1 || music > 999 || profile_ == GameProfile::mobileEggbert) {
+        return {}; // the port has no music files
     }
     const auto sound = findEntry(directory_, QStringLiteral("sound"), QDir::Dirs);
     if (sound.isEmpty()) {

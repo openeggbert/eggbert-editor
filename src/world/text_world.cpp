@@ -268,17 +268,40 @@ bool TextWorld::duplicateObject(std::size_t index) {
 }
 
 bool TextWorld::addObject(long long type, Point position, long long channel, long long icon) {
-    if (type == 0 || objectLines_.size() >= textWorldMostObjects || lines_.empty()) {
+    ObjectLine fields;
+    fields.type = type;
+    fields.stepAdvance = 1;
+    fields.stepRecede = 1;
+    fields.posStart = position;
+    fields.posEnd = position;
+    fields.posCurrent = position;
+    fields.step = 1;
+    fields.channel = channel;
+    fields.icon = icon;
+    return addObject(fields);
+}
+
+bool TextWorld::addObject(const ObjectLine &fields) {
+    if (fields.type == 0 || objectLines_.size() >= textWorldMostObjects || lines_.empty()) {
         return false;
     }
     const bool carriageReturns =
         lines_.size() > 1 && !lines_.front().empty() && lines_.front().back() == '\r';
-    const auto point = std::to_string(position.x) + ";" + std::to_string(position.y);
-    std::string text = std::string(objectSection) + ": type=" + std::to_string(type) +
-                       " stepAdvance=1 stepRecede=1 timeStopStart=0 timeStopEnd=0 posStart=" +
-                       point + " posEnd=" + point + " posCurrent=" + point +
-                       " step=1 time=0 phase=0 channel=" + std::to_string(channel) +
-                       " icon=" + std::to_string(icon) + " ";
+    const auto point = [](Point value) {
+        return std::to_string(value.x) + ";" + std::to_string(value.y);
+    };
+    std::string text = std::string(objectSection) + ": type=" + std::to_string(fields.type) +
+                       " stepAdvance=" + std::to_string(fields.stepAdvance) +
+                       " stepRecede=" + std::to_string(fields.stepRecede) +
+                       " timeStopStart=" + std::to_string(fields.timeStopStart) +
+                       " timeStopEnd=" + std::to_string(fields.timeStopEnd) +
+                       " posStart=" + point(fields.posStart) + " posEnd=" + point(fields.posEnd) +
+                       " posCurrent=" + point(fields.posCurrent) +
+                       " step=" + std::to_string(fields.step) +
+                       " time=" + std::to_string(fields.time) +
+                       " phase=" + std::to_string(fields.phase) +
+                       " channel=" + std::to_string(fields.channel) +
+                       " icon=" + std::to_string(fields.icon) + " ";
     if (!objectLines_.empty() && objectLines_.back() + 1 < lines_.size()) {
         // After the last object line, which ends with a line break.
         if (carriageReturns) {

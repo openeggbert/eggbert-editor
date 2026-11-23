@@ -78,6 +78,33 @@ DataFileName classifyDataFileName(std::string_view name) {
     return {};
 }
 
+std::optional<int> portWorldNumber(std::string_view name) {
+    std::string text(name);
+    for (auto &character : text) {
+        character = static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
+    }
+    if (text.size() != 12 || !text.starts_with("world") || !text.ends_with(".txt")) {
+        return std::nullopt;
+    }
+    int number = 0;
+    for (std::size_t index = 5; index < 8; ++index) {
+        if (text[index] < '0' || text[index] > '9') {
+            return std::nullopt;
+        }
+        number = number * 10 + (text[index] - '0');
+    }
+    return number;
+}
+
+std::string portWorldFileName(int number) {
+    if (number < 0 || number > 999) {
+        return {};
+    }
+    char buffer[32];
+    std::snprintf(buffer, sizeof buffer, "world%.3d.txt", number);
+    return buffer;
+}
+
 bool validWorldSlot(const WorldSlot &slot) {
     if (!slot.user) {
         return slot.number >= 1 && slot.number <= 999;
@@ -113,6 +140,21 @@ std::optional<WorldSlot> worldSlotOf(const DataFileName &name) {
 
 WorldRole officialWorldRole(GameProfile profile, int number) {
     if (profile == GameProfile::unknown || number < 1) {
+        return WorldRole::other;
+    }
+    if (profile == GameProfile::mobileEggbert) {
+        if (number == 1) {
+            return WorldRole::start;
+        }
+        if (number == 199) {
+            return WorldRole::finale;
+        }
+        if (number < 199 && number % 10 == 0) {
+            return WorldRole::hub;
+        }
+        if (number > 10 && number < 199 && number % 10 <= 8) {
+            return WorldRole::mission;
+        }
         return WorldRole::other;
     }
     const bool second = profile == GameProfile::speedyBlupi2;

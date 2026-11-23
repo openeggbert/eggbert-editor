@@ -7,12 +7,21 @@
 #include <expected>
 #include <functional>
 #include <memory>
+#include <optional>
 
+#include "world/text_world_image.hpp"
 #include "world/world_document.hpp"
 
 namespace eggbert {
 
-enum class LoadError { cannotOpen, tooLarge, readFailed };
+enum class LoadError {
+    cannotOpen,
+    tooLarge,
+    readFailed,
+    // A Mobile Eggbert text world whose shape or numbers the editor's
+    // layout cannot hold; it can still be edited as text.
+    textWorldShape,
+};
 
 struct LoadFailure {
     LoadError error{};
@@ -39,6 +48,9 @@ enum class SaveError {
     destinationExists,
     openFailed,
     writeFailed,
+    // A Mobile Eggbert text world was given something its text has no place
+    // for (a title, different second to fourth starts). Nothing was written.
+    notStorable,
     // A test hook asked for a failure just before the atomic replacement.
     abortedBeforeCommit,
     commitFailed,
@@ -66,12 +78,27 @@ public:
     // Largest input accepted; a world is about 50 KiB.
     static constexpr qint64 maximumBytes = 64 * 1024 * 1024;
 
+    // A `.blp` world is taken as its bytes. A Mobile Eggbert text world is
+    // laid out as a world image (see world/text_world_image.hpp); saving
+    // writes the changed values back into its text and nothing else.
     [[nodiscard]] static std::expected<std::unique_ptr<DocumentFile>, LoadFailure>
     load(const QString &path);
+    // True for a Mobile Eggbert text world.
+    [[nodiscard]] bool isTextWorld() const { return text_.has_value(); }
 
     [[nodiscard]] WorldDocument &document() { return document_; }
     [[nodiscard]] const WorldDocument &document() const { return document_; }
     [[nodiscard]] const QString &path() const { return path_; }
+
+    // The file's bytes as last read or written (a text world: its text).
+    [[nodiscard]] QByteArray savedContent() const;
+    // The bytes Save would write now, or why a text world cannot be written.
+    [[nodiscard]] std::expected<QByteArray, QString> currentContent() const;
+    // The document bytes that stand for `content`, an earlier copy of this
+    // file's contents (an autosave or a snapshot): the bytes themselves, or
+    // for a text world the image of that text.
+    [[nodiscard]] std::expected<std::vector<std::byte>, QString>
+    documentBytesOf(const QByteArray &content) const;
 
     // Compares the file at path() with the last saved bytes. Never writes.
     [[nodiscard]] DiskState diskState() const;
@@ -89,6 +116,11 @@ private:
 
     QString path_;
     WorldDocument document_;
+    // Text worlds only: the text as last read or written, and where each
+    // object slot is stored in it.
+    std::optional<TextWorld> text_;
+    TextWorldImage image_;
+    QByteArray diskText_;
 };
 
 [[nodiscard]] QByteArray toByteArray(std::span<const std::byte> bytes);

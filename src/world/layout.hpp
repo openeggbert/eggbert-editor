@@ -9,7 +9,17 @@
 
 namespace eggbert {
 
-enum class GameProfile { unknown, speedyBlupi1, speedyBlupi2 };
+// Mobile Eggbert is the port of the phone game. Its worlds are text files
+// (see text_world.hpp); what their numbers mean is the second Windows game's
+// catalog, with the differences listed where they matter.
+enum class GameProfile { unknown, speedyBlupi1, speedyBlupi2, mobileEggbert };
+
+// The Windows game whose tables a profile uses: tile and object numbers,
+// border forms and animations. Mobile Eggbert's tables equal the second
+// game's entry by entry (docs/research/evidence.md, "Mobile Eggbert").
+[[nodiscard]] constexpr GameProfile tablesOf(GameProfile profile) {
+    return profile == GameProfile::mobileEggbert ? GameProfile::speedyBlupi2 : profile;
+}
 enum class FormatRevision { unknown, v1_0, v1_1, v1_2, v1_3 };
 
 // What the 1.0 product may do with a structurally sound file of a revision.

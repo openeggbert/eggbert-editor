@@ -44,6 +44,27 @@ std::optional<GameProfile> parseGame(const QString &value) {
     return std::nullopt;
 }
 
+// The game a loaded world is read under. A Mobile Eggbert text world is
+// always that game; --game chooses between the Windows games for the rest.
+std::optional<GameProfile> gameOf(const DocumentFile &file, const QString &option,
+                                  QTextStream &err) {
+    if (file.isTextWorld()) {
+        if (!option.isNull()) {
+            err << file.path() << ": a Mobile Eggbert text world takes no --game\n";
+            return std::nullopt;
+        }
+        return GameProfile::mobileEggbert;
+    }
+    if (option.isNull()) {
+        return GameProfile::unknown;
+    }
+    const auto game = parseGame(option);
+    if (!game) {
+        err << "eggbert-editor: --game takes 1 or 2\n";
+    }
+    return game;
+}
+
 // Splits arguments into positional ones and options; an option that takes a
 // value consumes the next argument. Unknown options are an error.
 struct Parsed {
@@ -144,19 +165,20 @@ int validate(const QStringList &arguments, QTextStream &out, QTextStream &err) {
         return usageError(err, parsed.error.isEmpty() ? QStringLiteral("validate needs one file")
                                                       : parsed.error);
     }
-    auto profile = GameProfile::unknown;
-    if (parsed.values.contains(QStringLiteral("--game"))) {
-        const auto game = parseGame(parsed.values[QStringLiteral("--game")]);
-        if (!game) {
-            return usageError(err, QStringLiteral("--game takes 1 or 2"));
-        }
-        profile = *game;
+    if (parsed.values.contains(QStringLiteral("--game")) &&
+        !parseGame(parsed.values[QStringLiteral("--game")])) {
+        return usageError(err, QStringLiteral("--game takes 1 or 2"));
     }
     auto loaded = DocumentFile::load(parsed.positional[0]);
     if (!loaded) {
         err << parsed.positional[0] << ": " << loaded.error().detail << "\n";
         return exitUsage;
     }
+    const auto game = gameOf(*loaded.value(), parsed.values.value(QStringLiteral("--game")), err);
+    if (!game) {
+        return exitUsage;
+    }
+    const auto profile = *game;
     const auto report = runDoctor(loaded.value()->document().view(), profile);
     for (const auto &finding : report.findings) {
         out << "[" << QString::fromUtf8(severityName(finding.severity).data()) << "] "
@@ -277,18 +299,36 @@ int exportPng(const QStringList &arguments, QTextStream &out, QTextStream &err) 
                                 {static_cast<std::size_t>(numbers[0] + numbers[2] - 1),
                                  static_cast<std::size_t>(numbers[1] + numbers[3] - 1)}};
     }
-    auto profile = GameProfile::unknown;
-    if (parsed.values.contains(QStringLiteral("--game"))) {
-        const auto game = parseGame(parsed.values[QStringLiteral("--game")]);
-        if (!game) {
-            return usageError(err, QStringLiteral("--game takes 1 or 2"));
-        }
-        profile = *game;
+    if (parsed.values.contains(QStringLiteral("--game")) &&
+        !parseGame(parsed.values[QStringLiteral("--game")])) {
+        return usageError(err, QStringLiteral("--game takes 1 or 2"));
     }
+    auto loaded = DocumentFile::load(parsed.positional[0]);
+    if (!loaded) {
+        err << parsed.positional[0] << ": " << loaded.error().detail << "\n";
+        return exitUsage;
+    }
+    const auto game = gameOf(*loaded.value(), parsed.values.value(QStringLiteral("--game")), err);
+    if (!game) {
+        return exitUsage;
+    }
+    auto profile = *game;
     if (parsed.values.contains(QStringLiteral("--game-data"))) {
         const auto directory = parsed.values[QStringLiteral("--game-data")];
+        const auto found = detectGameProfile(directory).profile;
+        // The pictures of the port are laid out for its text worlds only,
+        // and those of the Windows games for theirs.
+        if (found != GameProfile::unknown &&
+            (found == GameProfile::mobileEggbert) != loaded.value()->isTextWorld()) {
+            err << directory << ": "
+                << (loaded.value()->isTextWorld()
+                        ? "a Mobile Eggbert text world is drawn with the pictures of Mobile "
+                          "Eggbert\n"
+                        : "the pictures of Mobile Eggbert are for its text worlds\n");
+            return exitUsage;
+        }
         if (profile == GameProfile::unknown) {
-            profile = detectGameProfile(directory).profile;
+            profile = found;
         }
         if (profile == GameProfile::unknown) {
             err << directory << ": the game was not recognised; say --game 1 or --game 2\n";
@@ -305,11 +345,6 @@ int exportPng(const QStringList &arguments, QTextStream &out, QTextStream &err) 
         options.render.artwork = assets;
     }
     options.render.profile = profile;
-    auto loaded = DocumentFile::load(parsed.positional[0]);
-    if (!loaded) {
-        err << parsed.positional[0] << ": " << loaded.error().detail << "\n";
-        return exitUsage;
-    }
     const auto result =
         exportWorldPng(loaded.value()->document().view(), profile, options, parsed.positional[1]);
     if (!result.ok) {
@@ -333,18 +368,32 @@ int create(const QStringList &arguments, QTextStream &out, QTextStream &err) {
     const auto parsed = parse(arguments, {QStringLiteral("--game")}, {});
     auto game = GameProfile::unknown;
     if (parsed.values.contains(QStringLiteral("--game"))) {
-        game = parseGame(parsed.values[QStringLiteral("--game")]).value_or(GameProfile::unknown);
+        const auto wanted = parsed.values[QStringLiteral("--game")];
+        game = wanted == QLatin1String("mobile")
+                   ? GameProfile::mobileEggbert
+                   : parseGame(wanted).value_or(GameProfile::unknown);
     }
     if (!parsed.error.isEmpty() || parsed.positional.size() != 1 ||
         game == GameProfile::unknown) {
-        return usageError(err, parsed.error.isEmpty()
-                                   ? QStringLiteral("new needs an output file and --game 1|2")
-                                   : parsed.error);
+        return usageError(err,
+                          parsed.error.isEmpty()
+                              ? QStringLiteral("new needs an output file and --game 1|2|mobile")
+                              : parsed.error);
     }
     const auto &path = parsed.positional[0];
     if (QFileInfo::exists(path)) {
         err << path << ": already exists; new never overwrites a file\n";
         return exitUsage;
+    }
+    if (game == GameProfile::mobileEggbert) {
+        const auto text = newTextWorld();
+        const auto *data = reinterpret_cast<const std::byte *>(text.data());
+        if (!writeNewFile(path, std::vector<std::byte>(data, data + text.size()))) {
+            err << path << ": cannot be written\n";
+            return exitUsage;
+        }
+        out << path << ": new Mobile Eggbert text world, " << text.size() << " bytes\n";
+        return exitOk;
     }
     const auto bytes = newWorld(game);
     if (!writeNewFile(path, bytes)) {
@@ -524,14 +573,10 @@ int convertGameCommand(const QStringList &arguments, QTextStream &out, QTextStre
 // matters for what World Doctor reports.
 std::optional<std::vector<WorldFact>> scenarioFacts(const Parsed &parsed, QTextStream &err,
                                                     int &code) {
-    auto profile = GameProfile::unknown;
-    if (parsed.values.contains(QStringLiteral("--game"))) {
-        const auto game = parseGame(parsed.values[QStringLiteral("--game")]);
-        if (!game) {
-            code = usageError(err, QStringLiteral("--game takes 1 or 2"));
-            return std::nullopt;
-        }
-        profile = *game;
+    if (parsed.values.contains(QStringLiteral("--game")) &&
+        !parseGame(parsed.values[QStringLiteral("--game")])) {
+        code = usageError(err, QStringLiteral("--game takes 1 or 2"));
+        return std::nullopt;
     }
     auto loaded = DocumentFile::load(parsed.positional[0]);
     if (!loaded) {
@@ -539,7 +584,12 @@ std::optional<std::vector<WorldFact>> scenarioFacts(const Parsed &parsed, QTextS
         code = exitUsage;
         return std::nullopt;
     }
-    return worldFacts(loaded.value()->document().view(), profile);
+    const auto game = gameOf(*loaded.value(), parsed.values.value(QStringLiteral("--game")), err);
+    if (!game) {
+        code = exitUsage;
+        return std::nullopt;
+    }
+    return worldFacts(loaded.value()->document().view(), *game);
 }
 
 int scenarioRecord(const QStringList &arguments, QTextStream &out, QTextStream &err) {
@@ -733,25 +783,48 @@ int merge(const QStringList &arguments, QTextStream &out, QTextStream &err) {
         err << target << ": already exists; merge never overwrites a file\n";
         return exitUsage;
     }
-    const auto merged = mergeWorlds(bytes(*files[0]), bytes(*files[1]), bytes(*files[2]),
-                                    preference);
+    // Mobile Eggbert text worlds are merged value by value like the rest,
+    // on the layout the editor holds them in, and the result is MINE's text
+    // with the merged values.
+    std::unique_ptr<DocumentFile> textMine;
+    std::vector<std::byte> images[3];
+    std::span<const std::byte> sides[3] = {bytes(*files[0]), bytes(*files[1]), bytes(*files[2])};
+    if (looksLikeTextWorld(std::string_view(files[1]->constData(),
+                                            static_cast<std::size_t>(files[1]->size())))) {
+        auto loaded = DocumentFile::load(parsed.positional[1]);
+        if (!loaded) {
+            err << parsed.positional[1] << ": " << loaded.error().detail << "\n";
+            return exitUsage;
+        }
+        textMine = std::move(loaded.value());
+        for (int index = 0; index < 3; ++index) {
+            auto image = textMine->documentBytesOf(*files[index]);
+            if (!image) {
+                err << parsed.positional[index] << ": " << image.error() << "\n";
+                return exitUsage;
+            }
+            images[index] = std::move(*image);
+            sides[index] = images[index];
+        }
+    }
+    const auto merged = mergeWorlds(sides[0], sides[1], sides[2], preference);
     if (!merged) {
         err << QString::fromStdString(merged.error()) << "\n";
         return exitUsage;
     }
-    const auto probe = probeWorld(bytes(*files[0]));
+    const auto probe = probeWorld(sides[0]);
     auto &list = merged->conflicts.empty() || preference != MergePreference::none ? out : err;
     for (const auto &conflict : merged->conflicts) {
         const auto shown = std::min<std::size_t>(conflict.range.size, 16);
-        const auto hex = [&](const QByteArray &file) {
+        const auto hex = [&](std::span<const std::byte> side) {
             return QString::fromStdString(
-                       formatHex(bytes(file).subspan(conflict.range.offset, shown))) +
+                       formatHex(side.subspan(conflict.range.offset, shown))) +
                    (shown < conflict.range.size ? QStringLiteral(" ...") : QString());
         };
         list << "conflict at offset " << conflict.range.offset << ", " << conflict.range.size
              << " byte(s), " << QString::fromStdString(offsetLabel(probe, conflict.range.offset))
-             << ": base " << hex(*files[0]) << " | mine " << hex(*files[1]) << " | theirs "
-             << hex(*files[2]) << "\n";
+             << ": base " << hex(sides[0]) << " | mine " << hex(sides[1]) << " | theirs "
+             << hex(sides[2]) << "\n";
     }
     if (!merged->conflicts.empty() && preference == MergePreference::none) {
         err << merged->conflicts.size()
@@ -759,7 +832,30 @@ int merge(const QStringList &arguments, QTextStream &out, QTextStream &err) {
                "take one side for them.\n";
         return exitFound;
     }
-    if (!writeNewFile(target, merged->bytes)) {
+    if (textMine) {
+        auto wanted = merged->bytes;
+        mirrorTextWorldStart(wanted);
+        // What the editor preserves keeps MINE's values, as in its window.
+        for (const auto &range : textMine->document().protectedRanges()) {
+            std::copy_n(sides[1].begin() + static_cast<std::ptrdiff_t>(range.offset), range.size,
+                        wanted.begin() + static_cast<std::ptrdiff_t>(range.offset));
+        }
+        EditBuilder builder(textMine->document());
+        for (const auto &range : differingRanges(sides[1], wanted)) {
+            builder.setBytes(range.offset,
+                             std::span<const std::byte>(wanted).subspan(range.offset, range.size));
+        }
+        if (builder.hasChanges() && !textMine->document().apply(builder.build("Merge"))) {
+            err << target << ": the merged world cannot be written as text\n";
+            return exitUsage;
+        }
+        if (const auto saved = textMine->saveAs(target, false); !saved.ok()) {
+            err << target << ": cannot be written"
+                << (saved.detail.isEmpty() ? QString() : QStringLiteral(": ") + saved.detail)
+                << "\n";
+            return exitUsage;
+        }
+    } else if (!writeNewFile(target, merged->bytes)) {
         err << target << ": cannot be written\n";
         return exitUsage;
     }
@@ -822,13 +918,18 @@ QString commandLineUsage() {
         "      combines the changes two worlds made to a common base, element by\n"
         "      element; exit 1 and nothing written when both changed the same element\n"
         "      differently and no side is preferred\n"
-        "  eggbert-editor new OUT --game 1|2\n"
-        "      the world the game's own editor starts with; OUT must not exist\n"
+        "  eggbert-editor new OUT --game 1|2|mobile\n"
+        "      the world the game's own editor starts with; OUT must not exist; for\n"
+        "      mobile a Mobile Eggbert text world\n"
         "  eggbert-editor scenario-record FILE OUT.txt [--game 1|2]\n"
         "      writes what is true of a world now (counts of tiles and objects, header\n"
         "      values, World Doctor findings) as expectations; OUT must not exist\n"
         "  eggbert-editor scenario-check FILE SCENARIO.txt [--game 1|2]\n"
         "      checks a world against recorded expectations; exit 1 when some fail\n"
+        "A Mobile Eggbert text world is taken by validate, the export commands,\n"
+        "merge and the scenario commands under its own game: --game is not given,\n"
+        "--game-data is the port's folder, and merge writes text. convert and\n"
+        "convert-game are for .blp worlds only.\n"
         "Exit codes: 0 success, 1 findings, differences, refused loss, merge\n"
         "conflicts, pictures that could not be written or failed expectations,\n"
         "2 usage or file error.\n");

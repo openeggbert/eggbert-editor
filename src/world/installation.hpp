@@ -81,7 +81,16 @@ enum class WorldRole {
     other,
 };
 
+// Mobile Eggbert numbers its worlds as the first game does but has neither
+// network worlds nor demos, and its last world is 199 (evidence.md, "Mobile
+// Eggbert text worlds").
 [[nodiscard]] WorldRole officialWorldRole(GameProfile profile, int number);
+
+// The number of a Mobile Eggbert world file, `world%.3d.txt` in the port's
+// `worlds` folder; case does not matter.
+[[nodiscard]] std::optional<int> portWorldNumber(std::string_view name);
+// Its file name for a number from 0 to 999; empty otherwise.
+[[nodiscard]] std::string portWorldFileName(int number);
 [[nodiscard]] std::string_view worldRoleName(WorldRole role);
 
 } // namespace eggbert

@@ -462,6 +462,7 @@ std::span<const IconRule> objectIconRules(GameProfile profile) {
     case GameProfile::speedyBlupi1:
         return firstGameRules;
     case GameProfile::speedyBlupi2:
+    case GameProfile::mobileEggbert:
         return secondGameRules;
     case GameProfile::unknown:
         break;

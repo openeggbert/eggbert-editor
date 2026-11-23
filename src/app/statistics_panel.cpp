@@ -97,13 +97,21 @@ void StatisticsPanel::refresh() {
     const auto stats = computeWorldStats(document.view());
     auto *root = tree_->invisibleRootItem();
 
+    const bool textWorld = tab_->file().isTextWorld();
     auto *file = addRow(root, tr("File (stored facts)"), {});
-    addRow(file, tr("Size"), tr("%1 bytes").arg(number(stats.fileBytes)));
-    addRow(file, tr("Revision field"),
-           stats.headerMajor ? QStringLiteral("%1.%2").arg(*stats.headerMajor).arg(*stats.headerMinor)
-                             : tr("unavailable"));
-    addRow(file, tr("Surplus bytes"), number(stats.surplusBytes));
-    addRow(file, tr("Missing bytes"), number(stats.missingBytes));
+    if (textWorld) {
+        // The file is text; sizes and revisions of the Windows format do not
+        // apply to it.
+        addRow(file, tr("Kind"), tr("Mobile Eggbert text world"));
+    } else {
+        addRow(file, tr("Size"), tr("%1 bytes").arg(number(stats.fileBytes)));
+        addRow(file, tr("Revision field"),
+               stats.headerMajor
+                   ? QStringLiteral("%1.%2").arg(*stats.headerMajor).arg(*stats.headerMinor)
+                   : tr("unavailable"));
+        addRow(file, tr("Surplus bytes"), number(stats.surplusBytes));
+        addRow(file, tr("Missing bytes"), number(stats.missingBytes));
+    }
 
     const auto addLayer = [&](const QString &title, const LayerStats &layer, RowKind kind) {
         auto *group = addRow(root, title, layer.present ? QString() : tr("absent"));
@@ -155,7 +163,8 @@ void StatisticsPanel::refresh() {
 
     if (stats.headerPresent) {
         auto *starts = addRow(root, tr("Player starts"), {});
-        for (int index = 0; index < 4; ++index) {
+        // A Mobile Eggbert world has one start.
+        for (int index = 0; index < (textWorld ? 1 : 4); ++index) {
             addRow(starts, tr("Start %1").arg(index + 1),
                    tr("(%1, %2) direction %3")
                        .arg(stats.startPositions[index].x)

@@ -75,6 +75,24 @@ public:
     // ends the game's list), channel and icon, the three positions equal,
     // steps 1 and the rest 0. False when the world is full or the type is 0.
     bool addObject(long long type, Point position, long long channel, long long icon);
+    // The same with every field given: the thirteen the game reads, in the
+    // order the game's files have them.
+    struct ObjectLine {
+        long long type = 0;
+        long long stepAdvance = 0;
+        long long stepRecede = 0;
+        long long timeStopStart = 0;
+        long long timeStopEnd = 0;
+        Point posStart;
+        Point posEnd;
+        Point posCurrent;
+        long long step = 0;
+        long long time = 0;
+        long long phase = 0;
+        long long channel = 0;
+        long long icon = 0;
+    };
+    bool addObject(const ObjectLine &fields);
 
     // What does not have the expected shape, one sentence each with its
     // line number. Empty for a well-formed world.

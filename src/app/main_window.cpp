@@ -94,6 +94,11 @@ namespace eggbert {
 
 namespace {
 
+std::span<const std::byte> asBytes(const QByteArray &data) {
+    return {reinterpret_cast<const std::byte *>(data.constData()),
+            static_cast<std::size_t>(data.size())};
+}
+
 // What a conversion refuses or loses, sentence by sentence in the
 // interface's language.
 QString conversionFailureText(const ConversionFailure &failure) {
@@ -120,16 +125,31 @@ QString conversionNoteText(const std::string &note) {
 constexpr int maximumRecentFiles = 10;
 const char *const worldFilter =
     QT_TRANSLATE_NOOP("eggbert::MainWindow",
-                      "Blupi world files (*.blp *.BLP *.xch *.XCH);;All files (*)");
+                      "World files (*.blp *.BLP *.xch *.XCH *.txt);;Blupi world files (*.blp "
+                      "*.BLP *.xch *.XCH);;Mobile Eggbert worlds (*.txt);;All files (*)");
 
 int artworkIndex(GameProfile profile) {
-    return profile == GameProfile::speedyBlupi1 ? 0 : profile == GameProfile::speedyBlupi2 ? 1 : -1;
+    return profile == GameProfile::speedyBlupi1     ? 0
+           : profile == GameProfile::speedyBlupi2   ? 1
+           : profile == GameProfile::mobileEggbert ? 2
+                                                    : -1;
 }
 
 QString artworkSettingKey(GameProfile profile) {
-    return profile == GameProfile::speedyBlupi1 ? QStringLiteral("artwork/directory-game1")
-                                                : QStringLiteral("artwork/directory-game2");
+    return profile == GameProfile::speedyBlupi1     ? QStringLiteral("artwork/directory-game1")
+           : profile == GameProfile::mobileEggbert ? QStringLiteral("artwork/directory-mobile")
+                                                    : QStringLiteral("artwork/directory-game2");
 }
+
+QString playtestSettingKey(GameProfile profile) {
+    return profile == GameProfile::mobileEggbert
+               ? QStringLiteral("playtest/command-mobile")
+               : QStringLiteral("playtest/command%1")
+                     .arg(profile == GameProfile::speedyBlupi1 ? 1 : 2);
+}
+
+constexpr GameProfile gamesWithArtwork[] = {GameProfile::speedyBlupi1, GameProfile::speedyBlupi2,
+                                            GameProfile::mobileEggbert};
 
 QString samePathKey(const QString &path) {
     const QFileInfo info(path);
@@ -271,7 +291,7 @@ MainWindow::MainWindow() {
         // Remembered artwork directories are read again; a directory that
         // disappeared simply leaves the schematic drawing.
         const QSettings stored;
-        for (const auto profile : {GameProfile::speedyBlupi1, GameProfile::speedyBlupi2}) {
+        for (const auto profile : gamesWithArtwork) {
             const auto directory = stored.value(artworkSettingKey(profile)).toString();
             if (!directory.isEmpty()) {
                 artwork_[artworkIndex(profile)] = GameAssets::load(directory, profile);
@@ -339,6 +359,11 @@ void MainWindow::installDefaultPrompts() {
     prompts.saveAsPath = [this](const QString &suggested) {
         return QFileDialog::getSaveFileName(this, tr("Save World As"), suggested,
                                             tr(worldFilter));
+    };
+    prompts.saveTextWorldAsPath = [this](const QString &suggested) {
+        return QFileDialog::getSaveFileName(
+            this, tr("Save World As"), suggested,
+            tr("Mobile Eggbert worlds (*.txt);;All files (*)"));
     };
     prompts.unsavedChanges = [this](DocumentTab *tab) {
         QMessageBox box(QMessageBox::Warning, tr("Unsaved Changes"),
@@ -798,6 +823,18 @@ void MainWindow::installDefaultPrompts() {
                                    .arg(replaced.size()));
         return box.exec() == QMessageBox::Yes;
     };
+    prompts.deployPortNumber = [this](DocumentTab *, int suggested,
+                                      const QString &worldsDirectory) -> std::optional<int> {
+        bool accepted = false;
+        const auto number = QInputDialog::getInt(
+            this, tr("Deploy Current World"),
+            tr("The world of the current tab, as it is now, is put into\n%1\nas world "
+               "number (a file there with that number is replaced; its present content is "
+               "kept and Roll Back Last Deploy puts it back):")
+                .arg(worldsDirectory),
+            suggested, 0, 999, 1, &accepted);
+        return accepted ? std::optional(number) : std::nullopt;
+    };
     prompts.deploySlot = [this](DocumentTab *, WorldSlot suggested,
                                 const QString &dataDirectory) -> std::optional<WorldSlot> {
         QDialog dialog(this);
@@ -952,17 +989,25 @@ void MainWindow::installDefaultPrompts() {
         const QStringList games{QString::fromUtf8(speedyBlupi1Info.name.data(),
                                                   static_cast<qsizetype>(speedyBlupi1Info.name.size())),
                                 QString::fromUtf8(speedyBlupi2Info.name.data(),
-                                                  static_cast<qsizetype>(speedyBlupi2Info.name.size()))};
+                                                  static_cast<qsizetype>(speedyBlupi2Info.name.size())),
+                                QString::fromUtf8(mobileEggbertInfo.name.data(),
+                                                  static_cast<qsizetype>(mobileEggbertInfo.name.size()))};
         bool accepted = false;
         const auto chosen = QInputDialog::getItem(
             this, tr("New World"),
             tr("The new world starts as the game's own editor starts one:\n"
-               "a small platform, one treasure and the goal.\n\nGame:"),
-            games, suggested == GameProfile::speedyBlupi1 ? 0 : 1, false, &accepted);
+               "a small platform, one treasure and the goal.\n"
+               "A Mobile Eggbert world is written as a text file.\n\nGame:"),
+            games,
+            suggested == GameProfile::speedyBlupi1 ? 0
+                                                   : suggested == GameProfile::mobileEggbert ? 2 : 1,
+            false, &accepted);
         if (!accepted) {
             return std::nullopt;
         }
-        return chosen == games[0] ? GameProfile::speedyBlupi1 : GameProfile::speedyBlupi2;
+        return chosen == games[0]   ? GameProfile::speedyBlupi1
+               : chosen == games[2] ? GameProfile::mobileEggbert
+                                    : GameProfile::speedyBlupi2;
     };
     prompts.convertRevision =
         [this](DocumentTab *tab) -> std::optional<std::pair<FormatRevision, bool>> {
@@ -1130,6 +1175,7 @@ void MainWindow::installDefaultPrompts() {
         MetadataDialog dialog(tab->document().view(), tab->profile(), this);
         dialog.setPage(static_cast<MetadataDialog::Page>(page));
         dialog.setExperimental(experimental_);
+        dialog.setTextWorld(tab->file().isTextWorld());
         if (dialog.exec() != QDialog::Accepted) {
             return std::nullopt;
         }
@@ -1172,6 +1218,8 @@ void MainWindow::installDefaultPrompts() {
                       static_cast<int>(GameProfile::speedyBlupi1));
         game->addItem(profileDisplayName(GameProfile::speedyBlupi2),
                       static_cast<int>(GameProfile::speedyBlupi2));
+        game->addItem(profileDisplayName(GameProfile::mobileEggbert),
+                      static_cast<int>(GameProfile::mobileEggbert));
         const auto preselected =
             detection.profile != GameProfile::unknown ? detection.profile : suggested;
         game->setCurrentIndex(std::max(0, game->findData(static_cast<int>(preselected))));
@@ -1614,8 +1662,7 @@ void MainWindow::createActions() {
                 if (profile == GameProfile::unknown) {
                     return;
                 }
-                const auto key = QStringLiteral("playtest/command%1")
-                                     .arg(profile == GameProfile::speedyBlupi1 ? 1 : 2);
+                const auto key = playtestSettingKey(profile);
                 if (const auto text =
                         prompts.playtestCommand(profile, QSettings().value(key).toString())) {
                     QSettings().setValue(key, *text);
@@ -2053,8 +2100,9 @@ void MainWindow::createActions() {
     profileCombo_->setToolTip(
         tr("Game profile for catalogs and previews. The world file does not say which game it "
            "belongs to, and choosing a profile never changes its bytes."));
-    for (const auto profile :
-         {GameProfile::unknown, GameProfile::speedyBlupi1, GameProfile::speedyBlupi2}) {
+    // Mobile Eggbert is not a choice: a text world is one, a .blp world is not.
+    for (const auto profile : {GameProfile::unknown, GameProfile::speedyBlupi1,
+                               GameProfile::speedyBlupi2, GameProfile::mobileEggbert}) {
         profileCombo_->addItem(profileDisplayName(profile), static_cast<int>(profile));
     }
     
@@ -2063,7 +2111,13 @@ void MainWindow::createActions() {
             return;
         }
         if (auto *tab = currentTab()) {
-            tab->setProfile(static_cast<GameProfile>(profileCombo_->itemData(index).toInt()));
+            const auto chosen = static_cast<GameProfile>(profileCombo_->itemData(index).toInt());
+            // The kind of file decides about Mobile Eggbert, not the user.
+            if (tab->file().isTextWorld() || chosen == GameProfile::mobileEggbert) {
+                updateUi();
+                return;
+            }
+            tab->setProfile(chosen);
             // An explicit choice is remembered for this file.
             rememberProfile(tab->file().path(), tab->profile());
         }
@@ -2451,6 +2505,24 @@ void MainWindow::rememberProfile(const QString &path, GameProfile profile) {
 }
 
 void MainWindow::adoptGameOfFolder(DocumentTab *tab) {
+    // A text world is a Mobile Eggbert world; its pictures are in the
+    // port's Content folder, next to the folder the worlds are in.
+    if (tab->file().isTextWorld()) {
+        tab->setProfile(GameProfile::mobileEggbert);
+        if (gameDirectoryFor(GameProfile::mobileEggbert) == nullptr) {
+            auto folder = QFileInfo(tab->file().path()).dir();
+            for (int level = 0; level < 3; ++level) {
+                if (!GameAssets::mobileContentDirectory(folder.absolutePath()).isEmpty()) {
+                    loadArtwork(folder.absolutePath(), GameProfile::mobileEggbert);
+                    break;
+                }
+                if (!folder.cdUp()) {
+                    break;
+                }
+            }
+        }
+        return;
+    }
     // An explicit earlier choice for this file wins.
     if (const auto remembered = rememberedProfile(tab->file().path());
         remembered != GameProfile::unknown) {
@@ -2963,7 +3035,7 @@ QString MainWindow::artworkReport() const {
                 "when they fit the sprite sheets. This has been checked with installations of "
                 "Speedy Eggbert 1 and Speedy Eggbert 2; other editions may differ, and anything "
                 "that cannot be validated is drawn schematically.");
-    for (const auto profile : {GameProfile::speedyBlupi1, GameProfile::speedyBlupi2}) {
+    for (const auto profile : gamesWithArtwork) {
         lines << QString() << profileDisplayName(profile);
         const auto &assets = artwork_[artworkIndex(profile)];
         if (assets == nullptr) {
@@ -3094,20 +3166,6 @@ DocumentTab *MainWindow::openPath(const QString &path) {
             return tabAt(index);
         }
     }
-    // A Mobile Eggbert text world is a different kind of document: it gets
-    // an editing window of its own and is never converted.
-    {
-        QFile file(path);
-        if (file.size() <= 4 * 1024 * 1024 && file.open(QIODevice::ReadOnly)) {
-            const auto bytes = file.readAll();
-            const std::string_view text(bytes.constData(), static_cast<std::size_t>(bytes.size()));
-            if (looksLikeTextWorld(text)) {
-                file.close();
-                openTextWorld(path);
-                return nullptr; // not a BLP tab: it has a window of its own
-            }
-        }
-    }
     // A demo recording starts with the same four bytes as a revision 1.0
     // world; it is shown as what it is instead of as a damaged world.
     {
@@ -3123,6 +3181,13 @@ DocumentTab *MainWindow::openPath(const QString &path) {
         }
     }
     auto loaded = DocumentFile::load(path);
+    if (!loaded && loaded.error().error == LoadError::textWorldShape) {
+        // A Mobile Eggbert world the full editor cannot hold (a shape problem
+        // or a number too large): it is edited as text, token by token.
+        openTextWorld(path);
+        statusBar()->showMessage(loaded.error().detail, 12000);
+        return nullptr;
+    }
     if (!loaded) {
         prompts.error(tr("Open World"),
                       tr("%1 could not be opened.\n%2").arg(path, loaded.error().detail));
@@ -3166,6 +3231,11 @@ bool MainWindow::saveTab(DocumentTab *tab) {
                                  8000);
         return true;
     }
+    if (result.error == SaveError::notStorable) {
+        prompts.error(tr("Save"),
+                      tr("%1 was not saved.\n%2").arg(tab->file().path(), result.detail));
+        return false;
+    }
     if (result.error == SaveError::conflict) {
         switch (prompts.saveConflict(tab, result)) {
         case ConflictChoice::saveAs:
@@ -3193,7 +3263,8 @@ bool MainWindow::saveTabAs(DocumentTab *tab) {
         return false;
     }
     const auto previousPath = tab->file().path();
-    const auto path = prompts.saveAsPath(previousPath);
+    const auto path = tab->file().isTextWorld() ? prompts.saveTextWorldAsPath(previousPath)
+                                                : prompts.saveAsPath(previousPath);
     if (path.isEmpty()) {
         return false;
     }
@@ -3253,8 +3324,11 @@ void MainWindow::flushAutosave() {
         auto *tab = tabAt(index);
         const auto &document = tab->document();
         if (document.isModified()) {
-            recovery_.writeAutosave(tab->file().path(), document.savedBytes(),
-                                    document.currentBytes());
+            // What Save would write: a text world is kept as text here too.
+            if (const auto current = tab->file().currentContent(); current) {
+                recovery_.writeAutosave(tab->file().path(), asBytes(tab->file().savedContent()),
+                                        asBytes(*current));
+            }
         } else {
             recovery_.removeAutosave(tab->file().path());
         }
@@ -3286,27 +3360,30 @@ int MainWindow::checkRecovery() {
                 detail = tr("The world file cannot be read; the changes can be saved as a copy.");
             } else {
                 const auto onDisk = file.readAll();
+                // A text world's copy is text of any length.
+                const bool text = looksLikeTextWorld(std::string_view(
+                    payload->constData(), static_cast<std::size_t>(payload->size())));
                 canRestore = onDisk.size() == entry.baseSize &&
                              QCryptographicHash::hash(onDisk, QCryptographicHash::Sha256) ==
                                  entry.baseSha256 &&
-                             onDisk.size() == payload->size();
+                             (text || onDisk.size() == payload->size());
                 if (!canRestore) {
                     detail = tr("The world file has changed since then; the changes can be saved "
                                 "as a copy.");
                 }
             }
         }
-        const auto wanted = std::span<const std::byte>(
-            reinterpret_cast<const std::byte *>(payload->constData()),
-            static_cast<std::size_t>(payload->size()));
         switch (prompts.recover(entry, canRestore, detail)) {
         case RecoveryChoice::restore: {
             if (!canRestore) {
                 break;
             }
             auto *tab = openPath(entry.originalPath);
-            if (tab != nullptr &&
-                tab->replaceBytes(wanted, tr("Restore Unsaved Changes"))) {
+            std::expected<std::vector<std::byte>, QString> wanted = std::unexpected(QString());
+            if (tab != nullptr) {
+                wanted = tab->file().documentBytesOf(*payload);
+            }
+            if (wanted && tab->replaceBytes(*wanted, tr("Restore Unsaved Changes"))) {
                 ++restored;
                 recovery_.remove(entry);
                 flushAutosave(); // the restored state is unsaved again
@@ -3378,9 +3455,10 @@ DocumentTab *MainWindow::createWorld() {
     if (!game || *game == GameProfile::unknown) {
         return nullptr;
     }
-    const auto name = QStringLiteral("new-world.blp");
-    const auto path =
-        prompts.saveAsPath(directory.isEmpty() ? name : QDir(directory).filePath(name));
+    const bool text = *game == GameProfile::mobileEggbert;
+    const auto name = text ? QStringLiteral("new-world.txt") : QStringLiteral("new-world.blp");
+    const auto suggested = directory.isEmpty() ? name : QDir(directory).filePath(name);
+    const auto path = text ? prompts.saveTextWorldAsPath(suggested) : prompts.saveAsPath(suggested);
     if (path.isEmpty()) {
         return nullptr;
     }
@@ -3392,20 +3470,29 @@ DocumentTab *MainWindow::createWorld() {
             return nullptr;
         }
     }
-    const auto bytes = newWorld(*game);
+    QByteArray content;
+    if (text) {
+        content = QByteArray::fromStdString(newTextWorld());
+    } else {
+        const auto bytes = newWorld(*game);
+        content = QByteArray(reinterpret_cast<const char *>(bytes.data()),
+                             static_cast<qsizetype>(bytes.size()));
+    }
     QSaveFile file(path);
     file.setDirectWriteFallback(false);
-    const auto size = static_cast<qint64>(bytes.size());
-    if (!file.open(QIODevice::WriteOnly) ||
-        file.write(reinterpret_cast<const char *>(bytes.data()), size) != size ||
+    if (!file.open(QIODevice::WriteOnly) || file.write(content) != content.size() ||
         !file.commit()) {
         prompts.error(tr("New World"), tr("%1 was not written.").arg(path));
         return nullptr;
     }
-    rememberProfile(path, *game);
+    if (!text) {
+        rememberProfile(path, *game);
+    }
     auto *opened = openPath(path);
     if (opened != nullptr) {
-        opened->setProfile(*game);
+        if (!text) {
+            opened->setProfile(*game);
+        }
         // The platform with the starts, the treasure and the goal.
         opened->canvas()->fitCells(CellPos{0, 0}, CellPos{12, 8});
     }
@@ -3525,14 +3612,27 @@ bool MainWindow::mergeInto(DocumentTab *tab) {
         }
         return file.readAll();
     };
-    const auto base = read(files->first);
-    const auto theirs = base ? read(files->second) : std::nullopt;
+    // The two other copies as this tab holds worlds: a .blp world's bytes,
+    // or the image of a Mobile Eggbert text world.
+    const auto readWorld = [&](const QString &path) -> std::optional<std::vector<std::byte>> {
+        const auto content = read(path);
+        if (!content) {
+            return std::nullopt;
+        }
+        auto bytes = tab->file().documentBytesOf(*content);
+        if (!bytes) {
+            prompts.error(tr("Merge Changes"), tr("%1: %2").arg(path, bytes.error()));
+            return std::nullopt;
+        }
+        return std::move(*bytes);
+    };
+    const auto base = readWorld(files->first);
+    const auto theirs = base ? readWorld(files->second) : std::nullopt;
     if (!base || !theirs) {
         return false;
     }
-    const auto span = [](const QByteArray &bytes) {
-        return std::span<const std::byte>(reinterpret_cast<const std::byte *>(bytes.constData()),
-                                          static_cast<std::size_t>(bytes.size()));
+    const auto span = [](const std::vector<std::byte> &bytes) {
+        return std::span<const std::byte>(bytes);
     };
     // The tab's current bytes, saved or not, are "mine".
     const auto mineBytes = tab->document().currentBytes();
@@ -3552,6 +3652,10 @@ bool MainWindow::mergeInto(DocumentTab *tab) {
         return false;
     }
     auto wanted = resolveMerge(*merged, mine, span(*theirs), *choices);
+    if (tab->file().isTextWorld()) {
+        // One start, whichever side each of its four copies was taken from.
+        mirrorTextWorldStart(wanted);
+    }
     // Ranges the editor preserves are never taken from another file here:
     // they keep this world's bytes, and the user is told.
     std::size_t preserved = 0;
@@ -4025,7 +4129,8 @@ std::optional<DeployRecord> MainWindow::deployWorld(DocumentTab *tab) {
     if (dataDirectory.isEmpty()) {
         prompts.error(tr("Deploy Current World"),
                       tr("Choose the directory of this world's game first (View > Game Artwork "
-                         "Directory); it must contain a DATA folder."));
+                         "Directory); it must contain a DATA folder, or for Mobile Eggbert have "
+                         "a worlds folder next to its Content folder."));
         return std::nullopt;
     }
     const auto &probe = tab->document().probe();
@@ -4035,15 +4140,50 @@ std::optional<DeployRecord> MainWindow::deployWorld(DocumentTab *tab) {
                       tr("Only a complete world can be deployed."));
         return std::nullopt;
     }
-    const auto slot = prompts.deploySlot(tab, suggestedSlot(tab, dataDirectory), dataDirectory);
-    if (!slot) {
+    // A text world goes into Mobile Eggbert's worlds folder as text, a .blp
+    // world into a Windows game's DATA folder; never one as the other.
+    const bool port = installation_->profile() == GameProfile::mobileEggbert;
+    if (port != tab->file().isTextWorld()) {
+        prompts.error(tr("Deploy Current World"),
+                      tr("This world and the chosen game directory belong to different games."));
         return std::nullopt;
     }
-    const auto fileName = QString::fromStdString(worldSlotFileName(*slot));
-    if (fileName.isEmpty()) {
-        prompts.error(tr("Deploy Current World"),
-                      tr("That is not a slot the games use (players 1 to 8, worlds 1 to 20)."));
-        return std::nullopt;
+    QString fileName;
+    QByteArray content;
+    if (port) {
+        const auto current = tab->file().currentContent();
+        if (!current) {
+            prompts.error(tr("Deploy Current World"), current.error());
+            return std::nullopt;
+        }
+        content = *current;
+        // Its own number when the file is named like a world of the game.
+        const auto own = portWorldNumber(QFileInfo(tab->file().path()).fileName().toStdString());
+        const auto number = prompts.deployPortNumber(tab, own.value_or(1), dataDirectory);
+        if (!number) {
+            return std::nullopt;
+        }
+        fileName = QString::fromStdString(portWorldFileName(*number));
+        if (fileName.isEmpty()) {
+            prompts.error(tr("Deploy Current World"),
+                          tr("Mobile Eggbert numbers its worlds from 0 to 999."));
+            return std::nullopt;
+        }
+    } else {
+        const auto slot =
+            prompts.deploySlot(tab, suggestedSlot(tab, dataDirectory), dataDirectory);
+        if (!slot) {
+            return std::nullopt;
+        }
+        fileName = QString::fromStdString(worldSlotFileName(*slot));
+        if (fileName.isEmpty()) {
+            prompts.error(tr("Deploy Current World"),
+                          tr("That is not a slot the games use (players 1 to 8, worlds 1 to "
+                             "20)."));
+            return std::nullopt;
+        }
+        content = QByteArray(reinterpret_cast<const char *>(tab->document().currentBytes().data()),
+                             static_cast<qsizetype>(tab->document().currentBytes().size()));
     }
     // A file that is open in the editor would be changed behind its tab.
     const auto key = samePathKey(QDir(dataDirectory).filePath(fileName)).toLower();
@@ -4055,7 +4195,7 @@ std::optional<DeployRecord> MainWindow::deployWorld(DocumentTab *tab) {
             return std::nullopt;
         }
     }
-    const auto result = deployStore_.deploy(dataDirectory, fileName, tab->document().currentBytes());
+    const auto result = deployStore_.deploy(dataDirectory, fileName, asBytes(content));
     if (!result) {
         prompts.error(tr("Deploy Current World"), result.error());
         return std::nullopt;
@@ -4102,10 +4242,7 @@ MainWindow::playtestCommandFor(GameProfile profile) const {
     if (game == nullptr || profile == GameProfile::unknown) {
         return std::nullopt;
     }
-    const auto text = QSettings()
-                          .value(QStringLiteral("playtest/command%1")
-                                     .arg(profile == GameProfile::speedyBlupi1 ? 1 : 2))
-                          .toString();
+    const auto text = QSettings().value(playtestSettingKey(profile)).toString();
     auto parts = QProcess::splitCommand(text);
     if (parts.isEmpty()) {
         return std::nullopt;
@@ -4113,7 +4250,13 @@ MainWindow::playtestCommandFor(GameProfile profile) const {
     PlaytestCommand command;
     command.program = parts.takeFirst();
     command.arguments = parts;
-    command.workingDirectory = game->directory();
+    // Mobile Eggbert's program is next to its Content folder, not in it.
+    command.workingDirectory =
+        profile == GameProfile::mobileEggbert &&
+                QFileInfo(game->directory()).fileName().compare(QLatin1String("Content"),
+                                                                Qt::CaseInsensitive) == 0
+            ? QFileInfo(game->directory()).absolutePath()
+            : game->directory();
     return command;
 }
 
@@ -4125,8 +4268,7 @@ bool MainWindow::playtest() {
                       tr("Open a world, choose its game and that game's directory first."));
         return false;
     }
-    const auto key =
-        QStringLiteral("playtest/command%1").arg(profile == GameProfile::speedyBlupi1 ? 1 : 2);
+    const auto key = playtestSettingKey(profile);
     if (!playtestCommandFor(profile)) {
         const auto text = prompts.playtestCommand(profile, QSettings().value(key).toString());
         if (!text || text->isEmpty()) {
@@ -4281,9 +4423,13 @@ bool MainWindow::takeSnapshot(DocumentTab *tab) {
     if (!name) {
         return false;
     }
-    const auto &document = tab->document();
-    if (!recovery_.writeSnapshot(tab->file().path(), *name, document.savedBytes(),
-                                 document.currentBytes())) {
+    const auto current = tab->file().currentContent();
+    if (!current) {
+        prompts.error(tr("Take Snapshot"), current.error());
+        return false;
+    }
+    if (!recovery_.writeSnapshot(tab->file().path(), *name, asBytes(tab->file().savedContent()),
+                                 asBytes(*current))) {
         prompts.error(tr("Take Snapshot"), tr("The snapshot could not be stored in %1.")
                                                .arg(recovery_.directory()));
         return false;
@@ -4313,14 +4459,16 @@ bool MainWindow::manageSnapshots(DocumentTab *tab) {
         prompts.error(tr("Snapshots"), tr("The snapshot %1.").arg(payload.error()));
         return false;
     }
-    const auto wanted = std::span<const std::byte>(
-        reinterpret_cast<const std::byte *>(payload->constData()),
-        static_cast<std::size_t>(payload->size()));
-    if (wanted.size() != tab->document().currentBytes().size()) {
+    const auto wanted = tab->file().documentBytesOf(*payload);
+    if (!wanted) {
+        prompts.error(tr("Snapshots"), tr("The snapshot cannot be used: %1").arg(wanted.error()));
+        return false;
+    }
+    if (wanted->size() != tab->document().currentBytes().size()) {
         prompts.error(tr("Snapshots"), tr("The snapshot has another size than this world."));
         return false;
     }
-    if (!tab->replaceBytes(wanted, tr("Restore Snapshot"))) {
+    if (!tab->replaceBytes(*wanted, tr("Restore Snapshot"))) {
         statusBar()->showMessage(tr("The world already equals this snapshot, or it cannot be "
                                     "edited."),
                                  6000);
@@ -4547,6 +4695,8 @@ void MainWindow::updateUi() {
 
     const bool hasTab = tab != nullptr;
     const bool writable = hasTab && tab->document().isWritable();
+    // A text world is a Mobile Eggbert world and nothing else is one.
+    const bool textWorld = hasTab && tab->file().isTextWorld();
     bool anyModified = false;
     for (int index = 0; index < tabCount(); ++index) {
         anyModified = anyModified || tabAt(index)->document().isModified();
@@ -4563,7 +4713,7 @@ void MainWindow::updateUi() {
     enable("fileSaveAll", anyModified);
     enable("fileRevert", hasTab);
     enable("fileSnapshot", hasTab);
-    enable("editBytes", writable && experimental_);
+    enable("editBytes", writable && experimental_ && !textWorld);
     if (auto *item = action(QStringLiteral("editBytes"))) {
         item->setVisible(experimental_);
     }
@@ -4576,7 +4726,10 @@ void MainWindow::updateUi() {
     enable("fileDeploy", installation_->deployButton()->isEnabled());
     enable("fileRollBack", haveDeploys_);
     {
-        const bool installed = !installation_->dataDirectory().isEmpty();
+        // The campaign check and campaign packs are about the Windows
+        // games' door rules and .blp files.
+        const bool installed = !installation_->dataDirectory().isEmpty() &&
+                               installation_->profile() != GameProfile::mobileEggbert;
         enable("fileCampaignOverview", installed);
         enable("fileExportPack", installed);
         enable("fileImportPack", installed);
@@ -4586,15 +4739,17 @@ void MainWindow::updateUi() {
     enable("fileExportSvg", hasTab);
     enable("fileRecordScenario", hasTab);
     enable("fileCheckScenario", hasTab);
-    enable("fileConvertRevision", hasTab);
+    enable("fileConvertRevision", hasTab && !textWorld);
     enable("fileMerge", writable);
-    enable("fileConvertGame", hasTab && tab->profile() != GameProfile::unknown);
+    enable("fileConvertGame",
+           hasTab && !textWorld && tab->profile() != GameProfile::unknown);
     enable("fileSnapshots", hasTab);
     enable("fileProperties", hasTab);
     enable("fileExportPng", hasTab);
     if (auto *toggle = action(QStringLiteral("viewArtwork"))) {
         toggle->setChecked(artworkEnabled_);
-        toggle->setEnabled(artwork_[0] != nullptr || artwork_[1] != nullptr);
+        toggle->setEnabled(artwork_[0] != nullptr || artwork_[1] != nullptr ||
+                           artwork_[2] != nullptr);
     }
     if (hasTab) {
         auto options = tab->canvas()->renderOptions();
@@ -4683,7 +4838,7 @@ void MainWindow::updateUi() {
     enable("worldMetadata", writable);
     enable("worldStarts", writable);
     enable("worldCopyStart", writable);
-    startSpin_->setEnabled(writable);
+    startSpin_->setEnabled(writable && !textWorld); // a text world has one start
     if (hasTab) {
         startSpin_->setValue(static_cast<int>(tab->activeStart()) + 1);
     }
@@ -4771,7 +4926,7 @@ void MainWindow::updateUi() {
     }
     layerCombo_->setEnabled(writable && layerCombo_->count() > 0);
     tileSpin_->setEnabled(writable);
-    profileCombo_->setEnabled(hasTab);
+    profileCombo_->setEnabled(hasTab && !textWorld);
     updating_ = false;
     palette_->setContext(profile, hasTab ? tab->activeLayer() : SectionKind::foreground,
                          currentArtwork);
@@ -4807,7 +4962,17 @@ void MainWindow::updateUi() {
     statistics_->setTab(tab);
     objects_->setArtwork(currentArtwork);
     objects_->setTab(tab);
-    inspector_->setTab(tab);
+    // The Binary Inspector shows the bytes of a file. A text world's bytes
+    // are its text; what the editor holds for it is a working layout, which
+    // would only mislead there.
+    const bool textTab = tab != nullptr && tab->file().isTextWorld();
+    inspector_->setTab(textTab ? nullptr : tab);
+    if (auto *toggle = action(QStringLiteral("viewInspector"))) {
+        toggle->setEnabled(!textTab);
+    }
+    if (textTab && inspectorDock_->isVisible()) {
+        inspectorDock_->hide();
+    }
     diagnostics_->setTab(tab);
     updateStatus();
 }
@@ -4845,8 +5010,10 @@ void MainWindow::updateStatus() {
                                     .arg(probe.descriptor->major)
                                     .arg(probe.descriptor->minor)
                               : tr("Unknown revision");
-    accessLabel_->setText(tab->document().isWritable() ? revision
-                                                       : tr("%1, read-only").arg(revision));
+    accessLabel_->setText(tab->file().isTextWorld()
+                              ? tr("Mobile Eggbert text world")
+                              : tab->document().isWritable() ? revision
+                                                             : tr("%1, read-only").arg(revision));
 }
 
 } // namespace eggbert

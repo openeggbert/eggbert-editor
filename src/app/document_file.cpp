@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "document_file.hpp"
 
+#include "app/core_texts.hpp"
+
 #include <QCoreApplication>
 #include <QFile>
 #include <QFileInfo>
@@ -87,6 +89,24 @@ std::expected<std::unique_ptr<DocumentFile>, LoadFailure> DocumentFile::load(con
         return std::unexpected(LoadFailure{
             LoadError::tooLarge, tr("The file is larger than %1 bytes.").arg(maximumBytes)});
     }
+    const std::string_view text(outcome.bytes.constData(),
+                                static_cast<std::size_t>(outcome.bytes.size()));
+    if (looksLikeTextWorld(text)) {
+        auto world = TextWorld::parse(text);
+        auto image = makeTextWorldImage(world);
+        if (!image) {
+            return std::unexpected(LoadFailure{
+                LoadError::textWorldShape,
+                tr("This Mobile Eggbert world can only be edited as text: %1")
+                    .arg(coreText(image.error()))});
+        }
+        std::unique_ptr<DocumentFile> file(
+            new DocumentFile(QFileInfo(path).absoluteFilePath(), image->bytes));
+        file->text_ = std::move(world);
+        file->image_ = std::move(*image);
+        file->diskText_ = outcome.bytes;
+        return file;
+    }
     return std::unique_ptr<DocumentFile>(
         new DocumentFile(QFileInfo(path).absoluteFilePath(), toByteVector(outcome.bytes)));
 }
@@ -95,6 +115,9 @@ DiskState DocumentFile::diskState() const {
     const auto outcome = readFile(path_, maximumBytes);
     if (outcome.state != DiskState::modified) {
         return outcome.state;
+    }
+    if (text_) {
+        return outcome.bytes == diskText_ ? DiskState::unchanged : DiskState::modified;
     }
     return sameBytes(outcome.bytes, document_.savedBytes()) ? DiskState::unchanged
                                                             : DiskState::modified;
@@ -134,9 +157,57 @@ SaveResult DocumentFile::saveAs(const QString &newPath, bool overwriteExisting,
     return result;
 }
 
+QByteArray DocumentFile::savedContent() const {
+    return text_ ? diskText_ : toByteArray(document_.savedBytes());
+}
+
+std::expected<QByteArray, QString> DocumentFile::currentContent() const {
+    if (!text_) {
+        return toByteArray(document_.currentBytes());
+    }
+    auto text = *text_;
+    auto image = image_;
+    if (const auto stored = storeTextWorldImage(text, image, document_.currentBytes()); !stored) {
+        return std::unexpected(coreText(stored.error()));
+    }
+    return QByteArray::fromStdString(text.write());
+}
+
+std::expected<std::vector<std::byte>, QString>
+DocumentFile::documentBytesOf(const QByteArray &content) const {
+    const auto *data = reinterpret_cast<const std::byte *>(content.constData());
+    if (!text_) {
+        return std::vector<std::byte>(data, data + content.size());
+    }
+    const std::string_view view(content.constData(), static_cast<std::size_t>(content.size()));
+    if (!looksLikeTextWorld(view)) {
+        return std::unexpected(tr("It is not a Mobile Eggbert text world."));
+    }
+    auto image = makeTextWorldImage(TextWorld::parse(view));
+    if (!image) {
+        return std::unexpected(coreText(image.error()));
+    }
+    return std::move(image->bytes);
+}
+
 SaveResult DocumentFile::write(const QString &destination, const SaveHooks &hooks) {
     SaveResult result;
-    const auto bytes = toByteArray(document_.currentBytes());
+    // A text world: the changed values go into a copy of the text, which
+    // replaces the kept one only when the file was written.
+    auto text = text_;
+    auto image = image_;
+    QByteArray bytes;
+    if (text) {
+        if (const auto stored = storeTextWorldImage(*text, image, document_.currentBytes());
+            !stored) {
+            result.error = SaveError::notStorable;
+            result.detail = coreText(stored.error());
+            return result;
+        }
+        bytes = QByteArray::fromStdString(text->write());
+    } else {
+        bytes = toByteArray(document_.currentBytes());
+    }
 
     QSaveFile file(destination);
     // Never fall back to truncating and rewriting the destination in place.
@@ -162,6 +233,11 @@ SaveResult DocumentFile::write(const QString &destination, const SaveHooks &hook
         result.error = SaveError::commitFailed;
         result.detail = file.errorString();
         return result;
+    }
+    if (text) {
+        text_ = std::move(text);
+        image_ = std::move(image);
+        diskText_ = bytes;
     }
     document_.markSaved();
     return result;

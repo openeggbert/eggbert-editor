@@ -240,6 +240,20 @@ void MetadataDialog::setExperimental(bool experimental) {
     refresh();
 }
 
+void MetadataDialog::setTextWorld(bool textWorld) {
+    textWorld_ = textWorld;
+    name_->setEnabled(!textWorld);
+    if (textWorld) {
+        name_->setToolTip(tr("A Mobile Eggbert world has no title."));
+    }
+    for (int index = 1; index < 4; ++index) {
+        startX_[index]->setEnabled(!textWorld);
+        startY_[index]->setEnabled(!textWorld);
+        startDirection_[index]->setEnabled(!textWorld);
+    }
+    refresh();
+}
+
 void MetadataDialog::refresh() {
     messages_->setText(messages());
     buttons_->button(QDialogButtonBox::Ok)->setEnabled(isValid());

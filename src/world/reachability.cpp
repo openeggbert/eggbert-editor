@@ -42,8 +42,13 @@ bool tileFullySolid(GameProfile profile, int tile) {
     if (profile == GameProfile::unknown) {
         return false;
     }
+    // The port's collision table equals the second game's except for tiles
+    // 49 to 67, none of whose quarters is solid there.
+    if (profile == GameProfile::mobileEggbert && tile >= 49 && tile <= 67) {
+        return false;
+    }
     return inRanges(sharedSolid, tile) ||
-           (profile == GameProfile::speedyBlupi2 && inRanges(secondSolid, tile));
+           (tablesOf(profile) == GameProfile::speedyBlupi2 && inRanges(secondSolid, tile));
 }
 
 ReachabilityEstimate estimateReachability(const WorldView &world, GameProfile profile) {
@@ -65,7 +70,7 @@ ReachabilityEstimate estimateReachability(const WorldView &world, GameProfile pr
     for (std::size_t x = 0; x < width; ++x) {
         for (std::size_t y = 0; y < height; ++y) {
             const int tile = *foreground->cell(x, y);
-            if (profile == GameProfile::speedyBlupi2 && tile >= 330 && tile <= 336) {
+            if (tablesOf(profile) == GameProfile::speedyBlupi2 && tile >= 330 && tile <= 336) {
                 estimate.reason = "the world has teleporters or key doors";
                 return estimate;
             }

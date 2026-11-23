@@ -174,6 +174,10 @@
    <source>Editing and saving are available for this revision.</source>
    <translation>Úpravy a ukládání jsou pro tuto revizi dostupné.</translation>
   </message>
+  <message>
+   <source>icons/object-m.png exists: the picture sheet of Mobile Eggbert.</source>
+   <translation>icons/object-m.png existuje: list obrázků hry Mobile Eggbert.</translation>
+  </message>
  </context>
  <context>
   <name>eggbert::Catalog</name>
@@ -1167,6 +1171,54 @@
    <source>BigDecor: %1 cell(s)</source>
    <translation>BigDecor: počet buněk %1</translation>
   </message>
+  <message>
+   <source>The file has Windows line ends (CR LF). Mobile Eggbert reads the carriage return as part of the last value of each line; save the file with plain line feeds first.</source>
+   <translation>Soubor má konce řádků Windows (CR LF). Mobile Eggbert čte znak návratu vozíku jako součást poslední hodnoty každého řádku; nejprve soubor uložte s prostými konci řádků (LF).</translation>
+  </message>
+  <message>
+   <source>The file lists more objects than the game reads.</source>
+   <translation>Soubor uvádí více objektů, než hra čte.</translation>
+  </message>
+  <message>
+   <source>The tile number at column %1, row %2 is too large for the editor.</source>
+   <translation>Číslo dlaždice ve sloupci %1, řádku %2 je pro editor příliš velké.</translation>
+  </message>
+  <message>
+   <source>The type of object line %1 is %2, where the game stops reading objects.</source>
+   <translation>Typ na řádku objektu %1 je %2, kde hra přestává objekty číst.</translation>
+  </message>
+  <message>
+   <source>The start or its direction is missing.</source>
+   <translation>Chybí start nebo jeho směr.</translation>
+  </message>
+  <message>
+   <source>This is not the image of a text world.</source>
+   <translation>Toto není obraz textového světa.</translation>
+  </message>
+  <message>
+   <source>A Mobile Eggbert world has no title; remove it to save.</source>
+   <translation>Svět Mobile Eggbert nemá název; před uložením jej odstraňte.</translation>
+  </message>
+  <message>
+   <source>A reserved part of the header was changed; a Mobile Eggbert world cannot store it.</source>
+   <translation>Byla změněna rezervovaná část hlavičky; svět Mobile Eggbert ji neumí uložit.</translation>
+  </message>
+  <message>
+   <source>A Mobile Eggbert world has one start; starts %1 to %2 must equal start %3.</source>
+   <translation>Svět Mobile Eggbert má jeden start; starty %1 až %2 se musí rovnat startu %3.</translation>
+  </message>
+  <message>
+   <source>The object in slot %1 has values a Mobile Eggbert world cannot store.</source>
+   <translation>Objekt ve slotu %1 má hodnoty, které svět Mobile Eggbert neumí uložit.</translation>
+  </message>
+  <message>
+   <source>The game reads at most %1 objects.</source>
+   <translation>Hra čte nejvýše %1 objektů.</translation>
+  </message>
+  <message>
+   <source>A value could not be written into the text; nothing was changed.</source>
+   <translation>Hodnotu se nepodařilo zapsat do textu; nic se nezměnilo.</translation>
+  </message>
  </context>
  <context>
   <name>eggbert::DemoTimeline</name>
@@ -1549,6 +1601,10 @@ Posuzováno pro: %1</translation>
    <source>estimate</source>
    <translation>odhad</translation>
   </message>
+  <message>
+   <source>%1 %2 cell(s) store 0, which Mobile Eggbert reads as an empty cell: nothing is drawn or stood on there.</source>
+   <translation>Počet buněk vrstvy %2 s hodnotou 0: %1. Mobile Eggbert ji čte jako prázdnou buňku: nic se tam nekreslí a nedá se na tom stát.</translation>
+  </message>
  </context>
  <context>
   <name>eggbert::DocumentFile</name>
@@ -1579,6 +1635,14 @@ Posuzováno pro: %1</translation>
   <message>
    <source>The save was abandoned before replacing the file.</source>
    <translation>Ukládání bylo přerušeno před nahrazením souboru.</translation>
+  </message>
+  <message>
+   <source>This Mobile Eggbert world can only be edited as text: %1</source>
+   <translation>Tento svět Mobile Eggbert lze upravovat jen jako text: %1</translation>
+  </message>
+  <message>
+   <source>It is not a Mobile Eggbert text world.</source>
+   <translation>Není to textový svět Mobile Eggbert.</translation>
   </message>
  </context>
  <context>
@@ -1910,6 +1974,22 @@ Posuzováno pro: %1</translation>
   <message>
    <source>The stamp was not placed.</source>
    <translation>Razítko nebylo umístěno.</translation>
+  </message>
+  <message>
+   <source>Mobile Eggbert</source>
+   <translation>Mobile Eggbert</translation>
+  </message>
+  <message>
+   <source>Move Start</source>
+   <translation>Přesunout start</translation>
+  </message>
+  <message>
+   <source>Decor %1</source>
+   <translation>Decor %1</translation>
+  </message>
+  <message>
+   <source>BigDecor %1</source>
+   <translation>BigDecor %1</translation>
   </message>
  </context>
  <context>
@@ -2319,6 +2399,30 @@ Posuzováno pro: %1</translation>
    <source>The tile sheet is not usable, so the world is drawn schematically.</source>
    <translation>Arch dlaždic není použitelný, svět se proto kreslí schematicky.</translation>
   </message>
+  <message>
+   <source>No icons folder with object-m.png was found here or in a Content folder.</source>
+   <translation>Složka icons se souborem object-m.png nebyla nalezena zde ani ve složce Content.</translation>
+  </message>
+  <message>
+   <source>Pictures are read from %1; their places follow the port's grid.</source>
+   <translation>Obrázky se čtou z %1; jejich umístění se řídí mřížkou portu.</translation>
+  </message>
+  <message>
+   <source>%1: not found or not a readable picture.</source>
+   <translation>%1: nenalezen nebo to není čitelný obrázek.</translation>
+  </message>
+  <message>
+   <source>%1: too small for the port's grid.</source>
+   <translation>%1: příliš malý pro mřížku portu.</translation>
+  </message>
+  <message>
+   <source>%1: %2 x %3 pictures of %4 pixels.</source>
+   <translation>%1: %2 x %3 obrázků po %4 pixelech.</translation>
+  </message>
+  <message>
+   <source>Tiles can be drawn with this artwork.</source>
+   <translation>Dlaždice lze touto grafikou kreslit.</translation>
+  </message>
  </context>
  <context>
   <name>eggbert::HexView</name>
@@ -2541,6 +2645,22 @@ Oficiálních světů: %2, uživatelských: %3, uložených her: %4, souborů hr
   <message>
    <source>%1 - replayed on world %2 - %3</source>
    <translation>%1 - přehrává se na světě %2 - %3</translation>
+  </message>
+  <message>
+   <source>%1 has no worlds folder next to it.</source>
+   <translation>Vedle %1 není složka worlds.</translation>
+  </message>
+  <message numerus="yes">
+   <source>%1
+%n world(s) of Mobile Eggbert. Double-click a world to open it.</source>
+   <translation>
+    <numerusform>%1
+%n svět hry Mobile Eggbert. Dvojklikem svět otevřete.</numerusform>
+    <numerusform>%1
+%n světy hry Mobile Eggbert. Dvojklikem svět otevřete.</numerusform>
+    <numerusform>%1
+%n světů hry Mobile Eggbert. Dvojklikem svět otevřete.</numerusform>
+   </translation>
   </message>
  </context>
  <context>
@@ -2870,16 +2990,6 @@ Spouští se v adresáři hry. Hry nemají volbu pro otevření konkrétního sv
   <message>
    <source>New World</source>
    <translation>Nový svět</translation>
-  </message>
-  <message>
-   <source>The new world starts as the game's own editor starts one:
-a small platform, one treasure and the goal.
-
-Game:</source>
-   <translation>Nový svět začíná tak, jak jej zakládá vlastní editor hry:
-malá plošina, jeden poklad a cíl.
-
-Hra:</translation>
   </message>
   <message>
    <source>Convert Revision</source>
@@ -4164,10 +4274,6 @@ Tyto soubory se nepodařilo vrátit zpět a zůstávají importované:
    <translation>Podklad: pravidlo dveří ve hrách (ze světa 1 vedou dveře do světa s desetinásobkem svého čísla; jinde do hubu skupiny plus své číslo a dlaždice 184 zpět do světa 1).</translation>
   </message>
   <message>
-   <source>Choose the directory of this world's game first (View &gt; Game Artwork Directory); it must contain a DATA folder.</source>
-   <translation>Nejprve zvolte adresář hry tohoto světa (Zobrazení &gt; Adresář s grafikou hry); musí obsahovat složku DATA.</translation>
-  </message>
-  <message>
    <source>Only a complete world can be deployed.</source>
    <translation>Nasadit lze pouze úplný svět.</translation>
   </message>
@@ -4526,6 +4632,58 @@ jinde: %5</translation>
    <comment>file name of the guide</comment>
    <translation>user-guide.cs.md</translation>
   </message>
+  <message>
+   <source>World files (*.blp *.BLP *.xch *.XCH *.txt);;Blupi world files (*.blp *.BLP *.xch *.XCH);;Mobile Eggbert worlds (*.txt);;All files (*)</source>
+   <translation>Soubory světů (*.blp *.BLP *.xch *.XCH *.txt);;Soubory světů Blupi (*.blp *.BLP *.xch *.XCH);;Světy Mobile Eggbert (*.txt);;Všechny soubory (*)</translation>
+  </message>
+  <message>
+   <source>Mobile Eggbert worlds (*.txt);;All files (*)</source>
+   <translation>Světy Mobile Eggbert (*.txt);;Všechny soubory (*)</translation>
+  </message>
+  <message>
+   <source>The world of the current tab, as it is now, is put into
+%1
+as world number (a file there with that number is replaced; its present content is kept and Roll Back Last Deploy puts it back):</source>
+   <translation>Svět z aktuální karty, tak jak teď je, se vloží do
+%1
+jako svět číslo (soubor s tímto číslem tam bude nahrazen; jeho současný obsah se uchová a Vrátit poslední nasazení jej vrátí zpět):</translation>
+  </message>
+  <message>
+   <source>The new world starts as the game's own editor starts one:
+a small platform, one treasure and the goal.
+A Mobile Eggbert world is written as a text file.
+
+Game:</source>
+   <translation>Nový svět začíná tak, jak jej zakládá vlastní editor hry:
+malá plošina, jeden poklad a cíl.
+Svět Mobile Eggbert se zapíše jako textový soubor.
+
+Hra:</translation>
+  </message>
+  <message>
+   <source>%1: %2</source>
+   <translation>%1: %2</translation>
+  </message>
+  <message>
+   <source>Choose the directory of this world's game first (View &gt; Game Artwork Directory); it must contain a DATA folder, or for Mobile Eggbert have a worlds folder next to its Content folder.</source>
+   <translation>Nejprve zvolte adresář hry tohoto světa (Zobrazení &gt; Adresář s grafikou hry); musí obsahovat složku DATA, nebo u hry Mobile Eggbert mít vedle složky Content složku worlds.</translation>
+  </message>
+  <message>
+   <source>This world and the chosen game directory belong to different games.</source>
+   <translation>Tento svět a zvolený adresář hry patří různým hrám.</translation>
+  </message>
+  <message>
+   <source>Mobile Eggbert numbers its worlds from 0 to 999.</source>
+   <translation>Mobile Eggbert čísluje své světy od 0 do 999.</translation>
+  </message>
+  <message>
+   <source>The snapshot cannot be used: %1</source>
+   <translation>Snímek nelze použít: %1</translation>
+  </message>
+  <message>
+   <source>Mobile Eggbert text world</source>
+   <translation>Textový svět Mobile Eggbert</translation>
+  </message>
  </context>
  <context>
   <name>eggbert::MetadataDialog</name>
@@ -4656,6 +4814,10 @@ jinde: %5</translation>
   <message>
    <source>Region %1 is outside the verified range %2 to %3.</source>
    <translation>Region %1 je mimo ověřený rozsah %2 až %3.</translation>
+  </message>
+  <message>
+   <source>A Mobile Eggbert world has no title.</source>
+   <translation>Svět Mobile Eggbert nemá název.</translation>
   </message>
  </context>
  <context>
@@ -5285,6 +5447,14 @@ Maluje dlaždici %2 a přepočítá tvary okrajů kolem ní.</translation>
   <message>
    <source>World statistics</source>
    <translation>Statistiky světa</translation>
+  </message>
+  <message>
+   <source>Kind</source>
+   <translation>Druh</translation>
+  </message>
+  <message>
+   <source>Mobile Eggbert text world</source>
+   <translation>Textový svět Mobile Eggbert</translation>
   </message>
  </context>
  <context>

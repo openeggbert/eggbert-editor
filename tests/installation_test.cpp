@@ -78,6 +78,32 @@ int main() {
     CHECK(officialWorldRole(two, 300) == WorldRole::demo);
     CHECK(officialWorldRole(GameProfile::unknown, 1) == WorldRole::other);
     CHECK(officialWorldRole(one, 0) == WorldRole::other);
+    // Mobile Eggbert: the first game's numbering, to 199, no network worlds
+    // and no demos; its files are text.
+    {
+        const auto port = GameProfile::mobileEggbert;
+        CHECK(officialWorldRole(port, 1) == WorldRole::start);
+        CHECK(officialWorldRole(port, 10) == WorldRole::hub);
+        CHECK(officialWorldRole(port, 120) == WorldRole::hub);
+        CHECK(officialWorldRole(port, 125) == WorldRole::mission);
+        CHECK(officialWorldRole(port, 19) == WorldRole::other);
+        CHECK(officialWorldRole(port, 5) == WorldRole::other);
+        CHECK(officialWorldRole(port, 199) == WorldRole::finale);
+        CHECK(officialWorldRole(port, 101) == WorldRole::mission); // not a network world
+        CHECK(officialWorldRole(port, 200) == WorldRole::other);
+        CHECK(officialWorldRole(port, 300) == WorldRole::other);
+        CHECK(portWorldNumber("world011.txt") == 11);
+        CHECK(portWorldNumber("WORLD199.TXT") == 199);
+        CHECK(portWorldNumber("world000.txt") == 0);
+        CHECK(!portWorldNumber("world11.txt"));
+        CHECK(!portWorldNumber("world011.blp"));
+        CHECK(!portWorldNumber("world0a1.txt"));
+        CHECK(!portWorldNumber("xworld011.txt"));
+        CHECK(portWorldFileName(11) == "world011.txt");
+        CHECK(portWorldFileName(999) == "world999.txt");
+        CHECK(portWorldFileName(1000).empty() && portWorldFileName(-1).empty());
+        CHECK(classifyDataFileName("world011.txt").kind == DataFileKind::other);
+    }
     CHECK(worldRoleName(WorldRole::hub) == "group hub");
     CHECK(worldRoleName(WorldRole::other).empty());
     return test::finish("installation");

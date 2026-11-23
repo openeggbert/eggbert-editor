@@ -3,6 +3,7 @@
 
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QListWidget>
@@ -17,6 +18,7 @@
 #include "app/metadata_dialog.hpp"
 #include "app/png_export.hpp"
 #include "world/demo_recording.hpp"
+#include "world/text_world_image.hpp"
 #include "world/world_probe.hpp"
 #include "world/world_stats.hpp"
 #include "world/world_view.hpp"
@@ -98,6 +100,19 @@ QString InstallationPanel::findDataDirectory(const QString &gameDirectory) {
     return {};
 }
 
+QString InstallationPanel::findPortWorldsDirectory(const QString &contentDirectory) {
+    if (contentDirectory.isEmpty()) {
+        return {};
+    }
+    for (const auto &candidate : {QDir(contentDirectory).filePath(QStringLiteral("../worlds")),
+                                  QDir(contentDirectory).filePath(QStringLiteral("worlds"))}) {
+        if (QFileInfo(candidate).isDir()) {
+            return QDir::cleanPath(candidate);
+        }
+    }
+    return {};
+}
+
 void InstallationPanel::setInstallation(const QString &gameDirectory, GameProfile profile) {
     gameDirectory_ = gameDirectory;
     profile_ = profile;
@@ -117,13 +132,16 @@ void InstallationPanel::refresh() {
     recordings_->clear();
     recordingsTitle_->hide();
     recordings_->hide();
-    dataDirectory_ = findDataDirectory(gameDirectory_);
+    const bool port = profile_ == GameProfile::mobileEggbert;
+    dataDirectory_ = port ? findPortWorldsDirectory(gameDirectory_)
+                          : findDataDirectory(gameDirectory_);
     choose_->setVisible(dataDirectory_.isEmpty());
     if (dataDirectory_.isEmpty()) {
         summary_->setText(gameDirectory_.isEmpty()
                               ? tr("Choose the directory of the game you have (View > Game "
                                    "Artwork Directory) to see its worlds here.")
-                              : tr("%1 has no DATA folder.").arg(gameDirectory_));
+                              : port ? tr("%1 has no worlds folder next to it.").arg(gameDirectory_)
+                                     : tr("%1 has no DATA folder.").arg(gameDirectory_));
         playtest_->setEnabled(!gameDirectory_.isEmpty());
         deploy_->setEnabled(false);
         return;
@@ -133,6 +151,14 @@ void InstallationPanel::refresh() {
     int recordings = 0;
     const QDir data(dataDirectory_);
     for (const auto &fileName : data.entryList(QDir::Files, QDir::Name | QDir::IgnoreCase)) {
+        if (port) {
+            // Mobile Eggbert keeps worlds only: world%.3d.txt.
+            if (const auto number = portWorldNumber(fileName.toStdString())) {
+                entries_.push_back({data.filePath(fileName),
+                                    {DataFileKind::officialWorld, 0, *number}, false, QString()});
+            }
+            continue;
+        }
         const auto name = classifyDataFileName(fileName.toStdString());
         switch (name.kind) {
         case DataFileKind::savedGame:
@@ -187,16 +213,27 @@ void InstallationPanel::refresh() {
         QFile file(entry.path);
         if (file.size() <= largestWorldRead && file.open(QIODevice::ReadOnly)) {
             const auto bytes = file.readAll();
-            const std::span<const std::byte> span(
+            std::span<const std::byte> span(
                 reinterpret_cast<const std::byte *>(bytes.constData()),
                 static_cast<std::size_t>(bytes.size()));
+            // A text world is drawn from its image, as its tab draws it.
+            std::vector<std::byte> image;
+            if (const std::string_view text(bytes.constData(),
+                                            static_cast<std::size_t>(bytes.size()));
+                port && looksLikeTextWorld(text)) {
+                if (auto made = makeTextWorldImage(TextWorld::parse(text))) {
+                    image = std::move(made->bytes);
+                }
+                span = image;
+            }
             const auto probe = probeWorld(span);
             entry.complete = probe.descriptor != nullptr &&
                              (probe.status == ProbeStatus::sizeMatches ||
                               probe.status == ProbeStatus::surplus);
             if (entry.complete) {
                 const WorldView view(span, probe);
-                if (const auto header = view.header(); header && probe.descriptor->minor >= 3) {
+                if (const auto header = view.header();
+                    header && probe.descriptor->minor >= 3 && !port) {
                     entry.title = decodeTitle(header->nameText());
                 }
                 PngExportOptions options;
@@ -250,14 +287,18 @@ void InstallationPanel::refresh() {
     }
     recordingsTitle_->setVisible(recordings != 0);
     recordings_->setVisible(recordings != 0);
-    summary_->setText(tr("%1\n%2 official world(s), %3 user world(s), %4 saved game(s), %5 "
-                         "player file(s), %6 recording(s). Double-click a world to open it.")
-                          .arg(dataDirectory_)
-                          .arg(official)
-                          .arg(user)
-                          .arg(saves)
-                          .arg(players)
-                          .arg(recordings));
+    summary_->setText(
+        port ? tr("%1\n%n world(s) of Mobile Eggbert. Double-click a world to open it.", nullptr,
+                  official)
+                   .arg(dataDirectory_)
+             : tr("%1\n%2 official world(s), %3 user world(s), %4 saved game(s), %5 "
+                  "player file(s), %6 recording(s). Double-click a world to open it.")
+                   .arg(dataDirectory_)
+                   .arg(official)
+                   .arg(user)
+                   .arg(saves)
+                   .arg(players)
+                   .arg(recordings));
     playtest_->setEnabled(true);
 }
 

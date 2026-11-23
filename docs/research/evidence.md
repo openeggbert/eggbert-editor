@@ -169,6 +169,27 @@ Basis of `src/world/text_world.cpp`. Source: `mobile-eggbert` at `dd0a592d878c7b
 
 Checked against that repository's 78 world files (2026-11-23, private, read only): each consists of one `DescFile:` line, a `Decor:` and a `BigDecor:` block of 100 lines and 3,560 `MoveObject:` lines in total; every file is written back byte for byte by the codec and none has a shape problem.
 
+### Mobile Eggbert as a game profile
+
+Basis of `GameProfile::mobileEggbert` (`src/world/profile.hpp`), `src/world/text_world_image.cpp`, `GameAssets::loadMobile` (`src/app/game_assets.cpp`) and the port's part of `src/world/installation.cpp`. Same source, read only; "compared" means a private script that read the port's table initialisers and the editor's own tables and compared the numbers (2026-11-23).
+
+| Observation | Where | How |
+| --- | --- | --- |
+| The world loader reads what a `.blp` world stores: `posDecor`, `dimDecor`, `music`, `region`, one `blupiPos` and `blupiDir`, two 100 x 100 layers, and the thirteen numbers of each object; the header line's `world` field is not read by it | `Decor.cpp:11304-11370` | read |
+| A tile read as 0 becomes -1 (empty) in both layers (World Doctor rule `TILE-PORT-ZERO`) | `Decor.cpp:11326-11341` | read |
+| The port's adaptive border tables (`table_adapt_decor`, `table_adapt_fromage`), `table_mirror` and the movement and animation tables of the creatures and bridges equal the second Windows game's | the port's `Tables` sources against `src/world` | compared |
+| `table_decor_quart` equals the second game's except tiles 49 to 67, whose quarters are all 0 in the port (not solid) | same | compared |
+| No tile is replaced on loading (the second Windows game replaces 48 to 67) | `Decor.cpp:11304-11370` has no such step | read |
+| The four durations of an object (`stepAdvance`, `stepRecede`, `timeStopStart`, `timeStopEnd`) are scaled by `Config::ScaleTime` as they are read, and an object of type 54 gets both waits replaced by the scaled value 152; `step`, `time` and `phase` are taken as stored. The editor shows and writes the stored numbers | `Decor.cpp:11346-11370` | read |
+| Pictures are cut from sheets on a fixed grid: the tile sheet in 64 x 64 cells each preceded by a one-pixel frame, as many columns as fit the width; elements and the player in 60 x 60 cells; bigDecor and explosions in 144 x 144 cells | `src/WindowsPhoneSpeedyBlupi/Pixmap.cpp:496-560`, `:649-663` | read |
+| Channels: 1 tiles, 2 player, 9 explosions and bigDecor, 10 elements, 11 to 13 the second player sheet | `Pixmap.cpp:496-560` | read |
+| The world is drawn in the second game's order, bigDecor from the explosion sheet, with picture 203 the animated plant | `Decor.cpp:649-760` | read |
+| Sheets are `Content/icons/object-m.png`, `element.png`, `blupi.png`, `blupi1.png`, `explo.png`; backdrops `Content/backgrounds/decorNNN.png`; there are no music files | the repository's `Content` folder | listed |
+| Leaving a mission returns to its hub (`mission / 10 * 10`) and leaving a hub returns to world 1; restarting is offered when the number is neither 1 nor a multiple of ten; world 199 is handled as the last one | `src/WindowsPhoneSpeedyBlupi/Game1.cpp:444-451`, `:806`; `Decor.cpp:6419-6421`, `:7118` | read |
+| The line splitter cuts at line feeds only and a number must parse completely, so with Windows line ends the last value of every line is read as 0 | `Worlds.cpp:72-89`, `:181` | read |
+
+Checked against that repository's 78 world files (2026-11-23, private, read only): every file can be laid out as an image; storing an unchanged image leaves the text byte for byte as it was; under the Mobile Eggbert profile World Doctor reports no error and no warning in any of them; header values stay within music 0 to 10 and region 0 to 31, and the largest tile number is 437. Not established, and therefore not offered for these worlds: the door rules between worlds beyond the numbering above (the Campaign Overview stays with the Windows games).
+
 ## New world
 
 | Observation | Where | How |

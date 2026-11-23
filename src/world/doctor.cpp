@@ -40,6 +40,8 @@ constexpr RuleInfo rules[] = {
     {"TILE-NOT-DRAWN", Severity::warning, "A stored tile number has no picture in the chosen game."},
     {"TILE-SB2-REMAP", Severity::note,
      "Speedy Blupi 2 shows stored foreground values 48 to 67 as 215."},
+    {"TILE-PORT-ZERO", Severity::warning,
+     "Mobile Eggbert reads a stored tile number 0 as an empty cell."},
     {"ADAPT-BORDER-FORM", Severity::note,
      "A border tile's form differs from what the game's editor would produce here."},
     {"OBJ-TYPE-RUNTIME", Severity::warning,
@@ -106,6 +108,9 @@ constexpr std::string_view tileNoCollision =
 constexpr std::string_view remapped =
     "%1 foreground cell(s) store 48 to 67; Speedy Blupi 2 shows them as 215 after loading. The "
     "file keeps the stored values.";
+constexpr std::string_view portZero =
+    "%1 %2 cell(s) store 0, which Mobile Eggbert reads as an empty cell: nothing is drawn or "
+    "stood on there.";
 constexpr std::string_view borderForm =
     "%1 foreground cell(s) store %2 where the game's editor would currently give a different "
     "border form (%3 at the first of them). This can be intentional.";
@@ -148,7 +153,8 @@ constexpr std::string_view patterns[] = {
     pattern::nameLong,         pattern::namePadding,      pattern::nameIgnored,
     pattern::reservedMarker,   pattern::reserved,         pattern::scrollUnusual,
     pattern::tileBelowEmpty,   pattern::tileNotDrawn,     pattern::tileNoCollision,
-    pattern::remapped,         pattern::borderForm,       pattern::positionOutside,
+    pattern::remapped,         pattern::portZero,         pattern::borderForm,
+    pattern::positionOutside,
     pattern::zeroDuration,     pattern::typeRuntime,      pattern::typeUnknown,
     pattern::channel,          pattern::iconRange,        pattern::poolFull,
     pattern::lowHeadroom,      pattern::freeStale,        pattern::cutOffGoal,
@@ -379,6 +385,7 @@ void checkLayer(Report &report, SectionKind kind) {
     std::map<std::int16_t, std::vector<CellPos>> noCollision;
     std::map<std::int16_t, std::vector<CellPos>> notDrawn;
     std::vector<CellPos> remapped;
+    std::vector<CellPos> zero;
     for (std::size_t x = 0; x < layout::mapWidth; ++x) {
         for (std::size_t y = 0; y < layout::mapHeight; ++y) {
             const auto value = *layer->cell(x, y);
@@ -390,6 +397,10 @@ void checkLayer(Report &report, SectionKind kind) {
                 continue;
             }
             if (info == nullptr) {
+                continue;
+            }
+            if (info->readsTileZeroAsEmpty && value == 0) {
+                zero.push_back({x, y});
                 continue;
             }
             if (kind == SectionKind::foreground) {
@@ -438,6 +449,16 @@ void checkLayer(Report &report, SectionKind kind) {
                 *layer->cellRange(remapped.front().x, remapped.front().y), true);
             finding.layer = kind;
             finding.cells = std::move(remapped);
+        }
+        if (!zero.empty()) {
+            auto &finding = report.add(
+                "TILE-PORT-ZERO", Confidence::provenLimit,
+                {pattern::portZero, {num(static_cast<long long>(zero.size())), layerName}},
+                "docs/research/evidence.md (mobile-eggbert "
+                "src/WindowsPhoneSpeedyBlupi/Decor.cpp:11326-11341)",
+                *layer->cellRange(zero.front().x, zero.front().y), true);
+            finding.layer = kind;
+            finding.cells = std::move(zero);
         }
     }
 }

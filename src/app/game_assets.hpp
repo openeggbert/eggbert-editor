@@ -42,6 +42,11 @@ public:
 
     [[nodiscard]] static std::shared_ptr<const GameAssets> load(const QString &directory,
                                                                 GameProfile profile);
+    // Mobile Eggbert keeps its pictures as PNG sheets on a regular grid
+    // (`Content/icons`) and its backdrops in `Content/backgrounds`. Given
+    // the port's folder or its Content folder, the folder that holds
+    // `icons`; empty when neither does.
+    [[nodiscard]] static QString mobileContentDirectory(const QString &directory);
 
     [[nodiscard]] const QString &directory() const { return directory_; }
     [[nodiscard]] GameProfile profile() const { return profile_; }
@@ -77,6 +82,8 @@ private:
         // Index into tables_; player sheets share one table.
         int table = -1;
     };
+
+    static std::shared_ptr<const GameAssets> loadMobile(const QString &directory);
 
     QString directory_;
     QString imageDirectory_;

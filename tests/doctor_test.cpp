@@ -126,7 +126,7 @@ int main() {
             CHECK(ids.insert(std::string(info.id)).second);
             CHECK(!info.summary.empty());
         }
-        CHECK_EQ(ids.size(), std::size_t{30}); // 29 of the 1.0 scope and REACH-CUT-OFF
+        CHECK_EQ(ids.size(), std::size_t{31}); // 29 of the 1.0 scope, REACH-CUT-OFF, TILE-PORT-ZERO
     }
 
     // --- Structure -----------------------------------------------------
@@ -319,6 +319,21 @@ int main() {
     expectRules(fgCell(67), sb2, {"TILE-SB2-REMAP"});
     expectRules(fgCell(68), sb2, {});
     expectRules(fgCell(50), sb1, {});
+    // Mobile Eggbert: no replacement on loading, but tile 0 is read as an
+    // empty cell in both layers.
+    {
+        const auto port = GameProfile::mobileEggbert;
+        expectRules(fgCell(50), port, {});
+        expectRules(fgCell(1), port, {});
+        expectRules(fgCell(440), port, {"TILE-NOT-DRAWN"});
+        const auto report = expectRules(fgCell(0), port, {"TILE-PORT-ZERO"});
+        CHECK(report.findings.front().severity == Severity::warning);
+        CHECK(report.findings.front().message.find("1 foreground cell(s) store 0") == 0);
+        expectRules(fgCell(0), sb2, {});
+        expectRules(
+            [](Bytes &b) { put16(b, fxCellOffset(fxRevision13.bigDecorOffset, 10, 20), 0); },
+            port, {"TILE-PORT-ZERO"});
+    }
     // bigDecor picture table and the animated plant exception.
     const auto bigCell = [](int value) {
         return [value](Bytes &b) {

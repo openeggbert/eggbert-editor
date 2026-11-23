@@ -67,6 +67,8 @@ QString profileDisplayName(GameProfile profile) {
         return DocumentTab::tr("Speedy Blupi / Eggbert 1");
     case GameProfile::speedyBlupi2:
         return DocumentTab::tr("Speedy Blupi II / Eggbert 2");
+    case GameProfile::mobileEggbert:
+        return DocumentTab::tr("Mobile Eggbert");
     }
     return {};
 }
@@ -406,14 +408,25 @@ bool DocumentTab::applyMetadataEdit(const Metadata &metadata) {
         emit statusMessage(fromView(writeAccessReason(document().writeAccess())));
         return false;
     }
+    auto wanted = metadata;
+    if (file_->isTextWorld()) {
+        // A Mobile Eggbert world has no title and one start.
+        wanted.name.clear();
+        for (std::size_t index = 1; index < wanted.starts.size(); ++index) {
+            wanted.starts[index] = wanted.starts[0];
+        }
+    }
     EditBuilder builder(document());
-    if (!applyMetadata(builder, metadata) || !builder.hasChanges()) {
+    if (!applyMetadata(builder, wanted) || !builder.hasChanges()) {
         return false;
     }
     return applyTransaction(builder.build(tr("Edit Metadata").toStdString()));
 }
 
 void DocumentTab::setActiveStart(std::size_t index) {
+    if (file_->isTextWorld()) {
+        return; // one start
+    }
     if (index < 4 && index != activeStart_) {
         activeStart_ = index;
         emit toolStateChanged();
@@ -437,6 +450,11 @@ bool DocumentTab::placeStartAt(CellPos cell) {
     } else {
         placeStart(builder, activeStart_, cell);
         label = tr("Move Start %1").arg(activeStart_ + 1);
+    }
+    if (file_->isTextWorld()) {
+        // The one start of a Mobile Eggbert world, kept in all four places.
+        copyStartToAll(builder, activeStart_);
+        label = tr("Move Start");
     }
     if (!builder.hasChanges()) {
         return false;
@@ -1022,7 +1040,15 @@ bool DocumentTab::placeStampAt(const Stamp &stamp, CellPos at) {
         }
     }
     EditBuilder builder(document());
-    const auto placed = placeStamp(builder, stamp, at);
+    // A text world has no place for the two unexplained numbers of an object.
+    auto plain = stamp;
+    if (file_->isTextWorld()) {
+        for (auto &object : plain.objects) {
+            object.unknown1 = 0;
+            object.unknown2 = 0;
+        }
+    }
+    const auto placed = placeStamp(builder, plain, at);
     if (!placed) {
         emit statusMessage(coreText(placed.error()));
         return false;
@@ -1399,6 +1425,12 @@ QString DocumentTab::describeCell(CellPos cell) const {
     const auto view = document().view();
     QStringList parts;
     parts << tr("Cell (%1, %2)").arg(cell.x).arg(cell.y);
+    if (file_->isTextWorld()) {
+        // A text world has no byte offsets worth showing: its two blocks.
+        parts << tr("Decor %1").arg(*view.foreground()->cell(cell.x, cell.y));
+        parts << tr("BigDecor %1").arg(*view.bigDecor()->cell(cell.x, cell.y));
+        return parts.join(QStringLiteral("   "));
+    }
     if (const auto layer = view.foreground()) {
         parts << tr("foreground %1 @ offset %2")
                      .arg(*layer->cell(cell.x, cell.y))
