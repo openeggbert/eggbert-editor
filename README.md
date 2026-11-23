@@ -1,8 +1,20 @@
 # Eggbert Editor
 
-A desktop editor for 2D worlds from the Windows games Speedy Blupi and Speedy Blupi II, also released as Speedy Eggbert and Speedy Eggbert 2. It supports lossless editing of individual worlds, installation-wide editing, Mobile Eggbert text worlds, conversion between the two Windows games, recovery and command-line tools. Mobile Eggbert text worlds are a separate kind of document with their own editing window; conversion between BLP and Mobile Eggbert worlds is intentionally unsupported in both directions.
+A desktop editor for 2D worlds from the Windows games Speedy Blupi and Speedy Blupi II, also released as Speedy Eggbert and Speedy Eggbert 2. It supports lossless editing of individual worlds, installation-wide editing, Mobile Eggbert text worlds, conversion between the two Windows games, recovery and command-line tools. Mobile Eggbert text worlds open in the same editing workspace with their own format and game settings.
 
-What works today:
+## Screenshots
+
+The mapping workspace shows the scenery palette on the left and the minimap and tile counts on the right. The example is a Speedy Eggbert 2 world.
+
+![Terraced Garden in the desktop editor, with Blupi on a grassy platform, the scenery palette and the world statistics](docs/screenshots/desktop-workspace.png)
+
+In the Mobile Eggbert example, selecting the lift shows both ends of its path on the map and its coordinates and timing in the Objects panel.
+
+![Mobile Eggbert workshop with a selected lift, numbered path endpoints and editable object properties](docs/screenshots/mobile-objects.png)
+
+Both example levels were made for these screenshots. The pictured game artwork is © Daniel Roux and EPSITEC SA, licensed under GPLv3. [Original artwork and license](https://github.com/blupi-games/speedyblupi-data/tree/7f5cbffb925e06951fff65a71b275e8be76ce12b)
+
+## Features
 
 - **Open** any number of `.blp`/`.xch` files in tabs. A structural probe selects the layout from the revision field (1.0–1.3) and reports truncation or surplus bytes; **File → Document Properties** shows the probe and a decoded summary. The world format has no signature, so this is consistency, never proof, and the game (Speedy Blupi 1 or 2) cannot be read from the file: you choose a profile per tab, which never changes bytes.
 - **View** the world on a canvas that needs no game assets: foreground, `bigDecor`, player starts, objects and motion paths are drawn schematically, with pan (middle button, Alt+drag or the Browse tool), Ctrl+wheel zoom about the pointer, Zoom In/Out, Actual Pixels, Fit World, Fit Selection, grid, value labels and per-layer visibility. Arrow keys move a visible cell cursor; Space applies the active tool.

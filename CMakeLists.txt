@@ -197,6 +197,7 @@ install(FILES resources/eggbert-editor.svg
 install(FILES COPYING NOTICE.md README.md docs/user-guide.md docs/user-guide.cs.md
     docs/format-notes.md
     DESTINATION "${CMAKE_INSTALL_DOCDIR}")
+install(DIRECTORY docs/screenshots DESTINATION "${CMAKE_INSTALL_DOCDIR}/docs")
 
 set(CPACK_PACKAGE_NAME "eggbert-editor")
 set(CPACK_PACKAGE_VENDOR "Open Eggbert")

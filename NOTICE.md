@@ -4,7 +4,7 @@
 
 Copyright the Eggbert Editor contributors. Licensed under the GNU General Public License version 3 only (SPDX `GPL-3.0-only`); the full text is in `COPYING`. The corresponding source code and build instructions are in the project repository.
 
-Eggbert Editor contains no artwork, sound, world file, executable code or data table taken from Speedy Blupi, Speedy Eggbert, Speedy Blupi II or Speedy Eggbert 2. Its icon and its schematic drawing are original. Knowledge of the world file format and of the games' level-editor behavior was obtained by reading the publicly available reconstruction listed in `docs/research/evidence.md`; the implementation and all test data were written independently.
+The editor executable contains no artwork, sound, world file, executable code or data table taken from Speedy Blupi, Speedy Eggbert, Speedy Blupi II or Speedy Eggbert 2. Its icon and its schematic drawing are original. The two documentation screenshots show new demonstration levels using graphics from the separately published GPLv3 Speedy Blupi art collection. The artwork visible there is copyright Daniel Roux and EPSITEC SA. [Original sources and license](https://github.com/blupi-games/speedyblupi-data/tree/7f5cbffb925e06951fff65a71b275e8be76ce12b) Knowledge of the world file format and of the games' level-editor behavior was obtained by reading the publicly available reconstruction listed in `docs/research/evidence.md`; the implementation and all test data were written independently.
 
 "Speedy Blupi", "Speedy Eggbert" and related names belong to their respective owners. This project is not affiliated with or endorsed by them.
 
@@ -17,4 +17,4 @@ Eggbert Editor contains no artwork, sound, world file, executable code or data t
 
 Qt is used unmodified through the system's shared libraries; the packages produced by this project's build do not bundle Qt, its plugins or any fonts and depend on the distribution's Qt packages instead. If you redistribute a build that does bundle Qt, include Qt's license texts and attribution notices and keep the libraries replaceable as the LGPL requires.
 
-No other third-party code, fonts or assets are included.
+The example screenshots and their artwork credits are documented above.
