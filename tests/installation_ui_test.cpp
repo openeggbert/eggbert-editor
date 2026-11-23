@@ -6,6 +6,7 @@
 // program is started by this test).
 
 #include "app/installation_panel.hpp"
+#include "app/demo_viewer.hpp"
 #include "app/main_window.hpp"
 
 #include "check.hpp"
@@ -131,6 +132,38 @@ int main(int argc, char **argv) {
                                             "game(s), 1 player file(s), 1 recording(s)"));
     CHECK(panel->deployButton()->isEnabled());
     CHECK(!panel->rollBackButton()->isEnabled());
+    // The recordings have a list of their own: a file under a recording's
+    // name that is not one says so, a real one says how long it is and
+    // opens in the recording window.
+    {
+        auto *recordings = panel->recordingList();
+        CHECK(recordings != nullptr && !recordings->isHidden());
+        CHECK(!recordings->accessibleName().isEmpty());
+        CHECK_EQ(recordings->count(), 1);
+        CHECK_EQ(recordings->item(0)->text(),
+                 QString("DEMO200.BLP - replayed on world 200 - not a recording the games "
+                         "would write"));
+        QByteArray demo(204, '\0');
+        demo[0] = 1;
+        for (const int value : {10, 2, 600, 0}) {
+            demo.append(static_cast<char>(value & 0xff));
+            demo.append(static_cast<char>((value >> 8) & 0xff));
+        }
+        write(data.filePath("demo201.blp"), demo);
+        panel->refresh();
+        CHECK_EQ(recordings->count(), 2);
+        CHECK_EQ(recordings->item(1)->text(),
+                 QString("demo201.blp - replayed on world 201 - 600 step(s), about 30.0 s"));
+        CHECK_EQ(panel->list()->count(), 6); // the world list is unchanged
+        emit recordings->itemActivated(recordings->item(1));
+        CHECK_EQ(window.demoViewers().size(), std::size_t{1});
+        CHECK(window.demoViewers().front()->path() == data.filePath("demo201.blp"));
+        CHECK(errors.isEmpty());
+        window.demoViewers().front()->close();
+        QFile::remove(data.filePath("demo201.blp"));
+        panel->refresh();
+        CHECK_EQ(recordings->count(), 1);
+    }
     const auto untouched = directoryDigest(game.root);
 
     // Deploy as a user world: the first free number of player 1 is offered.

@@ -42,6 +42,9 @@ public:
     [[nodiscard]] const std::vector<Entry> &entries() const { return entries_; }
 
     [[nodiscard]] QListWidget *list() const { return list_; }
+    // The installation's demo recordings (`demo%.3d.blp`), below the worlds;
+    // hidden when there are none. Activating one asks to open it.
+    [[nodiscard]] QListWidget *recordingList() const { return recordings_; }
     [[nodiscard]] QLabel *summary() const { return summary_; }
     [[nodiscard]] QPushButton *deployButton() const { return deploy_; }
     [[nodiscard]] QPushButton *rollBackButton() const { return rollBack_; }
@@ -66,6 +69,8 @@ private:
     std::vector<Entry> entries_;
     QLabel *summary_ = nullptr;
     QListWidget *list_ = nullptr;
+    QLabel *recordingsTitle_ = nullptr;
+    QListWidget *recordings_ = nullptr;
     QPushButton *deploy_ = nullptr;
     QPushButton *rollBack_ = nullptr;
     QPushButton *playtest_ = nullptr;

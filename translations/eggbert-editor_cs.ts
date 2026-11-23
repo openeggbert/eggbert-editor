@@ -1687,6 +1687,26 @@ Posuzováno pro: %1</translation>
    <translation>%1
 Oficiálních světů: %2, uživatelských: %3, uložených her: %4, souborů hráčů: %5, záznamů: %6. Dvojklikem svět otevřete.</translation>
   </message>
+  <message>
+   <source>Demo recordings (double-click to see the keys held):</source>
+   <translation>Herní záznamy (dvojklikem zobrazíte držené klávesy):</translation>
+  </message>
+  <message>
+   <source>Demo recordings of the installation</source>
+   <translation>Herní záznamy instalace</translation>
+  </message>
+  <message>
+   <source>not a recording the games would write</source>
+   <translation>není záznam, jaký by hry zapsaly</translation>
+  </message>
+  <message>
+   <source>%1 step(s), %2</source>
+   <translation>kroků: %1, %2</translation>
+  </message>
+  <message>
+   <source>%1 - replayed on world %2 - %3</source>
+   <translation>%1 - přehrává se na světě %2 - %3</translation>
+  </message>
  </context>
  <context>
   <name>eggbert::MainWindow</name>

@@ -97,6 +97,11 @@ Slices A–P are done as far as they could be verified here. Every bullet of `pl
 5. **Compressed ZIP packs** (a decompressor would be a new dependency or a sizeable piece of code).
 6. Evidence gaps listed under **Original-data evidence**: other editions, original 1.0/1.1 worlds, behaviour in the running games, the 25 eggs stored four pixels higher than the catalog writes.
 
+### Recordings in the Installation dock; package descriptions for Windows and macOS (2026-11-23)
+
+- The Installation dock lists the installation's demo recordings below the worlds (hidden when there are none), each with the world it is replayed on and its length, or the remark that the file is not a recording the games would write; activating one opens the recording window. Test: `installation_ui`.
+- Windows and macOS packaging is configured but untested — see slice L's entry.
+
 ### Stamps: pictures and an outline before placing (2026-11-23)
 
 An item from the open list, done as interface work the owner asked for. **Place Stamp** now shows every stored stamp with a schematic thumbnail (`src/app/stamp_thumbnail.hpp`), and the chosen stamp is armed instead of being written at once: `DocumentTab::beginStampPlacement` outlines the cells it would touch (`stampFootprint`, headless) under the pointer or the keyboard cursor; a click or Enter places it as one undo step, Esc or a tool change gives it up, and a refused placement keeps it armed. Tests: `stamp` (footprint), `stamps_ui` (thumbnail pixels, the real chooser dialog, arming, following, Esc, tool change, refusal, Enter, click). The outline shows cells, not the tiles themselves.
@@ -140,9 +145,9 @@ The plan allows this slice "only with a verifiable design; otherwise documented 
 ### Slice L result (2026-11-23): Czech interface, accessibility, other platforms
 
 - `src/app/catalog_translator.hpp`: a `QTranslator` that reads `.ts` catalogues from the program's resources at run time (no Linguist tools in the build); unfinished or empty translations fall back to English; Czech plural forms. Language preference in **Edit → Preferences** (system, English, Čeština), applied at start.
-- `translations/eggbert-editor_cs.ts`: 1,081 messages extracted with `lupdate` (command in `translations/README.md`), **all translated** (completed 2026-11-23 at the owner's request). The catalog names (tile entries, objects, groups, border families, run-time object types) are listed for the tools in `src/app/catalog_texts.cpp` and shown through `catalogText()`; the `translation` test fails when a catalog name is missing there or the catalogue has unfinished entries. Still English: texts composed in the Qt-free core (World Doctor findings, conversion notes, report details, the encyclopedia's facts) and the documents.
+- `translations/eggbert-editor_cs.ts`: 1,086 messages extracted with `lupdate` (command in `translations/README.md`), **all translated** (completed 2026-11-23 at the owner's request). The catalog names (tile entries, objects, groups, border families, run-time object types) are listed for the tools in `src/app/catalog_texts.cpp` and shown through `catalogText()`; the `translation` test fails when a catalog name is missing there or the catalogue has unfinished entries. Still English: texts composed in the Qt-free core (World Doctor findings, conversion notes, report details, the encyclopedia's facts) and the documents.
 - Accessibility: 28 controls that had no name for a screen reader (the Palette's picture lists, the Objects panel's fields, the inspector's choosers, the trees) now have accessible names; a test walks the main window and fails on any focusable control without one.
-- `CMakePresets.json` (`linux`, `linux-sanitizers`, `windows-msvc`, `macos`) and two CI jobs, `windows-untested` and `macos-untested`, allowed to fail. **Neither platform has been built or run**: there is no Windows or macOS machine here and no hosted run (the owner asked for no pull request). No package for them is claimed.
+- `CMakePresets.json` (`linux`, `linux-sanitizers`, `windows-msvc`, `macos`) and two CI jobs, `windows-untested` and `macos-untested`, allowed to fail. **Neither platform has been built or run**: there is no Windows or macOS machine here and no hosted run (the owner asked for no pull request). No package for them is claimed. Since 2026-11-23 the build also *describes* packages for them — on Windows a ZIP and on macOS a disk image, with Qt gathered by Qt's deployment script (`qt_generate_deploy_app_script`), and a `cpack` step in each of the two CI jobs. These lines were written from Qt's and CMake's documentation and have **never run**; the Linux configuration is unchanged (`CPACK_GENERATOR` is still `TGZ;DEB` there, checked).
 - Tests: `translation` (language choice, plural forms, a catalogue from text including damaged input, the shipped catalogue's placeholders, accelerators and ellipses, the main window's menus in Czech with English fallback, the accessibility walk).
 - Limits: the guide and the other documents are English only; the catalogue is checked for internal consistency, not against the sources (run `lupdate` after changing texts); a language change needs a restart; dialogs opened on demand are not part of the accessibility walk.
 
@@ -297,7 +302,7 @@ Order and acceptance are in `plan.md`, **Promotion of the roadmap**. Tick a slic
 - [x] I Experimental editing: typed byte edits, unverified music/region numbers, custom border rules
 - [x] J Stamps, alignment, replace in all open worlds
 - [x] K Element encyclopedia and installation gallery (the Installation dock's world list)
-- [x] L Czech interface (all 1,081 interface texts and catalog names), accessibility names, Windows/macOS configurations (untested)
+- [x] L Czech interface (all 1,086 interface texts and catalog names), accessibility names, Windows/macOS configurations (untested)
 - [x] M Mobile Eggbert text worlds: lossless codec, description and an editing window (no conversion)
 - [x] O SVG export, PNG batches, campaign graph listing, world regression scenarios
 - [x] N Three-way merge (command and window); playtest traces as slice P; heat maps not built (recordings hold no positions)

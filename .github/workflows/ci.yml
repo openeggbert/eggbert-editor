@@ -98,6 +98,9 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
 
+      - name: Package (ZIP with Qt alongside; never run by the project)
+        run: cpack --config build-windows/CPackConfig.cmake -C Release -B build-windows/packages
+
   macos-untested:
     runs-on: macos-14
     timeout-minutes: 40
@@ -120,3 +123,6 @@ jobs:
         run: ctest --preset macos --output-on-failure
         env:
           QT_QPA_PLATFORM: offscreen
+
+      - name: Package (disk image; never run by the project)
+        run: cpack --config build-macos/CPackConfig.cmake -B build-macos/packages

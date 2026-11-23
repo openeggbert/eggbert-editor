@@ -12,8 +12,10 @@
 
 #include <algorithm>
 
+#include "app/demo_viewer.hpp"
 #include "app/metadata_dialog.hpp"
 #include "app/png_export.hpp"
+#include "world/demo_recording.hpp"
 #include "world/world_probe.hpp"
 #include "world/world_stats.hpp"
 #include "world/world_view.hpp"
@@ -47,6 +49,15 @@ InstallationPanel::InstallationPanel(QWidget *parent) : QWidget(parent) {
     list_->setUniformItemSizes(true);
     list_->setAccessibleName(tr("Worlds of the installation"));
     layout->addWidget(list_, 1);
+    recordingsTitle_ = new QLabel(tr("Demo recordings (double-click to see the keys held):"), this);
+    recordingsTitle_->setWordWrap(true);
+    layout->addWidget(recordingsTitle_);
+    recordings_ = new QListWidget(this);
+    recordings_->setObjectName(QStringLiteral("installationRecordings"));
+    recordings_->setAccessibleName(tr("Demo recordings of the installation"));
+    recordings_->setMaximumHeight(110);
+    recordingsTitle_->setBuddy(recordings_);
+    layout->addWidget(recordings_);
     auto *buttons = new QHBoxLayout;
     deploy_ = new QPushButton(tr("Deploy Current World..."), this);
     deploy_->setObjectName(QStringLiteral("installationDeploy"));
@@ -68,6 +79,9 @@ InstallationPanel::InstallationPanel(QWidget *parent) : QWidget(parent) {
     connect(rollBack_, &QPushButton::clicked, this, [this] { emit rollBackRequested(); });
     connect(playtest_, &QPushButton::clicked, this, [this] { emit playtestRequested(); });
     connect(list_, &QListWidget::itemActivated, this, [this](QListWidgetItem *item) {
+        emit openRequested(item->data(Qt::UserRole).toString());
+    });
+    connect(recordings_, &QListWidget::itemActivated, this, [this](QListWidgetItem *item) {
         emit openRequested(item->data(Qt::UserRole).toString());
     });
     setActions(false, false, QString());
@@ -103,6 +117,9 @@ void InstallationPanel::setActions(bool canDeploy, bool canRollBack, const QStri
 void InstallationPanel::refresh() {
     entries_.clear();
     list_->clear();
+    recordings_->clear();
+    recordingsTitle_->hide();
+    recordings_->hide();
     dataDirectory_ = findDataDirectory(gameDirectory_);
     choose_->setVisible(dataDirectory_.isEmpty());
     if (dataDirectory_.isEmpty()) {
@@ -127,9 +144,28 @@ void InstallationPanel::refresh() {
         case DataFileKind::gamerInfo:
             ++players;
             break;
-        case DataFileKind::demoRecording:
+        case DataFileKind::demoRecording: {
             ++recordings;
+            // What the file holds, when it is a recording the games wrote.
+            QString detail = tr("not a recording the games would write");
+            QFile file(data.filePath(fileName));
+            if (file.size() <= largestWorldRead && file.open(QIODevice::ReadOnly)) {
+                const auto bytes = file.readAll();
+                if (const auto recording = DemoRecording::parse(
+                        {reinterpret_cast<const std::byte *>(bytes.constData()),
+                         static_cast<std::size_t>(bytes.size())})) {
+                    detail = tr("%1 step(s), %2")
+                                 .arg(recording->lastTime())
+                                 .arg(demoDuration(recording->lastTime()));
+                }
+            }
+            auto *item = new QListWidgetItem(
+                tr("%1 - replayed on world %2 - %3").arg(fileName).arg(name.number).arg(detail),
+                recordings_);
+            item->setData(Qt::UserRole, data.filePath(fileName));
+            item->setToolTip(data.filePath(fileName));
             break;
+        }
         case DataFileKind::officialWorld:
         case DataFileKind::userWorld:
             entries_.push_back({data.filePath(fileName), name, false, QString()});
@@ -215,6 +251,8 @@ void InstallationPanel::refresh() {
         item->setData(Qt::UserRole, entry.path);
         item->setToolTip(entry.path);
     }
+    recordingsTitle_->setVisible(recordings != 0);
+    recordings_->setVisible(recordings != 0);
     summary_->setText(tr("%1\n%2 official world(s), %3 user world(s), %4 saved game(s), %5 "
                          "player file(s), %6 recording(s). Double-click a world to open it.")
                           .arg(dataDirectory_)

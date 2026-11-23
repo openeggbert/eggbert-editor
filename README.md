@@ -63,7 +63,7 @@ ctest --test-dir build --output-on-failure
 ./build/eggbert-editor
 ```
 
-If CMake cannot find Qt, set `CMAKE_PREFIX_PATH` to your Qt kit directory when configuring. For a multi-configuration generator such as Visual Studio, build with `--config Release` and pass `-C Release` to CTest. On macOS, launch the generated application bundle. Only Linux is tested and packaged. `CMakePresets.json` (CMake 3.25 or newer) has the presets `linux`, `linux-sanitizers`, `windows-msvc` and `macos`, and the CI workflow has jobs for Windows and macOS; those two have never been built or run by the project and are marked untested.
+If CMake cannot find Qt, set `CMAKE_PREFIX_PATH` to your Qt kit directory when configuring. For a multi-configuration generator such as Visual Studio, build with `--config Release` and pass `-C Release` to CTest. On macOS, launch the generated application bundle. Only Linux is tested and packaged; the build also describes a ZIP for Windows and a disk image for macOS (`cpack`), which have never been produced. `CMakePresets.json` (CMake 3.25 or newer) has the presets `linux`, `linux-sanitizers`, `windows-msvc` and `macos`, and the CI workflow has jobs for Windows and macOS; those two have never been built or run by the project and are marked untested.
 
 The interface is available in English and Czech (**Edit → Preferences → Language**); the Czech catalogue in `translations/` covers every interface text and the catalog names; findings and notes composed by the core (World Doctor, conversion, reports) stay English. Catalogues are read at run time, so building needs no Qt Linguist tools.
 

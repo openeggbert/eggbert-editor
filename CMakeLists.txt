@@ -183,7 +183,29 @@ set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
     "Lossless editor for Speedy Blupi and Speedy Eggbert world files")
 set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/COPYING")
-set(CPACK_GENERATOR "TGZ;DEB")
+if(WIN32 OR APPLE)
+    # UNTESTED: written from Qt's and CMake's documentation; the project has
+    # no Windows or macOS machine and these lines have never run. A ZIP
+    # (Windows) or a disk image (macOS) that carries Qt along, gathered by
+    # Qt's own deployment script at install time.
+    if(COMMAND qt_generate_deploy_app_script)
+        if(Qt6_VERSION VERSION_LESS 6.5)
+            qt_generate_deploy_app_script(TARGET eggbert-editor
+                FILENAME_VARIABLE eggbert_deploy_script NO_UNSUPPORTED_PLATFORM_ERROR)
+        else()
+            qt_generate_deploy_app_script(TARGET eggbert-editor
+                OUTPUT_SCRIPT eggbert_deploy_script NO_UNSUPPORTED_PLATFORM_ERROR)
+        endif()
+        install(SCRIPT "${eggbert_deploy_script}")
+    endif()
+    if(WIN32)
+        set(CPACK_GENERATOR "ZIP")
+    else()
+        set(CPACK_GENERATOR "DragNDrop")
+    endif()
+else()
+    set(CPACK_GENERATOR "TGZ;DEB")
+endif()
 set(CPACK_SOURCE_GENERATOR "TGZ")
 set(CPACK_SOURCE_IGNORE_FILES "/build[^/]*/;/\\.git/;/CMakeUserPresets\\.json$")
 set(CPACK_DEBIAN_PACKAGE_SECTION "games")
