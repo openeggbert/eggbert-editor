@@ -38,6 +38,10 @@ public:
     // The file; identical to the parsed text when nothing was edited.
     [[nodiscard]] std::string write() const;
 
+    // True when the lines end in CR LF. The carriage return is kept with its
+    // line break and is not part of the last entry or field of a line.
+    [[nodiscard]] bool hasCarriageReturns() const;
+
     [[nodiscard]] std::size_t lineCount() const { return lines_.size(); }
     [[nodiscard]] const std::string &line(std::size_t index) const { return lines_[index]; }
 

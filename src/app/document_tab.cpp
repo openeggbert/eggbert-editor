@@ -80,6 +80,7 @@ DocumentTab::DocumentTab(std::unique_ptr<DocumentFile> file, QWidget *parent)
     layout->setSpacing(0);
 
     banner_ = new QLabel(this);
+    banner_->setObjectName(QStringLiteral("documentBanner"));
     banner_->setWordWrap(true);
     banner_->setTextFormat(Qt::PlainText);
     banner_->setMargin(6);
@@ -1447,6 +1448,17 @@ QString DocumentTab::describeCell(CellPos cell) const {
 void DocumentTab::updateBanner() {
     const auto access = document().writeAccess();
     if (access == WriteAccess::writable) {
+        // The port's own reader cuts lines at line feeds and needs a value
+        // to be a number to its end (evidence.md, "Mobile Eggbert as a game
+        // profile"); whether a carriage return reaches it was not established.
+        if (file_->hasWindowsLineEnds()) {
+            banner_->setText(tr("This file has Windows line ends (CR LF), which are kept. Mobile "
+                                "Eggbert's world reader cuts lines at line feeds only: unless "
+                                "the game removes carriage returns before that, it does not read "
+                                "the last value of each tile line, the bottom row of the map."));
+            banner_->show();
+            return;
+        }
         banner_->hide();
         return;
     }

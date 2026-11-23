@@ -112,6 +112,7 @@ qt_add_library(eggbert_app STATIC
     src/app/catalog_texts.cpp
     src/app/doctor_texts.cpp
     src/app/core_texts.cpp
+    src/app/qt_texts.cpp
     src/app/conversion_texts.cpp
     src/app/campaign_pack.cpp
     src/app/recovery_store.hpp

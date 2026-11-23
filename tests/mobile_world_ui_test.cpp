@@ -484,6 +484,38 @@ int main(int argc, char **argv) {
         CHECK(errors.isEmpty());
     }
 
+    // A file with Windows line ends opens as a tab too: the carriage returns
+    // stay where they are, and the tab says what they may mean for the game.
+    {
+        QByteArray dos = original;
+        dos.replace("\n", "\r\n");
+        const auto dosPath = dir.filePath("dos.txt");
+        writeFile(dosPath, dos);
+        auto *dosTab = window.openPath(dosPath);
+        CHECK(dosTab != nullptr && dosTab->file().isTextWorld());
+        if (dosTab != nullptr) {
+            CHECK(dosTab->file().hasWindowsLineEnds());
+            CHECK(dosTab->document().isWritable());
+            auto *banner = dosTab->findChild<QLabel *>("documentBanner");
+            CHECK(banner != nullptr && !banner->isHidden());
+            CHECK(banner != nullptr && banner->text().contains("Windows line ends"));
+            const std::vector<CellPos> cells{{0, 99}};
+            CHECK(dosTab->paintStroke(cells, 41, QStringLiteral("Pencil"), 0));
+            CHECK(window.saveTab(dosTab));
+            const auto written = readAll(dosPath);
+            CHECK_EQ(written.count('\n'), written.count('\r'));
+            CHECK_EQ(written.size(), dos.size() + 2);
+            CHECK(written.contains(",41\r\n"));
+            CHECK(dosTab->undo());
+            CHECK(window.saveTab(dosTab));
+            CHECK(readAll(dosPath) == dos);
+            CHECK(window.closeTab(dosTab));
+        }
+        auto *unixBanner = tab->findChild<QLabel *>("documentBanner");
+        CHECK(unixBanner != nullptr && unixBanner->isHidden());
+        CHECK(!tab->file().hasWindowsLineEnds());
+    }
+
     // A text world the layout cannot hold opens in the text editor instead.
     {
         auto odd = portWorldText();

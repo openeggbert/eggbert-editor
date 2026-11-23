@@ -98,6 +98,12 @@ std::optional<Token> entryToken(std::string_view line, std::size_t index) {
     }
 }
 
+// A line without the carriage return of a Windows line break: that byte
+// belongs to the break, not to the last entry.
+std::string_view withoutCarriageReturn(std::string_view line) {
+    return line.ends_with('\r') ? line.substr(0, line.size() - 1) : line;
+}
+
 std::size_t entryCount(std::string_view line) {
     std::size_t count = 1;
     for (const char character : line) {
@@ -188,7 +194,7 @@ std::optional<long long> TextWorld::tile(SectionKind layer, std::size_t x, std::
     if (!line) {
         return std::nullopt;
     }
-    const auto token = entryToken(lines_[*line], y);
+    const auto token = entryToken(withoutCarriageReturn(lines_[*line]), y);
     if (!token) {
         return std::nullopt;
     }
@@ -203,7 +209,7 @@ bool TextWorld::setTile(SectionKind layer, std::size_t x, std::size_t y, long lo
     if (!line) {
         return false;
     }
-    const auto token = entryToken(lines_[*line], y);
+    const auto token = entryToken(withoutCarriageReturn(lines_[*line]), y);
     if (!token) {
         return false;
     }
@@ -281,12 +287,15 @@ bool TextWorld::addObject(long long type, Point position, long long channel, lon
     return addObject(fields);
 }
 
+bool TextWorld::hasCarriageReturns() const {
+    return lines_.size() > 1 && lines_.front().ends_with('\r');
+}
+
 bool TextWorld::addObject(const ObjectLine &fields) {
     if (fields.type == 0 || objectLines_.size() >= textWorldMostObjects || lines_.empty()) {
         return false;
     }
-    const bool carriageReturns =
-        lines_.size() > 1 && !lines_.front().empty() && lines_.front().back() == '\r';
+    const bool carriageReturns = hasCarriageReturns();
     const auto point = [](Point value) {
         return std::to_string(value.x) + ";" + std::to_string(value.y);
     };

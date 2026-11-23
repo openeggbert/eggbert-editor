@@ -38,10 +38,6 @@ constexpr const char *texts[] = {
     QT_TRANSLATE_NOOP("eggbert::Core",
         "The stamp has %1 object(s) but only %2 object slot(s) are free."),
     QT_TRANSLATE_NOOP("eggbert::Core",
-        "The file has Windows line ends (CR LF). Mobile Eggbert reads the carriage return "
-        "as part of the last value of each line; save the file with plain line feeds "
-        "first."),
-    QT_TRANSLATE_NOOP("eggbert::Core",
         "The file lists more objects than the game reads."),
     QT_TRANSLATE_NOOP("eggbert::Core",
         "The tile number at column %1, row %2 is too large for the editor."),

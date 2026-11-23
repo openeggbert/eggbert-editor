@@ -103,6 +103,8 @@ void StatisticsPanel::refresh() {
         // The file is text; sizes and revisions of the Windows format do not
         // apply to it.
         addRow(file, tr("Kind"), tr("Mobile Eggbert text world"));
+        addRow(file, tr("Line ends"),
+               tab_->file().hasWindowsLineEnds() ? tr("Windows (CR LF)") : tr("Unix (LF)"));
     } else {
         addRow(file, tr("Size"), tr("%1 bytes").arg(number(stats.fileBytes)));
         addRow(file, tr("Revision field"),

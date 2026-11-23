@@ -85,6 +85,10 @@ public:
     load(const QString &path);
     // True for a Mobile Eggbert text world.
     [[nodiscard]] bool isTextWorld() const { return text_.has_value(); }
+    // True for a text world whose lines end in CR LF (kept as they are).
+    [[nodiscard]] bool hasWindowsLineEnds() const {
+        return text_.has_value() && text_->hasCarriageReturns();
+    }
 
     [[nodiscard]] WorldDocument &document() { return document_; }
     [[nodiscard]] const WorldDocument &document() const { return document_; }

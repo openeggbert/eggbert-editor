@@ -268,9 +268,29 @@ int main() {
         for (const char character : text) {
             dos += character == '\n' ? std::string("\r\n") : std::string(1, character);
         }
-        const auto refused = makeTextWorldImage(TextWorld::parse(dos));
-        CHECK(!refused.has_value());
-        CHECK(!refused.has_value() && refused.error().find("Windows line ends") != std::string::npos);
+        // Windows line ends belong to the line breaks: the same image, and
+        // a store that keeps every carriage return where it was.
+        auto windows = TextWorld::parse(dos);
+        CHECK(windows.hasCarriageReturns() && !TextWorld::parse(text).hasCarriageReturns());
+        CHECK(windows.problems().empty());
+        auto fromDos = makeTextWorldImage(windows);
+        const auto fromUnix = makeTextWorldImage(TextWorld::parse(text));
+        CHECK(fromDos.has_value() && fromUnix.has_value() && fromDos->bytes == fromUnix->bytes);
+        if (fromDos) {
+            CHECK(storeTextWorldImage(windows, *fromDos, fromDos->bytes).has_value());
+            CHECK(windows.write() == dos);
+            // The last entry of a line is written before its carriage return,
+            // and a new object line ends like the others.
+            auto bytes = fromDos->bytes;
+            set16(bytes, fxCellOffset(fxForegroundOffset, 0, 99), 41);
+            set16(bytes, fxSlotOffset(fxRevision13, 150), 5);
+            CHECK(storeTextWorldImage(windows, *fromDos, bytes).has_value());
+            const auto written = windows.write();
+            CHECK_EQ(*TextWorld::parse(written).tile(SectionKind::foreground, 0, 99), 41);
+            CHECK(written.find(",41\r\n") != std::string::npos);
+            CHECK_EQ(std::ranges::count(written, '\n'), std::ranges::count(written, '\r'));
+            CHECK_EQ(std::ranges::count(written, '\n'), std::ranges::count(dos, '\n') + 1);
+        }
     }
     // A new world: what the Windows games' editors start with, as text.
     {

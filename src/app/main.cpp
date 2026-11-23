@@ -5,7 +5,9 @@
 #include "app/smoke_test.hpp"
 
 #include <QSettings>
+#include <QLibraryInfo>
 #include <QLocale>
+#include <QTranslator>
 #include <QApplication>
 #include <QTextStream>
 
@@ -72,12 +74,19 @@ int main(int argc, char **argv) {
 
     // The interface language: the preference, else the system's, else
     // English. Untranslated texts stay English.
+    // Qt's own translation of its widgets, where it is installed; the
+    // editor's catalogue, installed after it, is asked first.
+    QTranslator qtTranslator;
     eggbert::CatalogTranslator translator;
     if (const auto language = eggbert::resolveLanguage(
             QSettings().value(QStringLiteral("appearance/language"), QStringLiteral("system"))
                 .toString(),
             QLocale::system().name());
         language != QLatin1String("en") && translator.loadLanguage(language)) {
+        if (qtTranslator.load(QStringLiteral("qtbase_") + language,
+                              QLibraryInfo::path(QLibraryInfo::TranslationsPath))) {
+            QCoreApplication::installTranslator(&qtTranslator);
+        }
         QCoreApplication::installTranslator(&translator);
     }
     eggbert::MainWindow mainWindow;

@@ -9,6 +9,247 @@
   </message>
  </context>
  <context>
+  <name>QAbstractSpinBox</name>
+  <message>
+   <source>&amp;Select All</source>
+   <translation>Vybrat &amp;vše</translation>
+  </message>
+  <message>
+   <source>&amp;Step up</source>
+   <translation>Krok &amp;nahoru</translation>
+  </message>
+  <message>
+   <source>Step &amp;down</source>
+   <translation>Krok &amp;dolů</translation>
+  </message>
+ </context>
+ <context>
+  <name>QDockWidget</name>
+  <message>
+   <source>Float</source>
+   <translation>Uvolnit</translation>
+  </message>
+  <message>
+   <source>Undocks and re-attaches the dock widget</source>
+   <translation>Uvolní a znovu připojí dokovací panel</translation>
+  </message>
+  <message>
+   <source>Close</source>
+   <translation>Zavřít</translation>
+  </message>
+  <message>
+   <source>Closes the dock widget</source>
+   <translation>Zavře dokovací panel</translation>
+  </message>
+ </context>
+ <context>
+  <name>QLineEdit</name>
+  <message>
+   <source>&amp;Undo</source>
+   <translation>&amp;Zpět</translation>
+  </message>
+  <message>
+   <source>&amp;Redo</source>
+   <translation>Z&amp;novu</translation>
+  </message>
+  <message>
+   <source>Cu&amp;t</source>
+   <translation>Vyjmou&amp;t</translation>
+  </message>
+  <message>
+   <source>&amp;Copy</source>
+   <translation>&amp;Kopírovat</translation>
+  </message>
+  <message>
+   <source>&amp;Paste</source>
+   <translation>&amp;Vložit</translation>
+  </message>
+  <message>
+   <source>Delete</source>
+   <translation>Smazat</translation>
+  </message>
+  <message>
+   <source>Select All</source>
+   <translation>Vybrat vše</translation>
+  </message>
+ </context>
+ <context>
+  <name>QMessageBox</name>
+  <message>
+   <source>Show Details...</source>
+   <translation>Zobrazit podrobnosti...</translation>
+  </message>
+  <message>
+   <source>Hide Details...</source>
+   <translation>Skrýt podrobnosti...</translation>
+  </message>
+ </context>
+ <context>
+  <name>QPlatformTheme</name>
+  <message>
+   <source>OK</source>
+   <translation>OK</translation>
+  </message>
+  <message>
+   <source>Save</source>
+   <translation>Uložit</translation>
+  </message>
+  <message>
+   <source>Save All</source>
+   <translation>Uložit vše</translation>
+  </message>
+  <message>
+   <source>Open</source>
+   <translation>Otevřít</translation>
+  </message>
+  <message>
+   <source>&amp;Yes</source>
+   <translation>&amp;Ano</translation>
+  </message>
+  <message>
+   <source>Yes to &amp;All</source>
+   <translation>Ano &amp;všem</translation>
+  </message>
+  <message>
+   <source>&amp;No</source>
+   <translation>&amp;Ne</translation>
+  </message>
+  <message>
+   <source>N&amp;o to All</source>
+   <translation>N&amp;e všem</translation>
+  </message>
+  <message>
+   <source>Abort</source>
+   <translation>Přerušit</translation>
+  </message>
+  <message>
+   <source>Retry</source>
+   <translation>Opakovat</translation>
+  </message>
+  <message>
+   <source>Ignore</source>
+   <translation>Ignorovat</translation>
+  </message>
+  <message>
+   <source>Close</source>
+   <translation>Zavřít</translation>
+  </message>
+  <message>
+   <source>Cancel</source>
+   <translation>Zrušit</translation>
+  </message>
+  <message>
+   <source>Discard</source>
+   <translation>Zahodit</translation>
+  </message>
+  <message>
+   <source>Help</source>
+   <translation>Nápověda</translation>
+  </message>
+  <message>
+   <source>Apply</source>
+   <translation>Použít</translation>
+  </message>
+  <message>
+   <source>Reset</source>
+   <translation>Obnovit</translation>
+  </message>
+  <message>
+   <source>Restore Defaults</source>
+   <translation>Obnovit výchozí</translation>
+  </message>
+ </context>
+ <context>
+  <name>QScrollBar</name>
+  <message>
+   <source>Scroll here</source>
+   <translation>Posunout sem</translation>
+  </message>
+  <message>
+   <source>Left edge</source>
+   <translation>Levý okraj</translation>
+  </message>
+  <message>
+   <source>Top</source>
+   <translation>Nahoře</translation>
+  </message>
+  <message>
+   <source>Right edge</source>
+   <translation>Pravý okraj</translation>
+  </message>
+  <message>
+   <source>Bottom</source>
+   <translation>Dole</translation>
+  </message>
+  <message>
+   <source>Page left</source>
+   <translation>O stránku vlevo</translation>
+  </message>
+  <message>
+   <source>Page up</source>
+   <translation>O stránku nahoru</translation>
+  </message>
+  <message>
+   <source>Page right</source>
+   <translation>O stránku vpravo</translation>
+  </message>
+  <message>
+   <source>Page down</source>
+   <translation>O stránku dolů</translation>
+  </message>
+  <message>
+   <source>Scroll left</source>
+   <translation>Posunout vlevo</translation>
+  </message>
+  <message>
+   <source>Scroll up</source>
+   <translation>Posunout nahoru</translation>
+  </message>
+  <message>
+   <source>Scroll right</source>
+   <translation>Posunout vpravo</translation>
+  </message>
+  <message>
+   <source>Scroll down</source>
+   <translation>Posunout dolů</translation>
+  </message>
+ </context>
+ <context>
+  <name>QWidgetTextControl</name>
+  <message>
+   <source>&amp;Undo</source>
+   <translation>&amp;Zpět</translation>
+  </message>
+  <message>
+   <source>&amp;Redo</source>
+   <translation>Z&amp;novu</translation>
+  </message>
+  <message>
+   <source>Cu&amp;t</source>
+   <translation>Vyjmou&amp;t</translation>
+  </message>
+  <message>
+   <source>&amp;Copy</source>
+   <translation>&amp;Kopírovat</translation>
+  </message>
+  <message>
+   <source>Copy &amp;Link Location</source>
+   <translation>Kopírovat &amp;adresu odkazu</translation>
+  </message>
+  <message>
+   <source>&amp;Paste</source>
+   <translation>&amp;Vložit</translation>
+  </message>
+  <message>
+   <source>Delete</source>
+   <translation>Smazat</translation>
+  </message>
+  <message>
+   <source>Select All</source>
+   <translation>Vybrat vše</translation>
+  </message>
+ </context>
+ <context>
   <name>eggbert</name>
   <message>
    <source>No DATA folder was found, so the game cannot be recognised.</source>
@@ -1172,10 +1413,6 @@
    <translation>BigDecor: počet buněk %1</translation>
   </message>
   <message>
-   <source>The file has Windows line ends (CR LF). Mobile Eggbert reads the carriage return as part of the last value of each line; save the file with plain line feeds first.</source>
-   <translation>Soubor má konce řádků Windows (CR LF). Mobile Eggbert čte znak návratu vozíku jako součást poslední hodnoty každého řádku; nejprve soubor uložte s prostými konci řádků (LF).</translation>
-  </message>
-  <message>
    <source>The file lists more objects than the game reads.</source>
    <translation>Soubor uvádí více objektů, než hra čte.</translation>
   </message>
@@ -1990,6 +2227,10 @@ Posuzováno pro: %1</translation>
   <message>
    <source>BigDecor %1</source>
    <translation>BigDecor %1</translation>
+  </message>
+  <message>
+   <source>This file has Windows line ends (CR LF), which are kept. Mobile Eggbert's world reader cuts lines at line feeds only: unless the game removes carriage returns before that, it does not read the last value of each tile line, the bottom row of the map.</source>
+   <translation>Tento soubor má konce řádků Windows (CR LF), které zůstanou zachovány. Čtení světů v Mobile Eggbert dělí řádky jen u znaku LF: pokud hra znaky CR předtím neodstraní, nepřečte poslední hodnotu každého řádku dlaždic, tedy spodní řadu mapy.</translation>
   </message>
  </context>
  <context>
@@ -5455,6 +5696,18 @@ Maluje dlaždici %2 a přepočítá tvary okrajů kolem ní.</translation>
   <message>
    <source>Mobile Eggbert text world</source>
    <translation>Textový svět Mobile Eggbert</translation>
+  </message>
+  <message>
+   <source>Line ends</source>
+   <translation>Konce řádků</translation>
+  </message>
+  <message>
+   <source>Windows (CR LF)</source>
+   <translation>Windows (CR LF)</translation>
+  </message>
+  <message>
+   <source>Unix (LF)</source>
+   <translation>Unix (LF)</translation>
   </message>
  </context>
  <context>

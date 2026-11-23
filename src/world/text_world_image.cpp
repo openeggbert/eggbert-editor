@@ -91,15 +91,6 @@ std::string lineName(std::size_t index) {
 } // namespace
 
 std::expected<TextWorldImage, std::string> makeTextWorldImage(const TextWorld &world) {
-    // The game splits the file at line feeds only, so a carriage return
-    // becomes part of the last value of a line, which it then cannot read
-    // (mobile-eggbert Worlds.cpp:72-89, :181).
-    if (world.lineCount() > 1 && world.line(0).ends_with('\r')) {
-        return std::unexpected(
-            std::string("The file has Windows line ends (CR LF). Mobile Eggbert reads the "
-                        "carriage return as part of the last value of each line; save the file "
-                        "with plain line feeds first."));
-    }
     if (const auto problems = world.problems(); !problems.empty()) {
         return std::unexpected(problems.front());
     }

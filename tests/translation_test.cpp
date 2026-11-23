@@ -8,6 +8,7 @@
 
 #include "app/catalog_texts.hpp"
 #include "app/catalog_translator.hpp"
+#include "app/qt_texts.hpp"
 #include "app/cli.hpp"
 #include "app/conversion_texts.hpp"
 #include "app/core_texts.hpp"
@@ -33,7 +34,14 @@
 
 #include <QAbstractButton>
 #include <QAction>
+#include <memory>
+
 #include <QApplication>
+#include <QDialogButtonBox>
+#include <QLineEdit>
+#include <QMenu>
+#include <QMessageBox>
+#include <QPushButton>
 #include <QComboBox>
 #include <QLineEdit>
 #include <QListWidget>
@@ -550,5 +558,58 @@ int main(int argc, char **argv) {
     }
     QCoreApplication::removeTranslator(&czech);
     QSettings().clear();
+    // Qt's own widget texts (standard buttons, the context menu of an input
+    // field, dock buttons) come from the editor's catalogue too, so that
+    // they are Czech where Qt's translation files are not installed.
+    {
+        for (const auto &text : qtTexts()) {
+            const auto translated = czech.translate(text.context, text.text, nullptr, -1);
+            if (translated.isEmpty()) {
+                std::fprintf(stderr, "Qt text not translated: %s / %s\n", text.context, text.text);
+            }
+            CHECK(!translated.isEmpty());
+        }
+        QDialogButtonBox english(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+        CHECK_EQ(english.button(QDialogButtonBox::Cancel)->text(), QString("Cancel"));
+        QCoreApplication::installTranslator(&czech);
+        QDialogButtonBox box(QDialogButtonBox::Ok | QDialogButtonBox::Cancel |
+                             QDialogButtonBox::Save | QDialogButtonBox::Discard |
+                             QDialogButtonBox::Close | QDialogButtonBox::Yes |
+                             QDialogButtonBox::No | QDialogButtonBox::Apply |
+                             QDialogButtonBox::RestoreDefaults | QDialogButtonBox::Help);
+        const auto label = [&](QDialogButtonBox::StandardButton button) {
+            return box.button(button)->text();
+        };
+        CHECK_EQ(label(QDialogButtonBox::Ok), QString("OK"));
+        CHECK_EQ(label(QDialogButtonBox::Cancel), QString::fromUtf8("Zrušit"));
+        CHECK_EQ(label(QDialogButtonBox::Save), QString::fromUtf8("Uložit"));
+        CHECK_EQ(label(QDialogButtonBox::Discard), QString("Zahodit"));
+        CHECK_EQ(label(QDialogButtonBox::Close), QString::fromUtf8("Zavřít"));
+        CHECK_EQ(label(QDialogButtonBox::Yes), QString("&Ano"));
+        CHECK_EQ(label(QDialogButtonBox::No), QString("&Ne"));
+        CHECK_EQ(label(QDialogButtonBox::Apply), QString::fromUtf8("Použít"));
+        CHECK_EQ(label(QDialogButtonBox::RestoreDefaults), QString::fromUtf8("Obnovit výchozí"));
+        CHECK_EQ(label(QDialogButtonBox::Help), QString::fromUtf8("Nápověda"));
+        QMessageBox message;
+        message.setDetailedText("details");
+        bool details = false;
+        for (const auto *button : message.buttons()) {
+            details = details || button->text() == QString("Zobrazit podrobnosti...");
+        }
+        CHECK(details);
+        QLineEdit field;
+        std::unique_ptr<QMenu> menu(field.createStandardContextMenu());
+        QStringList entries;
+        for (const auto *action : menu->actions()) {
+            if (!action->isSeparator()) {
+                entries << action->text().section(QLatin1Char('\t'), 0, 0);
+            }
+        }
+        CHECK(entries.contains(QString::fromUtf8("&Zpět")));
+        CHECK(entries.contains(QString::fromUtf8("&Vložit")));
+        CHECK(entries.contains(QString::fromUtf8("Vybrat vše")));
+        CHECK(!entries.contains(QString("&Undo")) && !entries.contains(QString("Select All")));
+        QCoreApplication::removeTranslator(&czech);
+    }
     return test::finish("translation");
 }
