@@ -17,6 +17,7 @@
 #include <optional>
 #include <span>
 
+#include "app/inflate.hpp"
 #include "world/world_probe.hpp"
 #include "world/world_view.hpp"
 
@@ -329,12 +330,17 @@ std::expected<std::vector<PackFile>, QString> readZip(const QByteArray &archive)
         if ((flags & 0x0001u) != 0) {
             return fail(QStringLiteral("%1 is encrypted.").arg(name));
         }
-        if (method != 0 || packed != size) {
-            return fail(QStringLiteral("%1 is compressed; packs are read only when stored "
-                                       "without compression.")
+        // Stored, or compressed the way ZIP programs do by default.
+        if (method != 0 && method != 8) {
+            return fail(QStringLiteral("%1 is compressed with a method other than Deflate, "
+                                       "which is the only one read.")
                             .arg(name));
         }
-        if (size == 0xFFFFFFFFu || size > static_cast<quint32>(packLargestMember)) {
+        if (method == 0 && packed != size) {
+            return fail(QStringLiteral("%1 has a damaged header.").arg(name));
+        }
+        if (size == 0xFFFFFFFFu || size > static_cast<quint32>(packLargestMember) ||
+            packed == 0xFFFFFFFFu || packed > static_cast<quint32>(packLargestMember)) {
             return fail(QStringLiteral("%1 is too large for a pack.").arg(name));
         }
         // The local header must agree and the data must lie before the
@@ -347,10 +353,19 @@ std::expected<std::vector<PackFile>, QString> readZip(const QByteArray &archive)
             return fail(QStringLiteral("%1 has a damaged header.").arg(name));
         }
         const qint64 dataOffset = static_cast<qint64>(localOffset) + 30 + *localName + *localExtra;
-        if (dataOffset + size > centralOffset) {
+        if (dataOffset + packed > centralOffset) {
             return fail(QStringLiteral("%1 does not lie inside the archive.").arg(name));
         }
-        auto bytes = archive.mid(dataOffset, size);
+        auto bytes = archive.mid(dataOffset, packed);
+        if (method == 8) {
+            // Never more than the stated size is produced, whatever the data says.
+            auto inflated = inflateRaw(bytes, size);
+            if (!inflated) {
+                return fail(QStringLiteral("%1 cannot be decompressed. %2")
+                                .arg(name, inflated.error()));
+            }
+            bytes = std::move(*inflated);
+        }
         if (crc32(bytes) != crc) {
             return fail(QStringLiteral("%1 does not match its checksum.").arg(name));
         }

@@ -47,9 +47,9 @@ Verification on 2026-11-22, Ubuntu 24.04, GCC 13.3.0, CMake 3.28.3, Ninja, Qt 6.
 ```sh
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
 cmake --build build --parallel              # no warnings
-ctest --test-dir build --output-on-failure  # 73/73 passed (74 registered): layout, le_reader, world_probe, world_view, world_document, world_stats, offset_map, tile_tools, metadata, object_ops, hex_model, doctor, adaptive, animation, atlas_table, editor_groups, revision_convert, new_world, encyclopedia, expert_edit, custom_border, game_convert, installation, campaign, campaign_doors, reachability, stamp, text_world, text_world_document, merge, scenario, demo_recording, view_transform, probe_report, document_file, recovery_store, deploy_store, campaign_pack, cli, world_renderer, png_export, game_assets, main_window, docks, tools, metadata_ui, objects_ui, inspector, doctor_ui, adaptive_ui, workspace, artwork_ui, palette, music_player, animation_ui, interface_ui, recovery_ui, convert_ui, new_world_ui, encyclopedia_ui, experimental_ui, convert_game_ui, installation_ui, campaign_ui, stamps_ui, merge_ui, text_world_editor, demo_viewer, translation, cli_usage, smoke, version, install_smoke; sample_matrix skipped without EGGBERT_SAMPLE_DIRS
+ctest --test-dir build --output-on-failure  # 74/74 passed (75 registered): layout, le_reader, world_probe, world_view, world_document, world_stats, offset_map, tile_tools, metadata, object_ops, hex_model, doctor, adaptive, animation, atlas_table, editor_groups, revision_convert, new_world, encyclopedia, expert_edit, custom_border, game_convert, installation, campaign, campaign_doors, reachability, stamp, text_world, text_world_document, merge, scenario, demo_recording, view_transform, probe_report, document_file, recovery_store, deploy_store, inflate, campaign_pack, cli, world_renderer, png_export, game_assets, main_window, docks, tools, metadata_ui, objects_ui, inspector, doctor_ui, adaptive_ui, workspace, artwork_ui, palette, music_player, animation_ui, interface_ui, recovery_ui, convert_ui, new_world_ui, encyclopedia_ui, experimental_ui, convert_game_ui, installation_ui, campaign_ui, stamps_ui, merge_ui, text_world_editor, demo_viewer, translation, cli_usage, smoke, version, install_smoke; sample_matrix skipped without EGGBERT_SAMPLE_DIRS
 cmake -S . -B build-asan -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DEGGBERT_SANITIZE=ON
-cmake --build build-asan --parallel && ctest --test-dir build-asan   # 73/73 passed under ASan/UBSan, sample_matrix skipped
+cmake --build build-asan --parallel && ctest --test-dir build-asan   # 74/74 passed under ASan/UBSan, sample_matrix skipped
 ```
 
 Commit `c8f7a77` (binary inspector) was pushed green in Release but with a use-after-free that the sanitizer run reported in `main_window` (the hex views kept a pointer to the document replaced by Revert/Reload); the next commit fixes it with `DocumentTab::documentReplaced` and a regression check in `inspector`. Always run the sanitizer suite to completion before committing.
@@ -94,8 +94,11 @@ Slices A–P are done as far as they could be verified here. Every bullet of `pl
 2. **Czech for the texts the core composes** (World Doctor findings, conversion notes, report details, encyclopedia facts) — it needs those messages restructured into translatable templates — and a Czech guide.
 3. **More for Mobile Eggbert text worlds**: adding and removing object lines, selections and shapes, and names or pictures for its tiles and objects — the last only with evidence from that project, which was not gathered.
 4. **A reachability estimate with movement** (jumps, falls, lifts), if a bound can be cited from the sources.
-5. **Compressed ZIP packs** (a decompressor would be a new dependency or a sizeable piece of code).
-6. Evidence gaps listed under **Original-data evidence**: other editions, original 1.0/1.1 worlds, behaviour in the running games, the 25 eggs stored four pixels higher than the catalog writes.
+5. Evidence gaps listed under **Original-data evidence**: other editions, original 1.0/1.1 worlds, behaviour in the running games, the 25 eggs stored four pixels higher than the catalog writes.
+
+### Compressed packs (2026-11-23)
+
+An item from the open list. `src/app/inflate.hpp`: `inflateRaw(packed, size)`, a decoder for raw DEFLATE (stored, fixed and dynamic blocks) written for untrusted input — every read bounds-checked, the output never beyond the stated size, anything but exactly that size from exactly the whole input refused. `readZip` now accepts members stored or compressed with Deflate; the size limits apply to both the packed and the stated size. Writing is unchanged (stored). Tests: `inflate` (seven streams produced independently with zlib — every block type, an overlapping match, several blocks — every proper prefix refused, every single-bit change either refused or of the stated size, the classic malformed streams; the sanitizer run covers memory safety), `campaign_pack` (a ZIP written by Python's `zipfile` read back; a smaller, larger and huge stated size and changed data bytes refused; other methods refused). No dependency was added.
 
 ### Recordings in the Installation dock; package descriptions for Windows and macOS (2026-11-23)
 
@@ -176,7 +179,7 @@ The plan allows this slice "only with a verifiable design; otherwise documented 
 - **File → Campaign Overview**, **Export Campaign Pack…**, **Import Campaign Pack…** (all-or-nothing through `DeployStore`).
 - Tests: `campaign`, `campaign_pack` (archives built by an independent writer in the test, including the hostile ones), `campaign_ui` (generated installations; export contents, import declined / failing at the second world / succeeding / rolled back, wrong game, open file, the export dialog's guard).
 - Checked once that an exported ZIP opens with `unzip` and Python's `zipfile`.
-- Limits: compressed ZIPs made by other tools are refused with a message (no decompressor is included); the overview does not read door tiles (slice H).
+- Limits: compressed ZIPs made by other tools were refused at first; since 2026-11-23 Deflate members are read (see **Compressed packs** above); the overview does not read door tiles (slice H).
 
 ### Slice F result (2026-11-23): installation workspace (and the gallery of slice K)
 

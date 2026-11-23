@@ -42,11 +42,13 @@ struct CampaignPack {
 [[nodiscard]] QByteArray writePackManifest(const Campaign &campaign);
 [[nodiscard]] std::expected<Campaign, QString> readPackManifest(const QByteArray &manifest);
 
-// ZIP archives without compression (method "stored"), with CRC-32.
+// Writes a ZIP archive without compression (method "stored"), with CRC-32.
 [[nodiscard]] std::expected<QByteArray, QString> writeZip(const std::vector<PackFile> &files);
-// Refuses compressed, encrypted, split or ZIP64 archives, names that are
-// not valid member names, duplicates, wrong checksums, and anything that
-// does not lie inside the archive.
+// Reads members that are stored or compressed with Deflate (what ZIP
+// programs do by default); a member never yields more than its stated
+// size. Refuses other methods, encrypted, split or ZIP64 archives, names
+// that are not valid member names, duplicates, wrong checksums, and
+// anything that does not lie inside the archive.
 [[nodiscard]] std::expected<std::vector<PackFile>, QString> readZip(const QByteArray &archive);
 
 // Builds the pack of a campaign from its world files (`worlds[i]` belongs

@@ -45,6 +45,45 @@ quint32 crcOf(const QByteArray &bytes) {
     return crc ^ 0xFFFFFFFFu;
 }
 
+// A ZIP written by another program (Python's zipfile, zlib 1.3) with two
+// Deflate members and a stored one: notes.txt (the 8,100 bytes of
+// `worldList()`), empty.bin (nothing) and kept.bin. Test data, not code.
+const char *const deflatedZip =
+    "504b030414000000080000002150017f874168030000a41f0000090000006e6f7465732e747874ed98418e18210c04bf"
+    "04c618a37c27c74891f6b2df8f94a53d1bea0591e63662c060b70d257ffefef8f5b3b5f6e3f3eba3ebc3f5b1cf478ff3"
+    "61f37c0c8db8e68456e5b1d365b99b46fccce97156f57dec982cdbd4489e39c3ceaa11c78ecbb2bb46f2cc997656cd75"
+    "ec842c874696e62cad4ad9d9b2bcb557b3f24b679e38b3bc18f2cbbdce73ec842c87e2b3a2763fabf6b8e3dc15799316"
+    "43eab8f49a6559234b7352ab3614ecdacbb4fbd0793cef332f7991f26bcbd3060587e2e38a5828862bee383745be4b8b"
+    "21751c0a2e8d6ccd695a657ee7c6d45e4bbba7ced3a0e09017537eadf2d4ee7c36c5c715b1500c130a9a22efd2221e75"
+    "aae264b99517b2ac5509054d7bb9768fca28d4e09017d34b0be5061474c52714b16d55b9779c43914f69d1a5ce8082a9"
+    "91674efa65a772e3d94bbb3fe781822e2fcaafe67ef95ef9fcc4a7725e315c507028f2a5c5963a861a2c4dfb53a7b20c"
+    "0587f6aafcd93a8fa1062b0fadee16799a50702a3e95f366b5ea8e73d5ceccca79ad82825b2355a7a1550d3558f5dead"
+    "ee169d190a4e795177cba85c450dd61d9515b1aa0228e88a7cdd87f6d4d75d8375afe6a3b22c4341d75e75875bdd09a8"
+    "c17a0b766566dd365030149f7a77a6d5dd7bc7b9de2fcb8a985e2b28d834526fe5ceaa823b37eacd4dabccd499a160c8"
+    "8b7adfa35e7cd46071c22c72500c27149c157969311f4ab96bf0dbc84d32130a4e90cc04c90448264032010517482641"
+    "321b24b341320d0a76908c81641c24334132010517486683643a48c640320e050324932099069231908c43c100c92448"
+    "a6836406486642c104c974908c83640224b3a1a0816426486683640c2433a16082640c241320990d9219507081643a48"
+    "66826436486640c10592e9209900c934908c43c10d927190cc06c90c904c42c1019249908c83643648c6a1e006c94c90"
+    "4c07c90448c6a06082641c24d340320192312898201907c97490cc02c90c28d840320b24e3209906925950d041321d24"
+    "b3413201921950b0816412241320990192e95070836416486682640648a643c10d9259209900c93848c6a06007c93490"
+    "cc06c92c904c40c1099271908c83640648c6a06007c974904c07c934904c83820d24d340326f4fe67b26bc3d99efb7c4"
+    "db93f9787b3227086f4fe6edc9fcfdf5f664de9eccd7166f4fe6edc9fc9bf36f4fe6e3edc91ce1de9eccffd693f90350"
+    "4b03041400000008000000215000000000020000000000000009000000656d7074792e62696e0300504b030414000000"
+    "0000000021500f36a2260d0000000d000000080000006b6570742e62696e6b657074206173206974206973504b010214"
+    "0314000000080000002150017f874168030000a41f00000900000000000000000000008001000000006e6f7465732e74"
+    "7874504b010214031400000008000000215000000000020000000000000009000000000000000000000080018f030000"
+    "656d7074792e62696e504b01021403140000000000000021500f36a2260d0000000d0000000800000000000000000000"
+    "008001b80300006b6570742e62696e504b05060000000003000300a4000000eb0300000000";
+
+QByteArray worldList() {
+    QByteArray text;
+    for (int index = 0; index < 900; ++index) {
+        text += QByteArray("world") +
+                QByteArray::number((index * index) % 1000).rightJustified(3, '0') + ";";
+    }
+    return text;
+}
+
 // An archive member as a hostile or foreign tool might write it.
 struct RawMember {
     QByteArray name;
@@ -225,6 +264,43 @@ int main(int argc, char **argv) {
     CHECK(!writeZip({{"a.blp", "a"}, {"A.BLP", "b"}}).has_value());
     CHECK(readZip(*writeZip({})).has_value()); // an empty archive is an archive
 
+    // A ZIP compressed by another program is read.
+    {
+        const auto foreign = QByteArray::fromHex(deflatedZip);
+        const auto members = readZip(foreign);
+        CHECK(members.has_value());
+        CHECK_EQ(members->size(), std::size_t{3});
+        CHECK((*members)[0].name == "notes.txt" && (*members)[0].bytes == worldList());
+        CHECK((*members)[1].name == "empty.bin" && (*members)[1].bytes.isEmpty());
+        CHECK((*members)[2].name == "kept.bin" && (*members)[2].bytes == "kept as it is");
+        // The directory entry of notes.txt: its stated size is what may be
+        // produced. A smaller one stops the decompression, a larger one is
+        // not reached, and a changed byte of the data fails the checksum or
+        // the decompression.
+        const auto entry = foreign.indexOf(QByteArray::fromHex("504b0102"));
+        CHECK(entry > 0);
+        CHECK(static_cast<quint8>(foreign[entry + 24]) == 0xA4 &&
+              static_cast<quint8>(foreign[entry + 25]) == 0x1F); // 8100
+        auto smaller = foreign;
+        smaller[entry + 24] = static_cast<char>(0xA3);
+        CHECK(errorOf(readZip(smaller)).contains("more than its stated size"));
+        auto larger = foreign;
+        larger[entry + 24] = static_cast<char>(0xA5);
+        CHECK(errorOf(readZip(larger)).contains("less than its stated size"));
+        auto huge = foreign;
+        huge[entry + 26] = static_cast<char>(0x7F); // about 8 MiB stated
+        CHECK(errorOf(readZip(huge)).contains("too large"));
+        int refused = 0;
+        for (qsizetype offset = 39; offset < 39 + 852; offset += 7) {
+            auto changed = foreign;
+            changed[offset] = static_cast<char>(changed[offset] ^ 0x10);
+            const auto result = readZip(changed);
+            CHECK(!result.has_value());
+            refused += result.has_value() ? 0 : 1;
+        }
+        CHECK(refused > 100);
+    }
+
     // Archives that are refused, each for its reason.
     {
         const QByteArray data("0123456789");
@@ -236,7 +312,10 @@ int main(int argc, char **argv) {
         }
         CHECK(errorOf(readZip(rawZip({{"a.blp", data}, {"A.blp", data}})))
                   .contains("more than once"));
-        CHECK(errorOf(readZip(rawZip({{"a.blp", data, 8}}))).contains("compressed"));
+        // Deflate is read; data that is not a Deflate stream and other
+        // methods (12 is bzip2) are refused.
+        CHECK(errorOf(readZip(rawZip({{"a.blp", data, 8}}))).contains("cannot be decompressed"));
+        CHECK(errorOf(readZip(rawZip({{"a.blp", data, 12}}))).contains("other than Deflate"));
         CHECK(errorOf(readZip(rawZip({{"a.blp", data, 0, 1}}))).contains("encrypted"));
         CHECK(errorOf(readZip(rawZip({{"a.blp", data, 0, 0, 1}}))).contains("checksum"));
         CHECK(errorOf(readZip(rawZip({{"a.blp", data, 0, 0, 0, 5000}})))
