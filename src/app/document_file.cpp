@@ -9,6 +9,7 @@
 #include <QSaveFile>
 
 #include <algorithm>
+#include <filesystem>
 
 namespace eggbert {
 
@@ -53,9 +54,7 @@ bool sameBytes(const QByteArray &left, std::span<const std::byte> right) {
                       reinterpret_cast<const std::byte *>(left.constData()));
 }
 
-bool samePath(const QString &left, const QString &right) {
-    const QFileInfo a(left);
-    const QFileInfo b(right);
+bool samePath(const QFileInfo &a, const QFileInfo &b) {
     if (a.exists() && b.exists()) {
         return a.canonicalFilePath() == b.canonicalFilePath();
     }
@@ -63,6 +62,14 @@ bool samePath(const QString &left, const QString &right) {
 }
 
 } // namespace
+
+bool sameWorldPath(const QString &left, const QString &right) {
+    const QFileInfo a(left);
+    const QFileInfo b(right);
+    std::error_code error;
+    return samePath(a, b) || std::filesystem::equivalent(a.filesystemAbsoluteFilePath(),
+                                                         b.filesystemAbsoluteFilePath(), error);
+}
 
 QByteArray toByteArray(std::span<const std::byte> bytes) {
     return QByteArray(reinterpret_cast<const char *>(bytes.data()),
@@ -141,7 +148,7 @@ SaveResult DocumentFile::save(const SaveHooks &hooks) {
 
 SaveResult DocumentFile::saveAs(const QString &newPath, bool overwriteExisting,
                                 const SaveHooks &hooks) {
-    if (samePath(newPath, path_)) {
+    if (samePath(QFileInfo(newPath), QFileInfo(path_))) {
         return save(hooks);
     }
     if (QFileInfo::exists(newPath) && !overwriteExisting) {
@@ -192,22 +199,13 @@ DocumentFile::documentBytesOf(const QByteArray &content) const {
 
 SaveResult DocumentFile::write(const QString &destination, const SaveHooks &hooks) {
     SaveResult result;
-    // A text world: the changed values go into a copy of the text, which
-    // replaces the kept one only when the file was written.
-    auto text = text_;
-    auto image = image_;
-    QByteArray bytes;
-    if (text) {
-        if (const auto stored = storeTextWorldImage(*text, image, document_.currentBytes());
-            !stored) {
-            result.error = SaveError::notStorable;
-            result.detail = coreText(stored.error());
-            return result;
-        }
-        bytes = QByteArray::fromStdString(text->write());
-    } else {
-        bytes = toByteArray(document_.currentBytes());
+    const auto content = currentContent();
+    if (!content) {
+        result.error = SaveError::notStorable;
+        result.detail = content.error();
+        return result;
     }
+    const auto &bytes = *content;
 
     QSaveFile file(destination);
     // Never fall back to truncating and rewriting the destination in place.
@@ -234,9 +232,7 @@ SaveResult DocumentFile::write(const QString &destination, const SaveHooks &hook
         result.detail = file.errorString();
         return result;
     }
-    if (text) {
-        text_ = std::move(text);
-        image_ = std::move(image);
+    if (text_) {
         diskText_ = bytes;
     }
     document_.markSaved();

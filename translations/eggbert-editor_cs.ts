@@ -2740,6 +2740,30 @@ Posuzováno pro: %1</translation>
    <source>%1 is not a Mobile Eggbert world the editor can read.</source>
    <translation>%1 není svět Mobile Eggbert, který editor umí přečíst.</translation>
   </message>
+  <message>
+   <source>%1 already exists.</source>
+   <translation>%1 již existuje.</translation>
+  </message>
+  <message>
+   <source> Recovery failed for %1. Original bytes are in %2.</source>
+   <translation> Obnova souboru %1 selhala. Původní data najdete v %2.</translation>
+  </message>
+  <message>
+   <source> The newly written file could not be removed: %1.</source>
+   <translation> Nově zapsaný soubor se nepodařilo odebrat: %1.</translation>
+  </message>
+  <message>
+   <source> The previous state was restored.</source>
+   <translation> Předchozí stav byl obnoven.</translation>
+  </message>
+  <message>
+   <source>%1 did not read back as written.</source>
+   <translation>Obsah souboru %1 po zápisu neodpovídá očekávání.</translation>
+  </message>
+  <message>
+   <source>The deploy of %1 could not be recorded.</source>
+   <translation>Záznam o nasazení %1 se nepodařilo uložit.</translation>
+  </message>
  </context>
  <context>
   <name>eggbert::GameAssets</name>
@@ -2989,6 +3013,10 @@ Posuzováno pro: %1</translation>
    <translation>Světy instalace</translation>
   </message>
   <message>
+   <source>Open Selected Worlds</source>
+   <translation>Otevřít vybrané světy</translation>
+  </message>
+  <message>
    <source>Deploy Current World...</source>
    <translation>Nasadit aktuální svět...</translation>
   </message>
@@ -3070,9 +3098,45 @@ Oficiálních světů: %2, uživatelských: %3, uložených her: %4, souborů hr
 %n světů hry Mobile Eggbert. Dvojklikem svět otevřete.</numerusform>
    </translation>
   </message>
+  <message>
+   <source>Open All Worlds</source>
+   <translation>Otevřít všechny světy</translation>
+  </message>
+  <message>
+   <source>Open All Shown</source>
+   <translation>Otevřít všechny zobrazené</translation>
+  </message>
+  <message>
+   <source>Search file, title or number</source>
+   <translation>Hledat soubor, název nebo číslo</translation>
+  </message>
+  <message>
+   <source>World role</source>
+   <translation>Role světa</translation>
+  </message>
+  <message>
+   <source>All roles</source>
+   <translation>Všechny role</translation>
+  </message>
+  <message>
+   <source>Other worlds</source>
+   <translation>Ostatní světy</translation>
+  </message>
+  <message>
+   <source>User worlds</source>
+   <translation>Uživatelské světy</translation>
+  </message>
+  <message>
+   <source>Convert for This Installation...</source>
+   <translation>Převést pro tuto instalaci...</translation>
+  </message>
  </context>
  <context>
   <name>eggbert::MainWindow</name>
+  <message>
+   <source>Save All</source>
+   <translation>Uložit vše</translation>
+  </message>
   <message>
    <source>Blupi world files (*.blp *.BLP *.xch *.XCH);;All files (*)</source>
    <translation>Soubory světů Blupi (*.blp *.BLP *.xch *.XCH);;Všechny soubory (*)</translation>
@@ -5159,6 +5223,68 @@ Sestaveno s Qt %2, běží na Qt %3.</translation>
   <message>
    <source>World %1: click in hub %2 where its door goes; the sign of this mission is placed to the right of it.</source>
    <translation>Svět %1: klikněte v rozcestníku %2 tam, kam patří její dveře; cedule této mise se umístí vpravo od nich.</translation>
+  </message>
+  <message>
+   <source>Open Game Installation</source>
+   <translation>Otevřít herní instalaci</translation>
+  </message>
+  <message>
+   <source>Open Game Installation...</source>
+   <translation>Otevřít herní instalaci...</translation>
+  </message>
+  <message>
+   <source>File in use</source>
+   <translation>Otevřený soubor</translation>
+  </message>
+  <message>
+   <source>The destination is open in the editor. Choose another file.
+%1</source>
+   <translation>Cílový soubor je otevřený v editoru. Vyberte jiný soubor.
+%1</translation>
+  </message>
+  <message>
+   <source>Keep a snapshot of each original before saving</source>
+   <translation>Před uložením vytvořit snímek každého původního souboru</translation>
+  </message>
+  <message>
+   <source>Save these modified worlds?</source>
+   <translation>Uložit tyto upravené světy?</translation>
+  </message>
+  <message>
+   <source>Before Save All</source>
+   <translation>Před hromadným uložením</translation>
+  </message>
+  <message>
+   <source>Could not back up %1. Check the file on disk and the recovery directory. No worlds were saved.</source>
+   <translation>Zálohování souboru %1 selhalo. Zkontrolujte soubor na disku a složku pro obnovu. Žádný svět se neuložil.</translation>
+  </message>
+  <message>
+   <source>Saved: %1</source>
+   <translation>Uloženo: %1</translation>
+  </message>
+  <message>
+   <source>Not saved: %1</source>
+   <translation>Neuloženo: %1</translation>
+  </message>
+  <message>
+   <source>%1 — %2. Last successful copy: %3</source>
+   <translation>%1 — %2. Poslední úspěšná kopie: %3</translation>
+  </message>
+  <message>
+   <source>Could not write to %1</source>
+   <translation>Zápis do %1 selhal</translation>
+  </message>
+  <message>
+   <source>none this session</source>
+   <translation>v této relaci zatím žádná</translation>
+  </message>
+  <message>
+   <source>Autosave failed: %1</source>
+   <translation>Automatické uložení selhalo: %1</translation>
+  </message>
+  <message>
+   <source>Select the installation for this world. To use it in the other PC game, choose File &gt; Convert for Other Game and review the changes first.</source>
+   <translation>Vyberte instalaci tohoto světa. Pro použití v druhé PC hře zvolte Soubor → Převést pro druhou hru a zkontrolujte změny.</translation>
   </message>
  </context>
  <context>

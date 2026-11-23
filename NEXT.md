@@ -90,6 +90,16 @@ Verified and reported observations are recorded with citations in `docs/research
 
 ## Next task: none — the promoted roadmap is built; what follows are limits and two decisions of the owner
 
+### Installation editing and file recovery (2026-11-23)
+
+**File → Open Game Installation** accepts a game root or its DATA folder. The panel shows the selected profile and path, supports search and role filters, and opens all visible worlds. A manual directory choice stays active in that window. On startup the remembered installation is available before any tab opens. Opening a world from a recognised installation can select its game until the user chooses one explicitly. The panel and F5 playtest the selected installation.
+
+PNG/SVG export protects input worlds and files open in other editor windows. Save As detects destinations in use. Deploy checks the document profile, offers the SB1/SB2 conversion preview for mismatched PC games, verifies automatic restoration after failure, and retains the original backup if restoration also fails. Campaign Builder uses exclusive publication for newly created slots. Folder packs are staged and validated before publication. Autosave failures remain visible in the status bar. Save All on installation worlds offers pre-write snapshots and reports the result per file. Saving and undoing a deletion in a Mobile world restores the original text and object order.
+
+Release and ASan/UBSan each passed all 80 CTest tests with `EGGBERT_SAMPLE_DIRS` set. Both builds were checked with `cmake --build` followed by `ctest --test-dir <build> --output-on-failure`. The sample matrix covered 207 files from local copies of both games. All 179 editable worlds round-tripped. A separate offscreen Qt check invoked File → Open Game Installation and Open All Worlds against each DATA directory. It matched all 59 first-game tabs and all 120 second-game tabs to their source paths and profiles.
+
+The next platform check is to exercise these changes in the Windows and macOS build jobs. The local checks on this worktree used Linux.
+
 Slices A–Q are done and verified here and on hosted runners. Every bullet of `plan.md`, **Post-1.0 roadmap**, has a slice. Nothing in the list below is a pending task: each entry is something that cannot be built from what exists, or a deliberate limit, with its reason. They are recorded so that nobody mistakes them for forgotten work.
 
 Not built, and why:

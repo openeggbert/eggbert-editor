@@ -13,6 +13,7 @@
 #include <QRegularExpression>
 #include <QSaveFile>
 #include <QSet>
+#include <QTemporaryDir>
 
 #include <array>
 #include <optional>
@@ -531,14 +532,26 @@ std::expected<void, QString> writePack(const CampaignPack &pack, const QString &
         return {};
     }
     // A new directory only: an existing one may hold something else.
-    if (QFileInfo::exists(path) || !QDir().mkpath(path)) {
+    const QFileInfo destination(path);
+    if (destination.exists() || !QDir().mkpath(destination.absolutePath())) {
         return fail(QCoreApplication::translate("eggbert::Files", "%1 exists already or cannot be created.").arg(path));
     }
+    QTemporaryDir stage(destination.absolutePath() + QStringLiteral("/.eggbert-pack-XXXXXX"));
+    if (!stage.isValid()) {
+        return fail(stage.errorString());
+    }
     for (const auto &file : files) {
-        if (!save(QDir(path).filePath(file.name), file.bytes)) {
+        if (!validPackMemberName(file.name) || !save(stage.filePath(file.name), file.bytes)) {
             return fail(QCoreApplication::translate("eggbert::Files", "%1 could not be written.").arg(file.name));
         }
     }
+    if (const auto verified = readPack(stage.path()); !verified) {
+        return fail(verified.error());
+    }
+    if (!QDir().rename(stage.path(), destination.absoluteFilePath())) {
+        return fail(QCoreApplication::translate("eggbert::Files", "%1 exists already or cannot be created.").arg(path));
+    }
+    stage.setAutoRemove(false);
     return {};
 }
 

@@ -129,19 +129,6 @@ const char *const worldFilter =
                       "World files (*.blp *.BLP *.xch *.XCH *.txt);;Blupi world files (*.blp "
                       "*.BLP *.xch *.XCH);;Mobile Eggbert worlds (*.txt);;All files (*)");
 
-int artworkIndex(GameProfile profile) {
-    return profile == GameProfile::speedyBlupi1     ? 0
-           : profile == GameProfile::speedyBlupi2   ? 1
-           : profile == GameProfile::mobileEggbert ? 2
-                                                    : -1;
-}
-
-QString artworkSettingKey(GameProfile profile) {
-    return profile == GameProfile::speedyBlupi1     ? QStringLiteral("artwork/directory-game1")
-           : profile == GameProfile::mobileEggbert ? QStringLiteral("artwork/directory-mobile")
-                                                    : QStringLiteral("artwork/directory-game2");
-}
-
 QString playtestSettingKey(GameProfile profile) {
     return profile == GameProfile::mobileEggbert
                ? QStringLiteral("playtest/command-mobile")
@@ -149,8 +136,7 @@ QString playtestSettingKey(GameProfile profile) {
                      .arg(profile == GameProfile::speedyBlupi1 ? 1 : 2);
 }
 
-constexpr GameProfile gamesWithArtwork[] = {GameProfile::speedyBlupi1, GameProfile::speedyBlupi2,
-                                            GameProfile::mobileEggbert};
+
 
 QString samePathKey(const QString &path) {
     const QFileInfo info(path);
@@ -210,7 +196,7 @@ MainWindow::MainWindow() {
         game->setToolTip(tr("Select the directory of a game you have, so worlds are drawn with "
                             "its graphics. The directory is only read."));
         connect(game, &QPushButton::clicked, this, [this] {
-            if (auto *item = action(QStringLiteral("viewArtworkDirectory"))) {
+            if (auto *item = action(QStringLiteral("fileOpenInstallation"))) {
                 item->trigger();
             }
         });
@@ -245,6 +231,10 @@ MainWindow::MainWindow() {
             [this](int index) { closeTab(tabAt(index)); });
     connect(tabs_, &QTabWidget::currentChanged, this, [this] { updateUi(); });
     // Unsaved changes are copied to the recovery store shortly after an edit.
+    autosaveWarning_ = new QLabel(this);
+    autosaveWarning_->setObjectName("autosaveWarning");
+    statusBar()->addPermanentWidget(autosaveWarning_);
+    autosaveWarning_->hide();
     autosaveTimer_ = new QTimer(this);
     autosaveTimer_->setSingleShot(true);
     autosaveTimer_->setInterval(3000);
@@ -293,12 +283,6 @@ MainWindow::MainWindow() {
         // Remembered artwork directories are read again; a directory that
         // disappeared simply leaves the schematic drawing.
         const QSettings stored;
-        for (const auto profile : gamesWithArtwork) {
-            const auto directory = stored.value(artworkSettingKey(profile)).toString();
-            if (!directory.isEmpty()) {
-                artwork_[artworkIndex(profile)] = GameAssets::load(directory, profile);
-            }
-        }
         artworkEnabled_ = stored.value(QStringLiteral("artwork/enabled"), false).toBool();
         animate_ = stored.value(QStringLiteral("view/animate"), true).toBool();
     }
@@ -706,6 +690,18 @@ void MainWindow::installDefaultPrompts() {
             return std::nullopt;
         }
         return static_cast<std::size_t>(stampList->currentRow());
+    };
+    prompts.reviewSaveAll = [this](const QStringList &paths) -> std::optional<bool> {
+        QMessageBox box(QMessageBox::Question, tr("Save All"), tr("Save these modified worlds?"),
+                        QMessageBox::Save | QMessageBox::Cancel, this);
+        box.setInformativeText(paths.join(QLatin1Char('\n')));
+        auto *backup = new QCheckBox(tr("Keep a snapshot of each original before saving"), &box);
+        backup->setChecked(true);
+        box.setCheckBox(backup);
+        if (box.exec() != QMessageBox::Save) {
+            return std::nullopt;
+        }
+        return backup->isChecked();
     };
     prompts.confirmBatch = [this](const QString &title, const QStringList &lines) {
         return QMessageBox::question(this, title, lines.join(QLatin1Char('\n')),
@@ -1215,8 +1211,8 @@ void MainWindow::installDefaultPrompts() {
     };
     prompts.chooseArtworkDirectory =
         [this](GameProfile suggested) -> std::optional<std::pair<QString, GameProfile>> {
-        const auto directory = QFileDialog::getExistingDirectory(
-            this, tr("Choose the Game Directory (it is only read)"));
+        const auto chosen = QFileDialog::getExistingDirectory(this, tr("Open Game Installation"));
+        const auto directory = InstallationSession::gameRoot(chosen);
         if (directory.isEmpty()) {
             return std::nullopt;
         }
@@ -1410,6 +1406,8 @@ void MainWindow::createActions() {
             openPath(path);
         }
     });
+    connect(addAction(fileMenu, QStringLiteral("fileOpenInstallation"), tr("Open Game Installation...")),
+            &QAction::triggered, this, [this] { chooseInstallation(false); });
     recentMenu_ = fileMenu->addMenu(tr("Open &Recent"));
     fileMenu->addSeparator();
     connect(addAction(fileMenu, QStringLiteral("fileSave"), tr("&Save"), QKeySequence::Save),
@@ -1453,6 +1451,9 @@ void MainWindow::createActions() {
                 const auto path = prompts.saveTextPath(
                     QFileInfo(tab->file().path()).completeBaseName() + QStringLiteral(".svg"));
                 if (path.isEmpty()) {
+                    return;
+                }
+                if (!destinationAvailable(path)) {
                     return;
                 }
                 QSaveFile file(path);
@@ -1606,7 +1607,13 @@ void MainWindow::createActions() {
     editMenu->addSeparator();
     connect(addAction(editMenu, QStringLiteral("editSelectAll"), tr("Select &All"),
                       QKeySequence::SelectAll),
-            &QAction::triggered, this, tabCommand(&DocumentTab::selectAll));
+            &QAction::triggered, this, [this] {
+                if (installation_->list()->hasFocus()) {
+                    installation_->list()->selectAll();
+                } else if (auto *tab = currentTab()) {
+                    tab->selectAll();
+                }
+            });
     connect(addAction(editMenu, QStringLiteral("editSelectNone"), tr("Select &None"),
                       QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_A)),
             &QAction::triggered, this, tabCommand(&DocumentTab::selectNone));
@@ -1675,8 +1682,7 @@ void MainWindow::createActions() {
     connect(addAction(editMenu, QStringLiteral("editPlaytestCommand"),
                       tr("Pla&ytest Command...")),
             &QAction::triggered, this, [this] {
-                auto *tab = currentTab();
-                const auto profile = tab != nullptr ? tab->profile() : GameProfile::unknown;
+                const auto profile = installations_.selected();
                 if (profile == GameProfile::unknown) {
                     return;
                 }
@@ -1954,16 +1960,7 @@ void MainWindow::createActions() {
     });
     connect(addAction(viewMenu, QStringLiteral("viewArtworkDirectory"),
                       tr("Game Artwork &Directory...")),
-            &QAction::triggered, this, [this] {
-                auto *tab = currentTab();
-                const auto choice = prompts.chooseArtworkDirectory(
-                    tab != nullptr ? tab->profile() : GameProfile::unknown);
-                if (!choice) {
-                    return;
-                }
-                loadArtwork(choice->first, choice->second);
-                prompts.showDocument(tr("Game Artwork"), artworkReport(), false);
-            });
+            &QAction::triggered, this, [this] { chooseInstallation(true); });
     {
         auto *animate = addAction(viewMenu, QStringLiteral("viewAnimate"), tr("&Animate"));
         animate->setCheckable(true);
@@ -2039,7 +2036,7 @@ void MainWindow::createActions() {
     adaptiveCombo_->setObjectName(QStringLiteral("adaptiveCombo"));
     adaptiveCombo_->setToolTip(tr("What the adaptive brush paints"));
     adaptiveCombo_->setSizeAdjustPolicy(QComboBox::AdjustToContents);
-    
+
     connect(adaptiveCombo_, &QComboBox::currentIndexChanged, this, [this](int index) {
         if (updating_ || index < 0) {
             return;
@@ -2056,7 +2053,7 @@ void MainWindow::createActions() {
     startSpin_->setRange(1, 4);
     startSpin_->setPrefix(tr("Start "));
     startSpin_->setToolTip(tr("Player start edited by the Start tool"));
-    
+
     connect(startSpin_, &QSpinBox::valueChanged, this, [this](int value) {
         if (updating_) {
             return;
@@ -2077,7 +2074,7 @@ void MainWindow::createActions() {
     presetCombo_->setObjectName(QStringLiteral("objectPresetCombo"));
     presetCombo_->setToolTip(tr("Verified object presets of the chosen game profile"));
     presetCombo_->setSizeAdjustPolicy(QComboBox::AdjustToContents);
-    
+
     connect(presetCombo_, &QComboBox::currentIndexChanged, this, [this](int index) {
         if (updating_ || index < 0) {
             return;
@@ -2089,7 +2086,7 @@ void MainWindow::createActions() {
     layerCombo_ = new QComboBox(this);
     layerCombo_->setObjectName(QStringLiteral("layerCombo"));
     layerCombo_->setToolTip(tr("Layer edited by the tools"));
-    
+
     connect(layerCombo_, &QComboBox::currentIndexChanged, this, [this](int index) {
         if (updating_ || index < 0) {
             return;
@@ -2104,7 +2101,7 @@ void MainWindow::createActions() {
     tileSpin_->setRange(-32768, 32767);
     tileSpin_->setPrefix(tr("Tile ID "));
     tileSpin_->setToolTip(tr("Raw stored tile ID written by the pencil (-1 is an empty cell)"));
-    
+
     connect(tileSpin_, &QSpinBox::valueChanged, this, [this](int value) {
         if (updating_) {
             return;
@@ -2123,7 +2120,7 @@ void MainWindow::createActions() {
                                GameProfile::speedyBlupi2, GameProfile::mobileEggbert}) {
         profileCombo_->addItem(profileDisplayName(profile), static_cast<int>(profile));
     }
-    
+
     connect(profileCombo_, &QComboBox::currentIndexChanged, this, [this](int index) {
         if (updating_ || index < 0) {
             return;
@@ -2225,13 +2222,14 @@ void MainWindow::createDocks(QMenu *viewMenu) {
     paletteDock_->raise();
     connect(installation_, &InstallationPanel::openRequested, this,
             [this](const QString &path) { openPath(path); });
+    connect(installation_, &InstallationPanel::convertRequested, this, [this] { convertGameOf(currentTab()); });
     connect(installation_, &InstallationPanel::deployRequested, this,
             [this] { deployWorld(currentTab()); });
     connect(installation_, &InstallationPanel::rollBackRequested, this,
             [this] { rollBackLastDeploy(); });
     connect(installation_, &InstallationPanel::playtestRequested, this, [this] { playtest(); });
     connect(installation_, &InstallationPanel::chooseDirectoryRequested, this, [this] {
-        if (auto *item = action(QStringLiteral("viewArtworkDirectory"))) {
+        if (auto *item = action(QStringLiteral("fileOpenInstallation"))) {
             item->trigger();
         }
     });
@@ -2523,6 +2521,8 @@ void MainWindow::rememberProfile(const QString &path, GameProfile profile) {
 }
 
 void MainWindow::adoptGameOfFolder(DocumentTab *tab) {
+    const auto installedGame = installations_.profileOfWorld(tab->file().path());
+    installations_.followWorld(installedGame);
     // A text world is a Mobile Eggbert world; its pictures are in the
     // port's Content folder, next to the folder the worlds are in.
     if (tab->file().isTextWorld()) {
@@ -2531,7 +2531,7 @@ void MainWindow::adoptGameOfFolder(DocumentTab *tab) {
             auto folder = QFileInfo(tab->file().path()).dir();
             for (int level = 0; level < 3; ++level) {
                 if (!GameAssets::mobileContentDirectory(folder.absolutePath()).isEmpty()) {
-                    loadArtwork(folder.absolutePath(), GameProfile::mobileEggbert);
+                    loadArtwork(folder.absolutePath(), GameProfile::mobileEggbert, false);
                     break;
                 }
                 if (!folder.cdUp()) {
@@ -2557,6 +2557,10 @@ void MainWindow::adoptGameOfFolder(DocumentTab *tab) {
     if (!gameDirectory.cdUp()) {
         return;
     }
+    if (installedGame == GameProfile::speedyBlupi1 || installedGame == GameProfile::speedyBlupi2) {
+        tab->setProfile(installedGame);
+        return;
+    }
     const auto detected = detectGameProfile(gameDirectory.absolutePath());
     if (detected.profile == GameProfile::unknown) {
         return;
@@ -2564,7 +2568,7 @@ void MainWindow::adoptGameOfFolder(DocumentTab *tab) {
     tab->setProfile(detected.profile);
     // Its graphics too, unless a directory was already chosen for that game.
     if (gameDirectoryFor(detected.profile) == nullptr) {
-        loadArtwork(gameDirectory.absolutePath(), detected.profile);
+        loadArtwork(gameDirectory.absolutePath(), detected.profile, false);
     }
     statusBar()->showMessage(
         tr("%1: recognised from its folder as %2.")
@@ -2976,9 +2980,33 @@ bool MainWindow::locateSlot(std::size_t slot) {
     return true;
 }
 
+bool MainWindow::destinationAvailable(const QString &path, QWidget *owner) {
+    for (int index = 0; index < tabCount(); ++index) {
+        auto *tab = tabAt(index);
+        if (tab != owner && sameWorldPath(path, tab->file().path())) {
+            setCurrentTab(tab);
+            prompts.error(tr("File in use"), tr("The destination is open in the editor. Choose another file.\n%1").arg(path));
+            return false;
+        }
+    }
+    for (auto *editor : textWorldEditors()) {
+        if (editor != owner && sameWorldPath(path, editor->path())) {
+            editor->show();
+            editor->raise();
+            editor->activateWindow();
+            prompts.error(tr("File in use"), tr("The destination is open in the editor. Choose another file.\n%1").arg(path));
+            return false;
+        }
+    }
+    return true;
+}
+
 bool MainWindow::exportPng(DocumentTab *tab, const PngExportOptions &options,
                            const QString &path) {
     if (tab == nullptr) {
+        return false;
+    }
+    if (!destinationAvailable(path)) {
         return false;
     }
     const auto result = exportWorldPng(tab->document().view(), tab->profile(), options, path);
@@ -2993,32 +3021,39 @@ bool MainWindow::exportPng(DocumentTab *tab, const PngExportOptions &options,
 }
 
 std::shared_ptr<const GameAssets> MainWindow::artworkFor(GameProfile profile) const {
-    const auto index = artworkIndex(profile);
-    if (index < 0 || artwork_[index] == nullptr || !artwork_[index]->usable()) {
-        return nullptr;
-    }
-    return artwork_[index];
+    const auto assets = installations_.assets(profile);
+    return assets && assets->usable() ? assets : nullptr;
 }
 
 std::shared_ptr<const GameAssets> MainWindow::gameDirectoryFor(GameProfile profile) const {
-    const auto index = artworkIndex(profile);
-    return index < 0 ? nullptr : artwork_[index];
+    return installations_.assets(profile);
 }
 
-bool MainWindow::loadArtwork(const QString &directory, GameProfile profile) {
-    const auto index = artworkIndex(profile);
-    if (index < 0) {
+void MainWindow::chooseInstallation(bool showArtworkReport) {
+    auto *tab = currentTab();
+    const auto choice = prompts.chooseArtworkDirectory(tab ? tab->profile() : GameProfile::unknown);
+    if (!choice) {
+        return;
+    }
+    loadArtwork(choice->first, choice->second);
+    installationDock_->show();
+    installationDock_->raise();
+    if (showArtworkReport) {
+        prompts.showDocument(tr("Game Artwork"), artworkReport(), false);
+    }
+}
+
+bool MainWindow::loadArtwork(const QString &directory, GameProfile profile, bool selectInstallation) {
+    const auto assets = installations_.load(directory, profile, selectInstallation);
+    if (!assets) {
         return false;
     }
-    artwork_[index] = GameAssets::load(directory, profile);
-    // The path is a local preference; it is never written into a world file.
-    QSettings().setValue(artworkSettingKey(profile), artwork_[index]->directory());
-    if (artwork_[index]->usable()) {
+    if (assets->usable()) {
         setArtworkEnabled(true);
     }
     applyArtworkToTabs();
     updateUi();
-    return artwork_[index]->usable();
+    return assets->usable();
 }
 
 void MainWindow::setArtworkEnabled(bool enabled) {
@@ -3056,7 +3091,7 @@ QString MainWindow::artworkReport() const {
                 "that cannot be validated is drawn schematically.");
     for (const auto profile : gamesWithArtwork) {
         lines << QString() << profileDisplayName(profile);
-        const auto &assets = artwork_[artworkIndex(profile)];
+        const auto &assets = installations_.assets(profile);
         if (assets == nullptr) {
             lines << tr("  No directory chosen.");
             continue;
@@ -3287,6 +3322,9 @@ bool MainWindow::saveTabAs(DocumentTab *tab) {
     if (path.isEmpty()) {
         return false;
     }
+    if (!destinationAvailable(path, tab)) {
+        return false;
+    }
     // The path prompt is responsible for overwrite consent.
     const auto result = tab->file().saveAs(path, true);
     if (!result.ok()) {
@@ -3309,12 +3347,43 @@ bool MainWindow::saveTabAs(DocumentTab *tab) {
 }
 
 bool MainWindow::saveAll() {
-    bool allSaved = true;
+    QStringList paths;
+    std::vector<DocumentTab *> modified;
+    bool installationFiles = false;
     for (int index = 0; index < tabCount(); ++index) {
         auto *tab = tabAt(index);
         if (tab->document().isModified()) {
-            allSaved = saveTab(tab) && allSaved;
+            modified.push_back(tab);
+            paths << tab->file().path();
+            installationFiles |= installations_.containsWorld(paths.back());
         }
+    }
+    if (installationFiles) {
+        const auto backup = prompts.reviewSaveAll(paths);
+        if (!backup) {
+            return false;
+        }
+        if (*backup) {
+            for (auto *tab : modified) {
+                const auto &file = tab->file();
+                const auto bytes = file.savedContent();
+                if (file.diskState() != DiskState::unchanged ||
+                    !recovery_.writeSnapshot(file.path(), tr("Before Save All"), asBytes(bytes), asBytes(bytes))) {
+                    prompts.error(tr("Save All"), tr("Could not back up %1. Check the file on disk and the recovery directory. No worlds were saved.").arg(file.path()));
+                    return false;
+                }
+            }
+        }
+    }
+    QStringList results;
+    bool allSaved = true;
+    for (auto *tab : modified) {
+        const bool saved = saveTab(tab);
+        results << (saved ? tr("Saved: %1") : tr("Not saved: %1")).arg(tab->file().path());
+        allSaved &= saved;
+    }
+    if (installationFiles) {
+        prompts.showDocument(tr("Save All"), results.join(QLatin1Char('\n')), false);
     }
     return allSaved;
 }
@@ -3338,20 +3407,29 @@ bool MainWindow::revertTab(DocumentTab *tab) {
 }
 
 void MainWindow::flushAutosave() {
+    QStringList failures;
     autosaveTimer_->stop();
     for (int index = 0; index < tabCount(); ++index) {
         auto *tab = tabAt(index);
         const auto &document = tab->document();
         if (document.isModified()) {
             // What Save would write: a text world is kept as text here too.
-            if (const auto current = tab->file().currentContent(); current) {
-                recovery_.writeAutosave(tab->file().path(), asBytes(tab->file().savedContent()),
-                                        asBytes(*current));
+            const auto current = tab->file().currentContent();
+            if (current && recovery_.writeAutosave(tab->file().path(), asBytes(tab->file().savedContent()), asBytes(*current))) {
+                tab->setProperty("lastAutosave", QDateTime::currentDateTime());
+            } else {
+                const auto last = tab->property("lastAutosave").toDateTime();
+                failures << tr("%1 — %2. Last successful copy: %3")
+                    .arg(tab->file().path(), current ? tr("Could not write to %1").arg(recovery_.directory()) : current.error(),
+                         last.isValid() ? QLocale().toString(last, QLocale::ShortFormat) : tr("none this session"));
             }
         } else {
             recovery_.removeAutosave(tab->file().path());
         }
     }
+    autosaveWarning_->setText(tr("Autosave failed: %1").arg(failures.value(0).section(QStringLiteral(" — "), 0, 0)));
+    autosaveWarning_->setToolTip(failures.join(QLatin1Char('\n')));
+    autosaveWarning_->setVisible(!failures.isEmpty());
 }
 
 int MainWindow::checkRecovery() {
@@ -3520,10 +3598,10 @@ DocumentTab *MainWindow::createWorld() {
 
 void MainWindow::refreshInstallationActions() {
     auto *tab = currentTab();
-    const auto profile = tab != nullptr ? tab->profile() : GameProfile::unknown;
+    const auto profile = installations_.selected();
     const auto game = gameDirectoryFor(profile);
     const auto directory = game != nullptr ? game->directory() : QString();
-    if (installation_->gameDirectory() != directory) {
+    if (installation_->gameDirectory() != directory || installation_->profile() != profile) {
         installation_->setInstallation(directory, profile);
     }
     // The small pictures are drawn like the map: with the game's pictures
@@ -3542,7 +3620,11 @@ void MainWindow::refreshInstallationActions() {
             hint = tr("Puts back %1").arg(records.front().targetPath);
         }
     }
-    installation_->setActions(complete, haveDeploys_, hint);
+    const bool compatible = complete && installations_.accepts(tab->profile(), tab->file().isTextWorld());
+    const bool offerConversion = complete && !compatible && !tab->file().isTextWorld() &&
+        tab->profile() != GameProfile::unknown && profile != GameProfile::unknown &&
+        profile != GameProfile::mobileEggbert;
+    installation_->setActions(compatible, haveDeploys_, hint, offerConversion);
 }
 
 void MainWindow::setCurrentTab(DocumentTab *tab) {
@@ -3567,6 +3649,9 @@ TextWorldEditor *MainWindow::openTextWorld(const QString &path) {
         prompts.error(tr("Mobile Eggbert Text World"), error);
         return nullptr;
     }
+    editor->canSaveAs = [this, editor](const QString &target) {
+        return destinationAvailable(target, editor);
+    };
     textEditors_.emplace_back(editor);
     editor->show();
     statusBar()->showMessage(
@@ -4178,7 +4263,7 @@ DocumentTab *MainWindow::createCampaignWorld(int number, bool withKey) {
         return nullptr;
     }
     // Through the deploy store, so that the new file can be taken out again.
-    const auto result = deployStore_.deploy(dataDirectory, fileName, asBytes(content));
+    const auto result = deployStore_.deploy(dataDirectory, fileName, asBytes(content), DeployMode::createOnly);
     if (!result) {
         prompts.error(tr("Campaign Builder"), result.error());
         return nullptr;
@@ -4411,9 +4496,10 @@ std::optional<DeployRecord> MainWindow::deployWorld(DocumentTab *tab) {
     // A text world goes into Mobile Eggbert's worlds folder as text, a .blp
     // world into a Windows game's DATA folder; never one as the other.
     const bool port = installation_->profile() == GameProfile::mobileEggbert;
-    if (port != tab->file().isTextWorld()) {
+    if (!installations_.accepts(tab->profile(), tab->file().isTextWorld())) {
         prompts.error(tr("Deploy Current World"),
-                      tr("This world and the chosen game directory belong to different games."));
+                      port != tab->file().isTextWorld() ? tr("This world and the chosen game directory belong to different games.") :
+                      tr("Select the installation for this world. To use it in the other PC game, choose File > Convert for Other Game and review the changes first."));
         return std::nullopt;
     }
     QString fileName;
@@ -4529,8 +4615,7 @@ MainWindow::playtestCommandFor(GameProfile profile) const {
 }
 
 bool MainWindow::playtest() {
-    auto *tab = currentTab();
-    const auto profile = tab != nullptr ? tab->profile() : GameProfile::unknown;
+    const auto profile = installations_.selected();
     if (gameDirectoryFor(profile) == nullptr) {
         prompts.error(tr("Playtest"),
                       tr("Open a world, choose its game and that game's directory first."));
@@ -4767,6 +4852,9 @@ bool MainWindow::closeTab(DocumentTab *tab) {
     recovery_.removeAutosave(tab->file().path());
     tabs_->removeTab(tabs_->indexOf(tab));
     tab->deleteLater();
+    if (!autosaveWarning_->isHidden()) {
+        flushAutosave();
+    }
     updateUi();
     return true;
 }
@@ -5000,8 +5088,8 @@ void MainWindow::updateUi() {
         enable("fileExportPack", installed);
         enable("fileImportPack", installed);
     }
-    enable("filePlaytest", hasTab && gameDirectoryFor(tab->profile()) != nullptr);
-    enable("editPlaytestCommand", hasTab && tab->profile() != GameProfile::unknown);
+    enable("filePlaytest", installation_->playtestButton()->isEnabled());
+    enable("editPlaytestCommand", installation_->playtestButton()->isEnabled());
     enable("fileExportSvg", hasTab);
     enable("fileRecordScenario", hasTab);
     enable("fileCheckScenario", hasTab);
@@ -5014,8 +5102,7 @@ void MainWindow::updateUi() {
     enable("fileExportPng", hasTab);
     if (auto *toggle = action(QStringLiteral("viewArtwork"))) {
         toggle->setChecked(artworkEnabled_);
-        toggle->setEnabled(artwork_[0] != nullptr || artwork_[1] != nullptr ||
-                           artwork_[2] != nullptr);
+        toggle->setEnabled(installations_.selected() != GameProfile::unknown);
     }
     if (hasTab) {
         auto options = tab->canvas()->renderOptions();

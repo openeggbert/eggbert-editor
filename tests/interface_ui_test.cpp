@@ -5,6 +5,9 @@
 // the folder a world is opened from.
 
 #include "app/main_window.hpp"
+#include "app/installation_panel.hpp"
+#include "app/text_world_editor.hpp"
+#include <QLineEdit>
 #include "app/world_canvas.hpp"
 
 #include "check.hpp"
@@ -65,6 +68,7 @@ int main(int argc, char **argv) {
     const auto second = makeGame(dir.filePath("second"), true);
     writeWorld(first.root + "/DATA/WORLD001.BLP");
     writeWorld(second.root + "/DATA/world001.blp");
+    writeWorld(second.root + "/DATA/world010.blp");
     const auto firstDigest = directoryDigest(first.root);
     const auto secondDigest = directoryDigest(second.root);
 
@@ -229,6 +233,95 @@ int main(int argc, char **argv) {
               GameProfile::unknown);
         window.close();
     }
+    // Choosing a game directory is also an installation workflow when no
+    // world is open: the dock is shown and populated, and several selected
+    // worlds can be opened together.
+    {
+        MainWindow window;
+        configure(window);
+        CHECK(window.tabCount() == 0 && window.welcomeVisible());
+        window.prompts.chooseArtworkDirectory = [&](GameProfile suggested) {
+            CHECK(suggested == GameProfile::unknown);
+            return std::optional<std::pair<QString, GameProfile>>(
+                std::pair{second.root + "/DATA", GameProfile::speedyBlupi2});
+        };
+        window.prompts.showDocument = [](const QString &, const QString &, bool) {};
+        window.action("fileOpenInstallation")->trigger();
+        QApplication::processEvents();
+        auto *installation = window.installation();
+        CHECK(installation->gameDirectory() == second.root);
+        CHECK(installation->dataDirectory() == second.root + "/DATA");
+        CHECK_EQ(installation->list()->count(), 2);
+        CHECK(window.action("viewInstallation")->isChecked());
+        CHECK(!installation->openSelectedButton()->isEnabled());
+        CHECK(window.action("filePlaytest")->isEnabled());
+        int launched = 0;
+        window.prompts.playtestCommand = [](GameProfile, const QString &) {
+            return std::optional<QString>("fixture-player");
+        };
+        window.prompts.startProcess = [&](const QString &, const QStringList &, const QString &folder) {
+            ++launched;
+            return folder == second.root;
+        };
+        window.action("filePlaytest")->trigger();
+        CHECK_EQ(launched, 1);
+        auto *search = installation->findChild<QLineEdit *>("installationSearch");
+        auto *roles = installation->findChild<QComboBox *>("installationRole");
+        auto *openAll = installation->findChild<QPushButton *>("installationOpenAll");
+        search->setText("010");
+        roles->setCurrentIndex(roles->findData(static_cast<int>(WorldRole::hub)));
+        openAll->click();
+        CHECK_EQ(window.tabCount(), 1);
+        CHECK(window.currentTab()->file().path().endsWith("world010.blp"));
+        search->setText("999");
+        CHECK(!openAll->isEnabled());
+        search->clear();
+        roles->setCurrentIndex(0);
+        installation->list()->setFocus();
+        QTest::keyClick(installation->list(), Qt::Key_A, Qt::ControlModifier);
+        CHECK_EQ(installation->list()->selectedItems().size(), 2);
+        CHECK(installation->openSelectedButton()->isEnabled());
+        installation->openSelectedButton()->click();
+        CHECK_EQ(window.tabCount(), 2);
+        auto *world = window.currentTab();
+        CHECK(world->profile() == GameProfile::speedyBlupi2);
+        world->setProfile(GameProfile::speedyBlupi1);
+        CHECK(!installation->deployButton()->isEnabled());
+        CHECK(!window.action("fileDeploy")->isEnabled());
+        CHECK(!installation->findChild<QPushButton *>("installationConvert")->isHidden());
+        CHECK(!window.deployWorld(world));
+        world->setProfile(GameProfile::speedyBlupi2);
+        const auto original = world->file().savedContent();
+        EditBuilder edit(world->document());
+        edit.setCell(SectionKind::foreground, 7, 8, 42);
+        CHECK(world->applyTransaction(edit.build("Save All test")));
+        const auto path = world->file().path();
+        window.prompts.reviewSaveAll = [&](const QStringList &paths) {
+            CHECK(paths == QStringList{path});
+            return std::optional<bool>(true);
+        };
+        QString report;
+        window.prompts.showDocument = [&](const QString &, const QString &text, bool) { report = text; };
+        CHECK(window.saveAll());
+        CHECK(report.contains(path));
+        const auto snapshots = window.recoveryStore().snapshots(path);
+        CHECK(!snapshots.empty() && window.recoveryStore().read(snapshots.front()) == original);
+        window.prompts.chooseSnapshot = [](DocumentTab *, const std::vector<RecoveryEntry> &listed) {
+            return std::optional(std::pair{listed.front(), SnapshotAction::restore});
+        };
+        CHECK(window.manageSnapshots(world));
+        CHECK(window.saveTab(world));
+        window.close();
+    }
+    {
+        MainWindow window;
+        configure(window);
+        QApplication::processEvents();
+        CHECK(window.tabCount() == 0);
+        CHECK(window.installation()->gameDirectory() == second.root);
+        CHECK_EQ(window.installation()->list()->count(), 2);
+        window.close();
+    }
     CHECK(directoryDigest(first.root) == firstDigest);
     CHECK(directoryDigest(second.root) == secondDigest);
     // A Mobile Eggbert text world opens in a window of its own, not in a tab.
@@ -251,6 +344,10 @@ int main(int argc, char **argv) {
         // Opening it again raises the same window.
         CHECK(window.openPath(textPath) == nullptr);
         CHECK_EQ(window.textWorldEditors().size(), std::size_t{1});
+        auto *looseTab = window.openPath(loose);
+        CHECK(!window.textWorldEditors().front()->saveAs(loose));
+        window.prompts.saveAsPath = [&](const QString &) { return textPath; };
+        CHECK(!window.saveTabAs(looseTab));
         QFile again(textPath);
         CHECK(again.open(QIODevice::ReadOnly) && again.readAll() == content);
     }
@@ -288,6 +385,12 @@ int main(int argc, char **argv) {
         CHECK(written.open(QIODevice::ReadOnly));
         const auto svg = written.readAll();
         CHECK(svg.startsWith("<?xml") && svg.contains("data-tile=\"30\""));
+        const auto original = window.currentTab()->file().savedContent();
+        window.prompts.saveTextPath = [&](const QString &) { return worldPath; };
+        action->trigger();
+        CHECK(!errors.isEmpty());
+        QFile source(worldPath);
+        CHECK(source.open(QIODevice::ReadOnly) && source.readAll() == original);
         // Cancelled: nothing is written.
         const auto other = svgDir.filePath("other.svg");
         window.prompts.saveTextPath = [](const QString &) { return QString(); };

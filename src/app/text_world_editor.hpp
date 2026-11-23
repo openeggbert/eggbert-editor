@@ -89,6 +89,7 @@ public:
     bool removeSelectedObject();
     bool save();
     bool saveAs(const QString &path);
+    std::function<bool(const QString &)> canSaveAs;
 
     // Replaceable for tests.
     std::function<void(const QString &)> showError;

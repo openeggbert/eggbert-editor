@@ -133,6 +133,7 @@ qt_add_library(eggbert_app STATIC
     src/app/objects_panel.hpp
     src/app/palette_panel.cpp
     src/app/text_world_editor.cpp
+    src/app/installation_session.cpp
     src/app/installation_panel.cpp
     src/app/encyclopedia_dialog.cpp
     src/app/palette_panel.hpp

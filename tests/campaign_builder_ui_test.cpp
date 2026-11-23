@@ -226,6 +226,12 @@ int main(int argc, char **argv) {
     CHECK(errors.value(0).contains("already exists"));
     errors.clear();
     CHECK(data.entryList(QDir::Files) == before);
+    const auto external = data.filePath("WORLD022.BLP");
+    write(external, "added after the panel was populated");
+    CHECK(window.createCampaignWorld(22, false) == nullptr);
+    CHECK(readAll(external) == "added after the panel was populated");
+    CHECK(QFile::remove(external));
+    errors.clear();
     // Opening from the dialog, and closing it.
     answer = CampaignRequest{CampaignRequest::open, 11};
     CHECK(window.buildCampaign());

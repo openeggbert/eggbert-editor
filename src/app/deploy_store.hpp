@@ -13,6 +13,8 @@
 
 namespace eggbert {
 
+enum class DeployMode { replace, createOnly };
+
 // One world put into an installation.
 struct DeployRecord {
     // Identifier inside the store.
@@ -35,7 +37,8 @@ struct DeployRecord {
 // The file being replaced is first copied, verified, into a per-user
 // directory (never into the installation); the new bytes then replace the
 // target in one step through a temporary file in the same directory and are
-// read back. If any step fails the installation holds what it held before.
+// read back. Failed deployments attempt a verified restoration and report
+// the retained backup path if restoration fails.
 // A rollback restores the kept bytes the same way (or removes a file that
 // did not exist before) and verifies them.
 class DeployStore {
@@ -48,10 +51,11 @@ public:
 
     // `fileName` is created in `dataDirectory`, or replaces the entry of
     // that name there whatever its letter case. The error says which step
-    // failed; nothing in the installation has changed then.
+    // failed and where to recover original bytes if restoration also fails.
     std::expected<DeployRecord, QString> deploy(const QString &dataDirectory,
                                                 const QString &fileName,
-                                                std::span<const std::byte> bytes);
+                                                std::span<const std::byte> bytes,
+                                                DeployMode mode = DeployMode::replace);
 
     // Deploys not rolled back yet, newest first.
     [[nodiscard]] std::vector<DeployRecord> records() const;

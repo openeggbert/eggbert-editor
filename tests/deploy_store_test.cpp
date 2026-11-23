@@ -165,6 +165,25 @@ int main(int argc, char **argv) {
             CHECK(QDir(storePath).entryList(QDir::Files).isEmpty());
         }
     }
+    {
+        DeployStore failing(storePath);
+        failing.failAt = [](const char *step) {
+            return QByteArray(step) == "record" || QByteArray(step) == "restore";
+        };
+        const auto result = failing.deploy(dataPath, "world012.blp", newWorldBytes);
+        CHECK(!result);
+        const auto backups = QDir(storePath).entryList({"*.previous"}, QDir::Files);
+        CHECK_EQ(backups.size(), 1);
+        if (!backups.isEmpty()) {
+            const auto path = QDir(storePath).filePath(backups.front());
+            CHECK(result.error().contains(path));
+            CHECK(readAll(path) == oldWorld);
+            QFile::remove(path);
+        }
+        writeAll(data.filePath("WORLD012.BLP"), oldWorld);
+        CHECK(!store.deploy(dataPath, "world012.blp", newWorldBytes, DeployMode::createOnly));
+        CHECK(snapshot(dataPath) == untouched);
+    }
     // A failed restore leaves the deployed file and the record in place.
     {
         const auto record = store.deploy(dataPath, "world012.blp", newWorldBytes);
@@ -176,6 +195,21 @@ int main(int argc, char **argv) {
         store.failAt = nullptr;
         CHECK(store.rollBack(*record).has_value());
         CHECK(snapshot(dataPath) == untouched);
+    }
+
+    // Another writer claims the free name between the scan and publication.
+    {
+        const auto raced = data.filePath("WORLD015.BLP");
+        DeployStore racing(storePath);
+        racing.failAt = [&](const char *step) {
+            if (QByteArray(step) == "write") {
+                writeAll(raced, "another writer");
+            }
+            return false;
+        };
+        CHECK(!racing.deploy(dataPath, "world015.blp", newWorldBytes, DeployMode::createOnly));
+        CHECK(readAll(raced) == "another writer");
+        QFile::remove(raced);
     }
 
     // Names that would leave the directory, and directories that are not

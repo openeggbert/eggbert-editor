@@ -391,6 +391,11 @@ int main(int argc, char **argv) {
         CHECK(fromZip && fromZip->campaign == pack.campaign && fromZip->worlds == pack.worlds);
         CHECK(!writePack(pack, zipPath, true).has_value()); // never over an existing file
 
+        auto damaged = pack;
+        damaged.worlds.back().bytes.append('x');
+        const auto incomplete = dir.filePath("incomplete-pack");
+        CHECK(!writePack(damaged, incomplete, false));
+        CHECK(!QFileInfo::exists(incomplete));
         const auto folder = dir.filePath("pack-folder");
         CHECK(writePack(pack, folder, false).has_value());
         CHECK_EQ(QDir(folder).entryList(QDir::Files).size(), qsizetype{4});

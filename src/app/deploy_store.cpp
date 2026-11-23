@@ -10,6 +10,7 @@
 #include <QJsonObject>
 #include <QSaveFile>
 #include <QStandardPaths>
+#include <QTemporaryFile>
 #include <QUuid>
 
 #include <algorithm>
@@ -28,7 +29,12 @@ std::optional<QByteArray> readAll(const QString &path) {
     if (!file.open(QIODevice::ReadOnly) || file.size() > DeployStore::maximumFileBytes) {
         return std::nullopt;
     }
-    return file.readAll();
+    const auto size = file.size();
+    const auto bytes = file.readAll();
+    if (file.error() != QFileDevice::NoError || bytes.size() != size) {
+        return std::nullopt;
+    }
+    return bytes;
 }
 
 bool writeAtomically(const QString &path, const QByteArray &bytes) {
@@ -56,7 +62,8 @@ QString DeployStore::recordPath(const QString &id) const {
 
 std::expected<DeployRecord, QString> DeployStore::deploy(const QString &dataDirectory,
                                                          const QString &fileName,
-                                                         std::span<const std::byte> bytes) {
+                                                         std::span<const std::byte> bytes,
+                                                         DeployMode mode) {
     const QDir data(dataDirectory);
     if (fileName.isEmpty() || QFileInfo(fileName).fileName() != fileName || !data.exists()) {
         return std::unexpected(QCoreApplication::translate("eggbert::Files", "%1 is not a file name in an existing directory.")
@@ -85,6 +92,9 @@ std::expected<DeployRecord, QString> DeployStore::deploy(const QString &dataDire
 
     QByteArray previous;
     if (QFileInfo::exists(target)) {
+        if (mode == DeployMode::createOnly) {
+            return std::unexpected(QCoreApplication::translate("eggbert::Files", "%1 already exists.").arg(target));
+        }
         const auto read = readAll(target);
         if (!read) {
             return std::unexpected(
@@ -103,26 +113,46 @@ std::expected<DeployRecord, QString> DeployStore::deploy(const QString &dataDire
                 QCoreApplication::translate("eggbert::Files", "The backup of %1 could not be written and verified.").arg(target));
         }
     }
-    const auto undo = [&] {
-        // Put back what was there; called only after the target may have
-        // been replaced.
-        if (record.hadPrevious) {
-            writeAtomically(target, previous);
+    const auto undo = [&](QString reason) -> std::expected<DeployRecord, QString> {
+        const bool restored = !fails("restore") &&
+            (record.hadPrevious ? writeAtomically(target, previous) && readAll(target) == previous
+                                : QFile::remove(target) && !QFileInfo::exists(target));
+        if (!restored) {
+            reason += record.hadPrevious
+                ? QCoreApplication::translate("eggbert::Files", " Recovery failed for %1. Original bytes are in %2.").arg(target, backupPath(record.id))
+                : QCoreApplication::translate("eggbert::Files", " The newly written file could not be removed: %1.").arg(target);
         } else {
-            QFile::remove(target);
+            QFile::remove(backupPath(record.id));
+            reason += QCoreApplication::translate("eggbert::Files", " The previous state was restored.");
         }
-        QFile::remove(backupPath(record.id));
+        return std::unexpected(reason);
     };
-    if (fails("write") || !writeAtomically(target, payload)) {
+    bool written = false;
+    if (!fails("write")) {
+        if (mode == DeployMode::createOnly) {
+            // QFile's rename refuses to replace an existing target. Stage beside it
+            // so readers only see the finished world when it is published.
+            QTemporaryFile staged(data.filePath(QStringLiteral(".eggbert-world-XXXXXX")));
+            if (staged.open() && staged.write(payload) == payload.size() && staged.flush()) {
+                staged.close();
+                // Check again for a case variant added during staging on a case-sensitive disk.
+                const auto names = QDir(dataDirectory).entryList(QDir::Files | QDir::System);
+                written = !names.contains(fileName, Qt::CaseInsensitive) && staged.rename(target);
+                if (written) {
+                    staged.setAutoRemove(false);
+                }
+            }
+        } else {
+            written = writeAtomically(target, payload);
+        }
+    }
+    if (!written) {
         QFile::remove(backupPath(record.id));
         return std::unexpected(QCoreApplication::translate("eggbert::Files", "%1 could not be written.").arg(target));
     }
     const auto check = fails("verify") ? std::nullopt : readAll(target);
     if (!check || *check != payload) {
-        undo();
-        return std::unexpected(
-            QCoreApplication::translate("eggbert::Files", "%1 did not read back as written; the previous file was restored.")
-                .arg(target));
+        return undo(QCoreApplication::translate("eggbert::Files", "%1 did not read back as written.").arg(target));
     }
     QJsonObject json;
     json[QStringLiteral("id")] = record.id;
@@ -135,10 +165,7 @@ std::expected<DeployRecord, QString> DeployStore::deploy(const QString &dataDire
     json[QStringLiteral("previousSize")] = static_cast<double>(record.previousSize);
     if (fails("record") ||
         !writeAtomically(recordPath(record.id), QJsonDocument(json).toJson())) {
-        undo();
-        return std::unexpected(QCoreApplication::translate("eggbert::Files", "The deploy could not be recorded, so %1 was put "
-                                              "back as it was.")
-                                   .arg(target));
+        return undo(QCoreApplication::translate("eggbert::Files", "The deploy of %1 could not be recorded.").arg(target));
     }
     return record;
 }

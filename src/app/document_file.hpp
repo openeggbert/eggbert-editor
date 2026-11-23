@@ -120,13 +120,14 @@ private:
 
     QString path_;
     WorldDocument document_;
-    // Text worlds only: the text as last read or written, and where each
+    // Text worlds only: the original text, and where each
     // object slot is stored in it.
     std::optional<TextWorld> text_;
     TextWorldImage image_;
     QByteArray diskText_;
 };
 
+[[nodiscard]] bool sameWorldPath(const QString &left, const QString &right);
 [[nodiscard]] QByteArray toByteArray(std::span<const std::byte> bytes);
 [[nodiscard]] std::vector<std::byte> toByteVector(const QByteArray &bytes);
 

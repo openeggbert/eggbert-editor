@@ -13,6 +13,7 @@
 #include <QApplication>
 #include <QDir>
 #include <QFile>
+#include <QLabel>
 #include <QSettings>
 #include <QStandardPaths>
 #include <QTemporaryDir>
@@ -83,6 +84,22 @@ int main(int argc, char **argv) {
     writeAll(path, base);
     QByteArray edited;
 
+    // An unwritable recovery location is visible until a later write succeeds.
+    {
+        const auto store = RecoveryStore::defaultDirectory();
+        QDir().mkpath(QFileInfo(store).absolutePath());
+        writeAll(store, "occupies the directory name");
+        auto window = makeWindow();
+        auto *tab = window->openPath(path);
+        CHECK(edit(tab, 5, 8, 55));
+        window->flushAutosave();
+        auto *warning = window->findChild<QLabel *>("autosaveWarning");
+        CHECK(!warning->isHidden() && warning->toolTip().contains(path));
+        CHECK(QFile::remove(store));
+        window->flushAutosave();
+        CHECK(warning->isHidden());
+        CHECK(window->closeTab(tab));
+    }
     // A session that ends without closing its window.
     {
         auto window = makeWindow();

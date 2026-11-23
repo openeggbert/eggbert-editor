@@ -8,10 +8,9 @@
 #include <optional>
 #include <utility>
 #include <vector>
-#include <optional>
-#include <utility>
 
 #include "app/recovery_store.hpp"
+#include "app/installation_session.hpp"
 #include "app/document_tab.hpp"
 #include "app/png_export.hpp"
 #include "app/campaign_dialog.hpp"
@@ -74,6 +73,8 @@ struct PackExportChoice {
 };
 
 struct Prompts {
+    // nullopt cancels, true backs up the on-disk originals before saving.
+    std::function<std::optional<bool>(const QStringList &)> reviewSaveAll;
     // `canRestore` is false when the world file changed or vanished since
     // the copy was made; `detail` says so.
     std::function<RecoveryChoice(const RecoveryEntry &, bool canRestore, const QString &detail)>
@@ -263,7 +264,7 @@ public:
 
     // Game artwork: read-only directories per game, remembered as a local
     // preference. Loading never writes to the directory.
-    bool loadArtwork(const QString &directory, GameProfile profile);
+    bool loadArtwork(const QString &directory, GameProfile profile, bool selectInstallation = true);
     [[nodiscard]] std::shared_ptr<const GameAssets> artworkFor(GameProfile profile) const;
     // The chosen game directory of a profile even when its pictures cannot
     // be used (its music can still be played); null when none was chosen.
@@ -442,8 +443,11 @@ private:
     std::vector<QPointer<DemoViewer>> demoViewers_;
     QDockWidget *installationDock_ = nullptr;
     InstallationPanel *installation_ = nullptr;
+    InstallationSession installations_;
+    void chooseInstallation(bool showArtworkReport);
     DeployStore deployStore_;
     bool haveDeploys_ = false;
+    bool destinationAvailable(const QString &path, QWidget *owner = nullptr);
     void refreshInstallationActions();
     // The complete official worlds of the installation by number, each as a
     // tab would hold it; from an open tab when there is one.
@@ -453,6 +457,7 @@ private:
     void shareCustomRules();
     QLabel *experimentalLabel_ = nullptr;
     RecoveryStore recovery_;
+    QLabel *autosaveWarning_ = nullptr;
     QTimer *autosaveTimer_ = nullptr;
     QStackedWidget *central_ = nullptr;
     QWidget *welcome_ = nullptr;
@@ -474,8 +479,6 @@ private:
     QDockWidget *diagnosticsDock_ = nullptr;
     QDockWidget *inspectorDock_ = nullptr;
     bool syncing_ = false;
-    // First game, second game, Mobile Eggbert.
-    std::shared_ptr<const GameAssets> artwork_[3];
     bool artworkEnabled_ = false;
     bool animate_ = true;
     QDockWidget *objectsDock_ = nullptr;

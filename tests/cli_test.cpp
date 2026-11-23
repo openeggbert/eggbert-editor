@@ -17,6 +17,7 @@
 #include "generated_port.hpp"
 
 #include <algorithm>
+#include <filesystem>
 #include <tuple>
 
 #include <QDir>
@@ -134,6 +135,22 @@ int main(int argc, char **argv) {
         CHECK(shorter.out.contains("sizes differ: 50468 and 50368 bytes"));
         CHECK_EQ(run({"diff", path}).code, 2);
         CHECK_EQ(run({"diff", path, dir.filePath("missing.blp")}).code, 2);
+    }
+    for (const auto *command : {"export-png", "export-svg"}) {
+        const auto before = readAll(path);
+        CHECK_EQ(run({command, path, path}).code, 2);
+        CHECK(readAll(path) == before);
+    }
+    {
+        const auto alias = dir.filePath("alias.blp");
+        std::error_code error;
+        std::filesystem::create_hard_link(QFileInfo(path).filesystemAbsoluteFilePath(),
+                                          QFileInfo(alias).filesystemAbsoluteFilePath(), error);
+        if (!error) {
+            const auto before = readAll(path);
+            CHECK_EQ(run({"export-svg", path, alias}).code, 2);
+            CHECK(readAll(alias) == before && readAll(path) == before);
+        }
     }
     // export-png: the same bytes as the library call with the same options.
     {

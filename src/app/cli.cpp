@@ -264,6 +264,9 @@ int exportPng(const QStringList &arguments, QTextStream &out, QTextStream &err) 
                                    ? QStringLiteral("export-png needs a world file and an output file")
                                    : parsed.error);
     }
+    if (sameWorldPath(parsed.positional[0], parsed.positional[1])) {
+        return usageError(err, QStringLiteral("An image cannot replace its source world."));
+    }
     PngExportOptions options;
     options.render.showLabels = parsed.flags.contains(QStringLiteral("--labels"));
     options.render.showGrid = parsed.flags.contains(QStringLiteral("--grid"));
@@ -663,6 +666,9 @@ int exportSvg(const QStringList &arguments, QTextStream &out, QTextStream &err) 
                                                     "file")
                                    : parsed.error);
     }
+    if (sameWorldPath(parsed.positional[0], parsed.positional[1])) {
+        return usageError(err, QStringLiteral("An image cannot replace its source world."));
+    }
     SvgExportOptions options;
     if (parsed.values.contains(QStringLiteral("--scale"))) {
         bool ok = false;
@@ -728,6 +734,12 @@ int exportBatch(const QStringList &arguments, QTextStream &out, QTextStream &err
         if (names.contains(name)) {
             err << path << ": another input has the same name; nothing was written\n";
             return exitUsage;
+        }
+        const auto target = directory.filePath(QFileInfo(path).completeBaseName() + QStringLiteral(".png"));
+        for (const auto &source : positional) {
+            if (sameWorldPath(source, target)) {
+                return usageError(err, QStringLiteral("An image cannot replace an input world."));
+            }
         }
         names.insert(name);
     }

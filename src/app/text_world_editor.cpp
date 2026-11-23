@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "app/text_world_editor.hpp"
+#include "app/document_file.hpp"
 
 #include <QCloseEvent>
 #include <QComboBox>
@@ -614,7 +615,7 @@ bool TextWorldEditor::save() {
 }
 
 bool TextWorldEditor::saveAs(const QString &path) {
-    return write(path, QFileInfo(path) == QFileInfo(path_));
+    return (!canSaveAs || canSaveAs(path)) && write(path, sameWorldPath(path, path_));
 }
 
 void TextWorldEditor::closeEvent(QCloseEvent *event) {

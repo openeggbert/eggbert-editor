@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "app/installation_panel.hpp"
 
+#include <QAbstractItemView>
 #include <QDateTime>
+#include <QLineEdit>
+#include <QComboBox>
+#include "app/document_tab.hpp"
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -10,6 +14,7 @@
 #include <QListWidget>
 #include <QPainter>
 #include <QPushButton>
+#include <QStringList>
 #include <QTimer>
 #include <QVBoxLayout>
 
@@ -59,12 +64,41 @@ InstallationPanel::InstallationPanel(QWidget *parent) : QWidget(parent) {
     choose_ = new QPushButton(tr("Choose Game Directory..."), this);
     choose_->setObjectName(QStringLiteral("installationChoose"));
     layout->addWidget(choose_);
+    search_ = new QLineEdit(this);
+    search_->setObjectName("installationSearch");
+    search_->setPlaceholderText(tr("Search file, title or number"));
+    search_->setClearButtonEnabled(true);
+    layout->addWidget(search_);
+    roles_ = new QComboBox(this);
+    roles_->setObjectName("installationRole");
+    roles_->setAccessibleName(tr("World role"));
+    roles_->addItem(tr("All roles"), -1);
+    roles_->addItem(tr("User worlds"), -2);
+    for (const auto role : {WorldRole::start, WorldRole::hub, WorldRole::mission, WorldRole::finale,
+                            WorldRole::multiplayer, WorldRole::demo, WorldRole::other}) {
+        roles_->addItem(role == WorldRole::other ? tr("Other worlds") : catalogText(worldRoleName(role)), static_cast<int>(role));
+    }
+    layout->addWidget(roles_);
     list_ = new QListWidget(this);
     list_->setObjectName(QStringLiteral("installationList"));
     list_->setIconSize(QSize(thumbnailSize, thumbnailSize));
     list_->setUniformItemSizes(true);
+    list_->setSelectionMode(QAbstractItemView::ExtendedSelection);
     list_->setAccessibleName(tr("Worlds of the installation"));
     layout->addWidget(list_, 1);
+    openSelected_ = new QPushButton(tr("Open Selected Worlds"), this);
+    openSelected_->setObjectName(QStringLiteral("installationOpenSelected"));
+    openSelected_->setEnabled(false);
+    openAll_ = new QPushButton(tr("Open All Worlds"), this);
+    openAll_->setObjectName("installationOpenAll");
+    openAll_->setEnabled(false);
+    auto *openButtons = new QHBoxLayout;
+    openButtons->addWidget(openSelected_);
+    openButtons->addWidget(openAll_);
+    layout->addLayout(openButtons);
+    connect(search_, &QLineEdit::textChanged, this, &InstallationPanel::filterWorlds);
+    connect(roles_, &QComboBox::currentIndexChanged, this, &InstallationPanel::filterWorlds);
+    connect(openAll_, &QPushButton::clicked, this, [this] { openVisible(false); });
     recordingsTitle_ = new QLabel(tr("Demo recordings (double-click to see the keys held):"), this);
     recordingsTitle_->setWordWrap(true);
     layout->addWidget(recordingsTitle_);
@@ -74,6 +108,10 @@ InstallationPanel::InstallationPanel(QWidget *parent) : QWidget(parent) {
     recordings_->setMaximumHeight(110);
     recordingsTitle_->setBuddy(recordings_);
     layout->addWidget(recordings_);
+    convert_ = new QPushButton(tr("Convert for This Installation..."), this);
+    convert_->setObjectName("installationConvert");
+    layout->addWidget(convert_);
+    connect(convert_, &QPushButton::clicked, this, &InstallationPanel::convertRequested);
     auto *buttons = new QHBoxLayout;
     deploy_ = new QPushButton(tr("Deploy Current World..."), this);
     deploy_->setObjectName(QStringLiteral("installationDeploy"));
@@ -91,6 +129,9 @@ InstallationPanel::InstallationPanel(QWidget *parent) : QWidget(parent) {
     layout->addLayout(buttons);
 
     connect(choose_, &QPushButton::clicked, this, [this] { emit chooseDirectoryRequested(); });
+    connect(list_, &QListWidget::itemSelectionChanged, this,
+            [this] { openSelected_->setEnabled(!list_->selectedItems().isEmpty()); });
+    connect(openSelected_, &QPushButton::clicked, this, [this] { openVisible(true); });
     connect(deploy_, &QPushButton::clicked, this, [this] { emit deployRequested(); });
     connect(rollBack_, &QPushButton::clicked, this, [this] { emit rollBackRequested(); });
     connect(playtest_, &QPushButton::clicked, this, [this] { emit playtestRequested(); });
@@ -106,6 +147,40 @@ InstallationPanel::InstallationPanel(QWidget *parent) : QWidget(parent) {
     connect(thumbnailTimer_, &QTimer::timeout, this, [this] { drawNextThumbnail(); });
     setActions(false, false, QString());
     refresh();
+}
+
+void InstallationPanel::openVisible(bool selectedOnly) {
+    QStringList paths;
+    for (int row = 0; row < list_->count(); ++row) {
+        const auto *item = list_->item(row);
+        if (!item->isHidden() && (!selectedOnly || item->isSelected())) {
+            paths << item->data(Qt::UserRole).toString();
+        }
+    }
+    for (const auto &path : paths) {
+        emit openRequested(path);
+    }
+}
+
+void InstallationPanel::filterWorlds() {
+    const auto query = search_->text().trimmed();
+    const int role = roles_->currentData().toInt();
+    int visible = 0;
+    for (int row = 0; row < list_->count(); ++row) {
+        auto *item = list_->item(row);
+        const auto &name = entries_[static_cast<std::size_t>(row)].name;
+        const int entryRole = name.kind == DataFileKind::userWorld
+            ? -2 : static_cast<int>(officialWorldRole(profile_, name.number));
+        const bool show = (role == -1 || role == entryRole) && item->text().contains(query, Qt::CaseInsensitive);
+        item->setHidden(!show);
+        if (!show) {
+            item->setSelected(false);
+        } else {
+            ++visible;
+        }
+    }
+    openAll_->setText(role == -1 && query.isEmpty() ? tr("Open All Worlds") : tr("Open All Shown"));
+    openAll_->setEnabled(visible > 0);
 }
 
 QString InstallationPanel::findDataDirectory(const QString &gameDirectory) {
@@ -140,7 +215,8 @@ void InstallationPanel::setInstallation(const QString &gameDirectory, GameProfil
     refresh();
 }
 
-void InstallationPanel::setActions(bool canDeploy, bool canRollBack, const QString &rollBackHint) {
+void InstallationPanel::setActions(bool canDeploy, bool canRollBack, const QString &rollBackHint, bool offerConversion) {
+    convert_->setVisible(offerConversion && !dataDirectory_.isEmpty());
     deploy_->setEnabled(canDeploy && !dataDirectory_.isEmpty());
     rollBack_->setEnabled(canRollBack);
     rollBack_->setToolTip(rollBackHint);
@@ -254,13 +330,14 @@ void InstallationPanel::refresh() {
     pending_.clear();
     entries_.clear();
     list_->clear();
+    openSelected_->setEnabled(false);
     recordings_->clear();
     recordingsTitle_->hide();
     recordings_->hide();
     const bool port = profile_ == GameProfile::mobileEggbert;
     dataDirectory_ = port ? findPortWorldsDirectory(gameDirectory_)
                           : findDataDirectory(gameDirectory_);
-    choose_->setVisible(dataDirectory_.isEmpty());
+    filterWorlds();
     if (dataDirectory_.isEmpty()) {
         summary_->setText(gameDirectory_.isEmpty()
                               ? tr("Choose the directory of the game you have (View > Game "
@@ -388,6 +465,8 @@ void InstallationPanel::refresh() {
                    .arg(saves)
                    .arg(players)
                    .arg(recordings));
+    summary_->setText(profileDisplayName(profile_) + QLatin1Char('\n') + summary_->text());
+    filterWorlds();
     playtest_->setEnabled(true);
 }
 

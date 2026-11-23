@@ -13,6 +13,8 @@
 #include "world/installation.hpp"
 
 class QLabel;
+class QLineEdit;
+class QComboBox;
 class QListWidget;
 class QPushButton;
 class QTimer;
@@ -65,11 +67,12 @@ public:
     // hidden when there are none. Activating one asks to open it.
     [[nodiscard]] QListWidget *recordingList() const { return recordings_; }
     [[nodiscard]] QLabel *summary() const { return summary_; }
+    [[nodiscard]] QPushButton *openSelectedButton() const { return openSelected_; }
     [[nodiscard]] QPushButton *deployButton() const { return deploy_; }
     [[nodiscard]] QPushButton *rollBackButton() const { return rollBack_; }
     [[nodiscard]] QPushButton *playtestButton() const { return playtest_; }
     // What the window can currently do, so the buttons say so.
-    void setActions(bool canDeploy, bool canRollBack, const QString &rollBackHint);
+    void setActions(bool canDeploy, bool canRollBack, const QString &rollBackHint, bool offerConversion = false);
 
     // The data directory of a game directory, whatever its letter case.
     [[nodiscard]] static QString findDataDirectory(const QString &gameDirectory);
@@ -80,6 +83,7 @@ public:
 signals:
     void openRequested(const QString &path);
     void deployRequested();
+    void convertRequested();
     void rollBackRequested();
     void playtestRequested();
     void chooseDirectoryRequested();
@@ -95,6 +99,8 @@ private:
     [[nodiscard]] Loaded loadWorld(const QString &path, const GameAssets *artwork) const;
     [[nodiscard]] QString thumbnailKey(const QString &path) const;
     void drawNextThumbnail();
+    void filterWorlds();
+    void openVisible(bool selectedOnly);
 
     std::shared_ptr<const GameAssets> artwork_;
     // Rows whose picture is still schematic, and pictures drawn with the
@@ -108,8 +114,13 @@ private:
     std::vector<Entry> entries_;
     QLabel *summary_ = nullptr;
     QListWidget *list_ = nullptr;
+    QLineEdit *search_ = nullptr;
+    QComboBox *roles_ = nullptr;
+    QPushButton *openAll_ = nullptr;
+    QPushButton *openSelected_ = nullptr;
     QLabel *recordingsTitle_ = nullptr;
     QListWidget *recordings_ = nullptr;
+    QPushButton *convert_ = nullptr;
     QPushButton *deploy_ = nullptr;
     QPushButton *rollBack_ = nullptr;
     QPushButton *playtest_ = nullptr;

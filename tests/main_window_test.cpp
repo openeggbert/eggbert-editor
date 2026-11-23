@@ -281,6 +281,15 @@ int main(int argc, char **argv) {
     CHECK(readRaw(saveAsAnswer) == oldInput);
     CHECK(readRaw(oldPath) == oldInput);
 
+    auto *secondOpen = window.openPath(oldPath);
+    CHECK(secondOpen != old);
+    const auto target = old->file().path();
+    saveAsAnswer = target;
+    CHECK(!window.saveTabAs(secondOpen));
+    CHECK(!window.exportPng(secondOpen, PngExportOptions{}, target));
+    CHECK(readRaw(target) == oldInput);
+    CHECK(window.currentTab() == old);
+    CHECK(window.closeTab(secondOpen));
     // View commands: zoom, fit and visibility toggles act on the canvas and
     // never dirty the document.
     auto *oldCanvas = old->canvas();

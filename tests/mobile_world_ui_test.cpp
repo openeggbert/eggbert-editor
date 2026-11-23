@@ -70,7 +70,9 @@ int main(int argc, char **argv) {
     QDir(RecoveryStore::defaultDirectory()).removeRecursively();
     QTemporaryDir dir;
     const auto port = makePort(dir.filePath("port"));
-    const auto original = QByteArray::fromStdString(portWorldText());
+    auto original = QByteArray::fromStdString(portWorldText());
+    original.replace("icon=0 \n", "icon=0   customTag=kept  \n");
+    writeFile(port.worldPath, original);
     const auto mobile = GameProfile::mobileEggbert;
 
     // The profile: the second game's catalog, without its loader's remap,
@@ -223,11 +225,7 @@ int main(int argc, char **argv) {
     CHECK(tab->undo());
     CHECK(window.saveTab(tab));
     {
-        // The treasure is back, now as the last line.
-        const auto world = TextWorld::parse(readAll(port.worldPath).toStdString());
-        CHECK_EQ(world.objectCount(), std::size_t{2});
-        CHECK_EQ(*world.objectValue(1, "type"), 5);
-        CHECK(*world.objectPoint(1, "posStart") == (Point{258, 196}));
+        CHECK(readAll(port.worldPath) == original);
     }
 
     // Changed on disk by something else: the save is refused like any other.
