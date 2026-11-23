@@ -198,6 +198,23 @@ Added under the owner's instruction to work on the interface (an editor without 
 - Tests: `revision_convert` (byte-exact upgrade, all six upgrade pairs undone exactly with a suffix, refusals, lossy override, non-convertible inputs), `cli` (output equals the library's, existing output kept, exit codes), `convert_ui` (file written and opened, source file and tab unchanged, unsaved state converted, source path refused, loss refused then accepted, cancel paths, and the real dialog driven offscreen).
 - Not covered: an original 1.0 or 1.1 world (none available); whether the games accept a converted 1.0/1.1 file was not tried in a running game — the claim rests on the loader source cited in the evidence.
 
+### 1.0 release gate re-checked on the current tree (2026-11-23, commit `ff8b012`)
+
+The gate of `plan.md` ("Version 1.0 ships only when ...") was gone through clause by clause again after the promoted roadmap, on a fresh Release build of the committed tree (0 compiler warnings; 67 of 67 tests pass, `sample_matrix` skipped without sample directories; the same under ASan/UBSan). **Every clause passes.** No release was published, because the owner asked for none: that is a decision about publishing, not an unmet gate.
+
+| Gate clause | Evidence on this commit |
+| --- | --- |
+| both profiles can open, edit and reopen supported 1.2/1.3 samples | `document_file`, `main_window`, `tools`, `metadata_ui`, `objects_ui` pass; `sample_matrix` run with the two original installations: 176 files, 155 editable and round-tripped (untouched save identical, one-cell edit, save, reopen, undo), each with World Doctor 0 errors and 0 warnings |
+| 1.0/1.1 stay read-only | `world_document` (write access `readOnlyRevision`, every transaction refused with `readOnly`), `main_window`; and the later additions keep it: `expert_edit` (refused even with the expert policy), `convert_ui` (a converted 1.0 copy opens read-only) |
+| unknown data survives | `world_document` (reserved fields, name padding, suffix, neighbours of an edited record), `object_ops` (other slots and later free slots with opaque bytes stay), `document_file`; the 155 original worlds above are byte-identical after an untouched save |
+| file conflicts/failures do not destroy input | `document_file` (file changed, truncated, extended, deleted or replaced by a directory behind the editor; injected failure before the atomic replacement; unwritable destinations), `main_window` |
+| object hard caps are enforced | `object_ops` (`poolFull` for single and multiple creation, nothing written), `objects_ui` |
+| the application works without proprietary assets | the whole suite is asset-free (no world, sheet, executable or archive is tracked: `git ls-files` has none); `smoke`, `install_smoke`; and the package built from this commit, installed in the minimal Ubuntu 24.04 system that has no Qt development files: `--version`, `--smoke-test` (pass), `--smoke-test --game-data` with each game's directory (recognised, tiles drawn from its sheets, pass), `new`, `validate` and `convert-game` on a fresh world, and the window staying up until a 5-second timeout; the game directories were unchanged afterwards (checksums of all files before and after) |
+
+The fixed 1.0 scope table of `plan.md` item by item: both games as explicit profiles (profile chooser, per-game catalogs); one `.blp` or `.xch` world per tab, several tabs; revisions 1.0/1.1 read-only and 1.2/1.3 editable; foreground, `bigDecor`, metadata, four starts and every verified object type; schematic view and optional artwork from a chosen read-only directory; World Doctor with budget warnings, the read-only hex inspector and the PNG exporter; Linux source build and package (TGZ and DEB built by `cpack` on this commit). The stage table's evidence (stages 0–7) is the test list above.
+
+What the 1.0 scope does **not** require, and what is therefore not a gate item: a hosted CI run, Windows or macOS builds, translations, and the roadmap features. Those are tracked under **Next task** as open follow-ups of the promoted roadmap, which the owner added to the work on 2026-11-22 (`plan.md`, **Promotion of the roadmap**); the original instruction not to implement post-1.0 features was superseded by that decision.
+
 Release-gate status on 2026-11-22 (evidence in this file and the tests named above):
 
 | Gate sentence | Status |
