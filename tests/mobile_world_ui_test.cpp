@@ -5,6 +5,7 @@
 // text with only the changed values touched.
 #include "app/document_file.hpp"
 #include "app/game_assets.hpp"
+#include "app/sprite_icons.hpp"
 #include "app/installation_panel.hpp"
 #include "app/main_window.hpp"
 #include "app/minimap_widget.hpp"
@@ -97,6 +98,11 @@ int main(int argc, char **argv) {
         CHECK_EQ(assets->spriteCount(SpriteSheet::tiles), std::size_t{440});
         CHECK_EQ(assets->spriteCount(SpriteSheet::elements), std::size_t{290});
         CHECK_EQ(assets->spriteCount(SpriteSheet::bigDecor), std::size_t{100});
+        const int keyFrames[] = {209, 220, 229};
+        for (int i = 0; i < 3; ++i) {
+            const auto key = objectThumbnail(49 + i, 10, 125, assets.get(), 48);
+            CHECK(key.toImage().pixelColor(24, 24) == portColor(1, keyFrames[i]));
+        }
         // Tile 23: column 3 of row 1, each cell preceded by its one-pixel frame.
         const auto tile = assets->sprite(1, 23);
         CHECK(tile.has_value() && tile->source == QRect(1 + 3 * 65, 1 + 65, 64, 64));

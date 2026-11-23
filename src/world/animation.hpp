@@ -50,6 +50,11 @@ struct TileFrame {
 [[nodiscard]] TileFrame stillTileFrame(GameProfile profile, SectionKind layer,
                                        std::int16_t stored);
 
+// Resolve the shared placement icon of a coloured key to its first game frame.
+// Already stored animation frames and custom pictures retain their exact appearance.
+[[nodiscard]] std::int16_t stillObjectIcon(GameProfile profile, std::int16_t type,
+                                           std::int16_t channel, std::int16_t icon);
+
 // Where and how one object is shown at a moment of the animation.
 struct ObjectPose {
     Point position;

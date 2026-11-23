@@ -102,7 +102,8 @@ bool objectHasArtwork(int channel, int icon, const GameAssets *artwork) {
 
 QPixmap objectThumbnail(int type, int channel, int icon, const GameAssets *artwork, int size) {
     if (artwork != nullptr) {
-        if (const auto sprite = artwork->sprite(channel, icon)) {
+        const auto frame = stillObjectIcon(artwork->profile(), type, channel, icon);
+        if (const auto sprite = artwork->sprite(channel, frame)) {
             return drawSprite(*sprite, size);
         }
     }

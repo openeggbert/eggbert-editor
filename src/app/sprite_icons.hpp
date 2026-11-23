@@ -24,7 +24,7 @@ class GameAssets;
                                     int size);
 
 [[nodiscard]] bool objectHasArtwork(int channel, int icon, const GameAssets *artwork);
-// Square thumbnail of an object's stored channel and icon; the placeholder
+// Square thumbnail of an object's still picture; the placeholder
 // shows the stored type.
 [[nodiscard]] QPixmap objectThumbnail(int type, int channel, int icon, const GameAssets *artwork,
                                       int size);

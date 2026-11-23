@@ -301,7 +301,8 @@ void renderWorld(QPainter &painter, const WorldView &world, const ViewTransform 
         if (animation != nullptr && slot < animation->objects.size()) {
             return animation->objects[slot];
         }
-        return ObjectPose{record.posCurrent, record.channel, record.icon};
+        return ObjectPose{record.posCurrent, record.channel,
+                          stillObjectIcon(drawProfile, record.type, record.channel, record.icon)};
     };
     const auto drawObjectBody = [&](std::size_t slot, const ObjectRecord &record) {
         const auto pose = poseOf(slot, record);

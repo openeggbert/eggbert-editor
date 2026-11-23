@@ -8,6 +8,8 @@ Since then the owner promoted the whole roadmap (see `plan.md`, **Promotion of t
 
 The 0.1.0 palette offers the saw and crusher once each, with their animation frames kept out of ordinary tile selection. Mobile world editing hides music and world size while preserving their stored values. The standard SVG export embeds the installation artwork at native resolution. The separate schematic export preserves semantic IDs. All 80 local Release tests passed with both desktop sample directories. For Mobile Eggbert `world011.txt`, a standalone librsvg rendering of a 512 × 768 crop matched PNG export pixel for pixel. The next manual check is to open each downloaded package on its target desktop.
 
+After 0.1.0, the object palette, object list and static map resolve the shared coloured-key placement icon (element 125) to the red, green or blue key frame for that type. Saved records keep their original values. The palette and mobile UI tests compare all three thumbnails with their expected sprite pixels.
+
 Implemented and covered by asset-free tests:
 
 - `src/world/layout.hpp`: immutable `RevisionDescriptor` entries for header revisions 1.0–1.3 (header size, layers, object count/width, contiguous section table, expected size, 1.0 write policy, rule); `headerFields` and `objectFields` tables with exact offsets and wire types; `ByteRange` and `Point`. Only the four exact `(major, minor)` pairs are recognized.

@@ -340,6 +340,20 @@ int main(int argc, char **argv) {
         CHECK_EQ(panel.objectList()->count(),
                  static_cast<int>(objectPresets(GameProfile::speedyBlupi2).size()));
         CHECK(itemWith(panel.objectList(), "treasure") != nullptr);
+        const auto second = makeGame(dir.filePath("second-keys"), true);
+        const auto secondAssets = GameAssets::load(second.root, GameProfile::speedyBlupi2);
+        panel.setContext(GameProfile::speedyBlupi2, SectionKind::foreground, secondAssets);
+        CHECK(panel.showObjectGroup("devices"));
+        const int frames[] = {209, 220, 229};
+        for (int index = 0; index < 3; ++index) {
+            const auto id = QStringLiteral("key-colour-%1").arg(index + 1);
+            const auto *key = itemWith(panel.objectList(), id);
+            CHECK(key != nullptr);
+            CHECK(iconPixel(key, 56, 28, 28) == spriteColor(1, frames[index]));
+        }
+        CHECK_EQ(stillObjectIcon(GameProfile::speedyBlupi2, 49, 10, 215), 215);
+        CHECK_EQ(stillObjectIcon(GameProfile::speedyBlupi2, 49, 1, 125), 125);
+        CHECK_EQ(stillObjectIcon(GameProfile::speedyBlupi1, 49, 10, 125), 125);
     }
 
     // In the main window.

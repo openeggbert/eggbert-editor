@@ -150,6 +150,21 @@ TileFrame tileFrame(GameProfile profile, SectionKind layer, std::int16_t stored,
     return frame;
 }
 
+std::int16_t stillObjectIcon(GameProfile profile, std::int16_t type,
+                             std::int16_t channel, std::int16_t icon) {
+    // The original editor initializes all three coloured keys with element 125.
+    // The game chooses the actual key from its type on the first animation tick.
+    if (tablesOf(profile) == GameProfile::speedyBlupi2 && type >= 49 && type <= 51 &&
+        channel == 10 && icon == 125) {
+        for (const auto &rule : objectIconRules(profile)) {
+            if (rule.type == type && !rule.frames.empty()) {
+                return rule.frames.front();
+            }
+        }
+    }
+    return icon;
+}
+
 void ObjectAnimation::reset(Slot &slot, const ObjectRecord &record) {
     // What the games' editors do on entry (src/decblock.cpp:1085-1092).
     slot.stored = record;
@@ -158,7 +173,7 @@ void ObjectAnimation::reset(Slot &slot, const ObjectRecord &record) {
     slot.time = 0;
     slot.phase = 0;
     slot.channel = record.channel;
-    slot.icon = record.icon;
+    slot.icon = stillObjectIcon(profile_, record.type, record.channel, record.icon);
 }
 
 void ObjectAnimation::sync(const WorldView &world, GameProfile profile) {
