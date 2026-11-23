@@ -153,8 +153,10 @@ target_compile_definitions(eggbert_app PUBLIC EGGBERT_EDITOR_VERSION="${PROJECT_
 set_target_properties(eggbert_app PROPERTIES AUTOMOC ON)
 
 # Documents shown by the Help menu, embedded so they are always available.
-set(eggbert_documents docs/user-guide.md docs/format-notes.md NOTICE.md COPYING)
+set(eggbert_documents docs/user-guide.md docs/user-guide.cs.md docs/format-notes.md NOTICE.md
+    COPYING)
 set_source_files_properties(docs/user-guide.md PROPERTIES QT_RESOURCE_ALIAS user-guide.md)
+set_source_files_properties(docs/user-guide.cs.md PROPERTIES QT_RESOURCE_ALIAS user-guide.cs.md)
 set_source_files_properties(docs/format-notes.md PROPERTIES QT_RESOURCE_ALIAS format-notes.md)
 qt_add_resources(eggbert_app "documents" PREFIX "/docs" FILES ${eggbert_documents})
 # Catalogues are read as `.ts` at run time: no Linguist tools are needed.
@@ -182,7 +184,8 @@ install(FILES resources/eggbert-editor.desktop
     DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/applications")
 install(FILES resources/eggbert-editor.svg
     DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/scalable/apps")
-install(FILES COPYING NOTICE.md README.md docs/user-guide.md docs/format-notes.md
+install(FILES COPYING NOTICE.md README.md docs/user-guide.md docs/user-guide.cs.md
+    docs/format-notes.md
     DESTINATION "${CMAKE_INSTALL_DOCDIR}")
 
 set(CPACK_PACKAGE_NAME "eggbert-editor")

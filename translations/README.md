@@ -14,4 +14,8 @@ The names in the game catalogs (tile entries, objects, groups, border families) 
 
 World Doctor's findings are composed in `src/world/doctor.cpp` from patterns (`%1` to `%9`) and arguments; `src/app/doctor_texts.cpp` lists the patterns under the context `eggbert::Doctor` and `findingText()` fills the translated pattern with the same arguments. When a rule gains a sentence, add its pattern to both lists (the `doctor` and `translation` tests fail until it is there).
 
+Other sentences composed in `src/world` are shown through `coreText()` (`src/app/core_texts.cpp`): a sentence is looked up by its pattern, which is the sentence with every number replaced by `%1`, `%2`, … in order, under the context `eggbert::Core`; one that is not listed there is shown in English. The encyclopedia's facts are parts listed in `src/world/encyclopedia.cpp` and marked in `src/app/doctor_texts.cpp` (`eggbert::Encyclopedia`); conversion notes likewise in `src/app/conversion_texts.cpp`.
+
+The user guide has one file per language (`docs/user-guide.md`, `docs/user-guide.cs.md`); the catalogue translates the file name `user-guide.md` to the one Help should show. The `translation` test keeps the two guides' headings, list items and line counts in step, so a paragraph added to one must be added to the other.
+
 To add a language, add its catalogue here, list the file in `CMakeLists.txt` next to the Czech one, and add the language code to `availableLanguages()` and to the Preferences dialog.

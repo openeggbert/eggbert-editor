@@ -1642,8 +1642,13 @@ void MainWindow::createActions() {
     connect(addAction(helpMenu, QStringLiteral("helpGuide"), tr("&User Guide"),
                       QKeySequence::HelpContents),
             &QAction::triggered, this, [this] {
-                prompts.showDocument(tr("User Guide"),
-                                     resourceText(QStringLiteral("user-guide.md")), true);
+                // The guide in the interface's language when there is one:
+                // a catalogue names its file here.
+                auto guide = resourceText(tr("user-guide.md", "file name of the guide"));
+                if (guide.isEmpty()) {
+                    guide = resourceText(QStringLiteral("user-guide.md"));
+                }
+                prompts.showDocument(tr("User Guide"), guide, true);
             });
     connect(addAction(helpMenu, QStringLiteral("helpEncyclopedia"),
                       tr("Element &Encyclopedia...")),

@@ -320,10 +320,39 @@ int main(int argc, char **argv) {
         }
     }
 
+    // The guide exists in Czech with the same headings and list items, so
+    // the two stay in step.
+    {
+        const auto english = MainWindow::resourceText("user-guide.md");
+        const auto czechGuide = MainWindow::resourceText("user-guide.cs.md");
+        CHECK(!english.isEmpty() && !czechGuide.isEmpty());
+        const auto count = [](const QString &text, const QString &start) {
+            int found = 0;
+            for (const auto &line : text.split(QLatin1Char('\n'))) {
+                found += line.startsWith(start) ? 1 : 0;
+            }
+            return found;
+        };
+        CHECK_EQ(count(czechGuide, "#"), count(english, "#"));
+        CHECK_EQ(count(czechGuide, "- "), count(english, "- "));
+        CHECK_EQ(czechGuide.count("```"), english.count("```"));
+        CHECK_EQ(czechGuide.split(QLatin1Char('\n')).size(), english.split(QLatin1Char('\n')).size());
+        CHECK(czechGuide.startsWith(QString::fromUtf8("# U\u017eivatelsk\u00e1 p\u0159\u00edru\u010dka")));
+    }
+
     // English window first: the reference texts.
     QStringList englishMenus;
     {
         MainWindow window;
+        // Help shows the English guide.
+        {
+            QString shown;
+            window.prompts.showDocument = [&](const QString &, const QString &text, bool) {
+                shown = text;
+            };
+            window.findChild<QAction *>("helpGuide")->trigger();
+            CHECK(shown.startsWith("# Eggbert Editor user guide"));
+        }
         for (auto *action : window.menuBar()->actions()) {
             englishMenus << action->text();
         }
@@ -450,6 +479,15 @@ int main(int argc, char **argv) {
         QStringList menus;
         for (auto *action : window.menuBar()->actions()) {
             menus << action->text();
+        }
+        // Help shows the Czech guide.
+        {
+            QString shown;
+            window.prompts.showDocument = [&](const QString &, const QString &text, bool) {
+                shown = text;
+            };
+            window.findChild<QAction *>("helpGuide")->trigger();
+            CHECK(shown.startsWith(QString::fromUtf8("# U\u017eivatelsk\u00e1 p\u0159\u00edru\u010dka")));
         }
         CHECK_EQ(menus.size(), englishMenus.size());
         for (qsizetype index = 0; index < menus.size(); ++index) {

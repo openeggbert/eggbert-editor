@@ -4521,6 +4521,11 @@ jinde: %5</translation>
    <source>Line %1: %2 is %3, expected %4 %5.</source>
    <translation>Řádek %1: %2 je %3, očekáváno %4 %5.</translation>
   </message>
+  <message>
+   <source>user-guide.md</source>
+   <comment>file name of the guide</comment>
+   <translation>user-guide.cs.md</translation>
+  </message>
  </context>
  <context>
   <name>eggbert::MetadataDialog</name>

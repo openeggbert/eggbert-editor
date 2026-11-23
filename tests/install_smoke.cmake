@@ -22,6 +22,7 @@ foreach(expected
         share/doc/eggbert-editor/COPYING
         share/doc/eggbert-editor/NOTICE.md
         share/doc/eggbert-editor/user-guide.md
+        share/doc/eggbert-editor/user-guide.cs.md
         share/doc/eggbert-editor/format-notes.md)
     if(NOT EXISTS "${PREFIX}/${expected}")
         message(FATAL_ERROR "installed tree lacks ${expected}")
