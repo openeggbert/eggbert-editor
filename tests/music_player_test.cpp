@@ -110,13 +110,21 @@ int main(int argc, char **argv) {
         CHECK(player.play(tunePath, 2));
         CHECK(player.isPlaying());
         CHECK(QTest::qWaitFor([&] { return QFile::exists(waveLog); }, 3000));
-        QFile logged(waveLog);
-        CHECK(logged.open(QIODevice::ReadOnly));
-        const auto wavePath = QString::fromLocal8Bit(logged.readAll()).trimmed();
+        QString wavePath;
+        {
+            QFile logged(waveLog);
+            CHECK(logged.open(QIODevice::ReadOnly));
+            wavePath = QString::fromLocal8Bit(logged.readAll()).trimmed();
+        }
         CHECK(wavePath.endsWith(".wav"));
-        QFile wave(wavePath);
-        CHECK(wave.open(QIODevice::ReadOnly));
-        const auto sound = wave.readAll();
+        QByteArray sound;
+        {
+            // Read and closed again before the player is stopped: an open
+            // file cannot be removed on Windows.
+            QFile wave(wavePath);
+            CHECK(wave.open(QIODevice::ReadOnly));
+            sound = wave.readAll();
+        }
         CHECK(sound.startsWith("RIFF") && sound.mid(8, 4) == "WAVE");
         // Half a second of note and the tail, 22,050 samples a second.
         CHECK(sound.size() > 44 + 2 * 22'050 / 2);
