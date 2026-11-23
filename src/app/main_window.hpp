@@ -13,6 +13,7 @@
 #include "app/recovery_store.hpp"
 #include "app/document_tab.hpp"
 #include "app/png_export.hpp"
+#include "app/campaign_pack.hpp"
 #include "app/deploy_store.hpp"
 #include "world/game_convert.hpp"
 #include "world/installation.hpp"
@@ -50,6 +51,25 @@ enum class ConflictChoice { reload, saveAs, cancel };
 enum class RecoveryChoice { restore, saveCopy, discard, keep };
 enum class SnapshotAction { restore, remove };
 
+// A world of the installation that can go into a campaign pack.
+struct PackCandidate {
+    WorldSlot slot;
+    QString path;
+    QString title;
+    // True for a file in one of the game's own world numbers that the editor
+    // did not put there: most likely the game's original, which must not be
+    // passed on. Not selected unless the user asks.
+    bool gameOwn = false;
+};
+
+struct PackExportChoice {
+    QString name;
+    // Indices into the candidates.
+    std::vector<std::size_t> chosen;
+    QString path;
+    bool zip = true;
+};
+
 struct Prompts {
     // `canRestore` is false when the world file changed or vanished since
     // the copy was made; `detail` says so.
@@ -63,6 +83,12 @@ struct Prompts {
     std::function<QString()> borderRulesPath;
     // Second confirmation before bytes in a preserved range are changed.
     std::function<bool(DocumentTab *, const QString &description)> confirmProtectedEdit;
+    std::function<std::optional<PackExportChoice>(const std::vector<PackCandidate> &)>
+        exportPack;
+    // A pack file or directory to import; empty cancels.
+    std::function<QString()> importPackPath;
+    // Shown with the pack's contents and what they would replace.
+    std::function<bool(const CampaignPack &, const QStringList &replaced)> confirmImportPack;
     // Where in the installation the tab's world goes; nullopt cancels.
     // `dataDirectory` is the installation's data directory.
     std::function<std::optional<WorldSlot>(DocumentTab *, WorldSlot suggested,
@@ -255,6 +281,17 @@ public:
     // start with and opens it; returns the new tab or null.
     DocumentTab *createWorld();
     [[nodiscard]] InstallationPanel *installation() const { return installation_; }
+    // The complete worlds of the current installation, with the game's own
+    // files marked.
+    [[nodiscard]] std::vector<PackCandidate> packCandidates() const;
+    // Writes the chosen worlds as a pack; true when written.
+    bool exportCampaignPack();
+    // Reads and checks a pack and deploys its worlds to their slots in the
+    // current installation; if one cannot be placed the ones already placed
+    // are rolled back. Returns the number of worlds placed.
+    int importCampaignPack(const QString &path);
+    // Order and numbering review of the installation's worlds, as text.
+    [[nodiscard]] QString campaignOverview() const;
     [[nodiscard]] DeployStore &deployStore() { return deployStore_; }
     // Puts the tab's current bytes into the installation of its game at a
     // slot the user chooses; the replaced file is kept for a rollback.

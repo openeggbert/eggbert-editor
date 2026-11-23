@@ -441,6 +441,119 @@ void MainWindow::installDefaultPrompts() {
                                     QMessageBox::Yes | QMessageBox::Cancel,
                                     QMessageBox::Cancel) == QMessageBox::Yes;
     };
+    prompts.exportPack =
+        [this](const std::vector<PackCandidate> &candidates) -> std::optional<PackExportChoice> {
+        QDialog dialog(this);
+        dialog.setWindowTitle(tr("Export Campaign Pack"));
+        auto *layout = new QVBoxLayout(&dialog);
+        auto *name = new QLineEdit(tr("My campaign"), &dialog);
+        name->setObjectName(QStringLiteral("packName"));
+        auto *form = new QFormLayout;
+        form->addRow(tr("Name"), name);
+        layout->addLayout(form);
+        auto *list = new QListWidget(&dialog);
+        list->setObjectName(QStringLiteral("packWorlds"));
+        for (const auto &candidate : candidates) {
+            auto label = QFileInfo(candidate.path).fileName();
+            if (!candidate.title.isEmpty()) {
+                label += QStringLiteral(" - ") + candidate.title;
+            }
+            if (candidate.gameOwn) {
+                label += QStringLiteral(" - ") + tr("the game's own file");
+            }
+            auto *item = new QListWidgetItem(label, list);
+            item->setFlags(candidate.gameOwn ? Qt::ItemIsUserCheckable
+                                             : Qt::ItemIsUserCheckable | Qt::ItemIsEnabled);
+            item->setCheckState(candidate.gameOwn ? Qt::Unchecked : Qt::Checked);
+        }
+        layout->addWidget(list, 1);
+        auto *own = new QCheckBox(
+            tr("Let me select the game's own worlds too (a pack with them must not be passed "
+               "on: they belong to the game's publisher)"),
+            &dialog);
+        own->setObjectName(QStringLiteral("packGameOwn"));
+        layout->addWidget(own);
+        connect(own, &QCheckBox::toggled, &dialog, [&](bool allowed) {
+            for (int row = 0; row < list->count(); ++row) {
+                if (candidates[static_cast<std::size_t>(row)].gameOwn) {
+                    auto *item = list->item(row);
+                    item->setFlags(allowed ? Qt::ItemIsUserCheckable | Qt::ItemIsEnabled
+                                           : Qt::ItemIsUserCheckable);
+                    if (!allowed) {
+                        item->setCheckState(Qt::Unchecked);
+                    }
+                }
+            }
+        });
+        auto *zip = new QRadioButton(tr("One ZIP file"), &dialog);
+        zip->setObjectName(QStringLiteral("packZip"));
+        auto *folder = new QRadioButton(tr("A folder"), &dialog);
+        zip->setChecked(true);
+        layout->addWidget(zip);
+        layout->addWidget(folder);
+        auto *buttons =
+            new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+        layout->addWidget(buttons);
+        connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+        connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+        dialog.resize(560, 460);
+        if (dialog.exec() != QDialog::Accepted) {
+            return std::nullopt;
+        }
+        PackExportChoice choice;
+        choice.name = name->text().trimmed();
+        choice.zip = zip->isChecked();
+        for (int row = 0; row < list->count(); ++row) {
+            if (list->item(row)->checkState() == Qt::Checked) {
+                choice.chosen.push_back(static_cast<std::size_t>(row));
+            }
+        }
+        if (choice.chosen.empty()) {
+            return std::nullopt;
+        }
+        choice.path = choice.zip
+                          ? QFileDialog::getSaveFileName(this, tr("Export Campaign Pack"),
+                                                         choice.name + QStringLiteral(".zip"),
+                                                         tr("ZIP archive (*.zip)"))
+                          : QFileDialog::getSaveFileName(this, tr("New Folder for the Pack"),
+                                                         choice.name);
+        if (choice.path.isEmpty()) {
+            return std::nullopt;
+        }
+        return choice;
+    };
+    prompts.importPackPath = [this] {
+        return QFileDialog::getOpenFileName(this, tr("Import Campaign Pack"), QString(),
+                                            tr("Campaign packs (*.zip eggbert-campaign.json);;"
+                                               "All files (*)"));
+    };
+    prompts.confirmImportPack = [this](const CampaignPack &pack, const QStringList &replaced) {
+        QStringList lines;
+        for (const auto &entry : campaignOrder(pack.campaign)) {
+            lines << QString::fromStdString(entry.fileName) +
+                         (entry.title.empty()
+                              ? QString()
+                              : QStringLiteral(" - ") + QString::fromStdString(entry.title));
+        }
+        auto text = tr("\"%1\" holds %n world(s):", nullptr,
+                       static_cast<int>(pack.campaign.entries.size()))
+                        .arg(QString::fromStdString(pack.campaign.name)) +
+                    QLatin1Char('\n') + lines.join(QLatin1Char('\n'));
+        if (!replaced.isEmpty()) {
+            text += QStringLiteral("\n\n") +
+                    tr("These files exist and are replaced (each is kept and can be rolled "
+                       "back):") +
+                    QLatin1Char('\n') + replaced.join(QLatin1Char('\n'));
+        }
+        QMessageBox box(QMessageBox::Question, tr("Import Campaign Pack"),
+                        tr("Put these worlds into the installation?"),
+                        QMessageBox::Yes | QMessageBox::Cancel, this);
+        box.setDetailedText(text);
+        box.setInformativeText(tr("%n world(s), %1 replaced.", nullptr,
+                                  static_cast<int>(pack.campaign.entries.size()))
+                                   .arg(replaced.size()));
+        return box.exec() == QMessageBox::Yes;
+    };
     prompts.deploySlot = [this](DocumentTab *, WorldSlot suggested,
                                 const QString &dataDirectory) -> std::optional<WorldSlot> {
         QDialog dialog(this);
@@ -1000,6 +1113,21 @@ void MainWindow::createActions() {
     connect(addAction(fileMenu, QStringLiteral("filePlaytest"), tr("Pla&ytest"),
                       QKeySequence(Qt::Key_F5)),
             &QAction::triggered, this, [this] { playtest(); });
+    connect(addAction(fileMenu, QStringLiteral("fileCampaignOverview"),
+                      tr("Campaign O&verview")),
+            &QAction::triggered, this,
+            [this] { prompts.showReport(tr("Campaign Overview"), campaignOverview()); });
+    connect(addAction(fileMenu, QStringLiteral("fileExportPack"),
+                      tr("E&xport Campaign Pack...")),
+            &QAction::triggered, this, [this] { exportCampaignPack(); });
+    connect(addAction(fileMenu, QStringLiteral("fileImportPack"),
+                      tr("&Import Campaign Pack...")),
+            &QAction::triggered, this, [this] {
+                const auto path = prompts.importPackPath();
+                if (!path.isEmpty()) {
+                    importCampaignPack(path);
+                }
+            });
     connect(addAction(fileMenu, QStringLiteral("fileSnapshot"), tr("Take S&napshot...")),
             &QAction::triggered, this, [this] { takeSnapshot(currentTab()); });
     connect(addAction(fileMenu, QStringLiteral("fileSnapshots"), tr("Snaps&hots...")),
@@ -2889,6 +3017,217 @@ void MainWindow::refreshInstallationActions() {
     installation_->setActions(complete, haveDeploys_, hint);
 }
 
+std::vector<PackCandidate> MainWindow::packCandidates() const {
+    std::vector<PackCandidate> candidates;
+    const auto records = deployStore_.records();
+    for (const auto &entry : installation_->entries()) {
+        const auto slot = worldSlotOf(entry.name);
+        if (!entry.complete || !slot) {
+            continue;
+        }
+        PackCandidate candidate{*slot, entry.path, entry.title, false};
+        if (!slot->user) {
+            // Official numbers hold the game's own files unless the editor
+            // put this very content there.
+            candidate.gameOwn = true;
+            QFile file(entry.path);
+            if (file.open(QIODevice::ReadOnly)) {
+                const auto hash =
+                    QCryptographicHash::hash(file.readAll(), QCryptographicHash::Sha256);
+                for (const auto &record : records) {
+                    if (samePathKey(record.targetPath) == samePathKey(entry.path) &&
+                        record.deployedSha256 == hash) {
+                        candidate.gameOwn = false;
+                    }
+                }
+            }
+        }
+        candidates.push_back(std::move(candidate));
+    }
+    return candidates;
+}
+
+bool MainWindow::exportCampaignPack() {
+    const auto candidates = packCandidates();
+    if (candidates.empty()) {
+        prompts.error(tr("Export Campaign Pack"),
+                      tr("The installation of the current world's game has no complete world "
+                         "to pack. Choose the game directory first."));
+        return false;
+    }
+    const auto choice = prompts.exportPack(candidates);
+    if (!choice || choice->chosen.empty() || choice->path.isEmpty()) {
+        return false;
+    }
+    std::vector<WorldSlot> places;
+    std::vector<QByteArray> worlds;
+    for (const auto index : choice->chosen) {
+        if (index >= candidates.size()) {
+            return false;
+        }
+        QFile file(candidates[index].path);
+        if (!file.open(QIODevice::ReadOnly)) {
+            prompts.error(tr("Export Campaign Pack"),
+                          tr("%1 cannot be read.").arg(candidates[index].path));
+            return false;
+        }
+        places.push_back(candidates[index].slot);
+        worlds.push_back(file.readAll());
+    }
+    const auto pack = makePack(choice->name.isEmpty() ? tr("Campaign") : choice->name,
+                               installation_->profile(), std::move(places), std::move(worlds));
+    if (!pack) {
+        prompts.error(tr("Export Campaign Pack"), pack.error());
+        return false;
+    }
+    if (const auto written = writePack(*pack, choice->path, choice->zip); !written) {
+        prompts.error(tr("Export Campaign Pack"), written.error());
+        return false;
+    }
+    statusBar()->showMessage(tr("%n world(s) written to %1", nullptr,
+                                static_cast<int>(pack->worlds.size()))
+                                 .arg(choice->path),
+                             8000);
+    return true;
+}
+
+int MainWindow::importCampaignPack(const QString &path) {
+    const auto dataDirectory = installation_->dataDirectory();
+    if (dataDirectory.isEmpty()) {
+        prompts.error(tr("Import Campaign Pack"),
+                      tr("Open a world of the game the pack is for and choose that game's "
+                         "directory first."));
+        return 0;
+    }
+    // Choosing the manifest of a folder pack means the folder.
+    const QFileInfo chosen(path);
+    const auto packPath = chosen.isFile() && chosen.fileName() == QLatin1String(packManifestName)
+                              ? chosen.absolutePath()
+                              : path;
+    const auto pack = readPack(packPath);
+    if (!pack) {
+        prompts.error(tr("Import Campaign Pack"), tr("%1\n%2").arg(packPath, pack.error()));
+        return 0;
+    }
+    if (pack->campaign.game != installation_->profile()) {
+        prompts.error(tr("Import Campaign Pack"),
+                      tr("The pack is for the other game. Convert its worlds (File > Convert "
+                         "for Other Game) or switch to that game's installation."));
+        return 0;
+    }
+    const auto existing = QDir(dataDirectory).entryList(QDir::Files);
+    QStringList replaced;
+    for (const auto &world : pack->worlds) {
+        const auto key = samePathKey(QDir(dataDirectory).filePath(world.name)).toLower();
+        for (int index = 0; index < tabCount(); ++index) {
+            if (samePathKey(tabAt(index)->file().path()).toLower() == key) {
+                prompts.error(tr("Import Campaign Pack"),
+                              tr("%1 is open in the editor. Close that tab first.")
+                                  .arg(world.name));
+                return 0;
+            }
+        }
+        for (const auto &entry : existing) {
+            if (entry.compare(world.name, Qt::CaseInsensitive) == 0) {
+                replaced << entry;
+            }
+        }
+    }
+    if (!prompts.confirmImportPack(*pack, replaced)) {
+        return 0;
+    }
+    std::vector<DeployRecord> done;
+    for (const auto &world : pack->worlds) {
+        const auto record = deployStore_.deploy(
+            dataDirectory, world.name,
+            std::span<const std::byte>(reinterpret_cast<const std::byte *>(world.bytes.constData()),
+                                       static_cast<std::size_t>(world.bytes.size())));
+        if (!record) {
+            // All or nothing: take out what was already placed.
+            QStringList stuck;
+            for (auto placed = done.rbegin(); placed != done.rend(); ++placed) {
+                if (!deployStore_.rollBack(*placed)) {
+                    stuck << placed->targetPath;
+                }
+            }
+            haveDeploys_ = !deployStore_.records().empty();
+            installation_->refresh();
+            updateUi();
+            prompts.error(tr("Import Campaign Pack"),
+                          stuck.isEmpty()
+                              ? tr("%1\nNothing was imported: the worlds already placed were "
+                                   "taken out again.")
+                                    .arg(record.error())
+                              : tr("%1\nThese files could not be put back and stay as "
+                                   "imported:\n%2")
+                                    .arg(record.error(), stuck.join(QLatin1Char('\n'))));
+            return 0;
+        }
+        done.push_back(*record);
+    }
+    haveDeploys_ = true;
+    installation_->refresh();
+    updateUi();
+    statusBar()->showMessage(
+        tr("%n world(s) imported; Roll Back Last Deploy takes them out one at a time", nullptr,
+           static_cast<int>(done.size())),
+        10000);
+    return static_cast<int>(done.size());
+}
+
+QString MainWindow::campaignOverview() const {
+    Campaign campaign;
+    campaign.game = installation_->profile();
+    for (const auto &entry : installation_->entries()) {
+        if (const auto slot = worldSlotOf(entry.name); slot && entry.complete) {
+            campaign.entries.push_back(
+                {*slot, worldSlotFileName(*slot), 0, {}, entry.title.toStdString()});
+        }
+    }
+    if (campaign.entries.empty()) {
+        return tr("No installation with complete worlds is selected.");
+    }
+    QStringList lines;
+    lines << installation_->dataDirectory() << QString();
+    for (const auto &entry : campaignOrder(campaign)) {
+        QString role;
+        if (entry.slot.user) {
+            role = tr("player %1, world %2").arg(entry.slot.gamer).arg(entry.slot.number);
+        } else {
+            const auto name = worldRoleName(officialWorldRole(campaign.game, entry.slot.number));
+            role = QString::fromUtf8(name.data(), static_cast<qsizetype>(name.size()));
+        }
+        const bool indent = !entry.slot.user &&
+                            officialWorldRole(campaign.game, entry.slot.number) ==
+                                WorldRole::mission;
+        lines << QStringLiteral("%1%2  %3%4")
+                     .arg(indent ? QStringLiteral("    ") : QString(),
+                          QString::fromStdString(entry.fileName), role,
+                          entry.title.empty()
+                              ? QString()
+                              : QStringLiteral("  \"%1\"").arg(QString::fromStdString(entry.title)));
+    }
+    const auto findings = reviewCampaign(campaign);
+    lines << QString()
+          << (findings.empty() ? tr("By their numbers the official worlds form a complete chain. "
+                                    "Whether the doors inside them lead anywhere is not checked "
+                                    "here.")
+                               : tr("What the numbering shows:"));
+    for (const auto &finding : findings) {
+        lines << QStringLiteral("[%1] %2")
+                     .arg(finding.severity == CampaignSeverity::warning ? tr("warning")
+                                                                         : tr("note"),
+                          QString::fromStdString(finding.text));
+    }
+    if (!findings.empty()) {
+        lines << QString()
+              << tr("Basis: %1.")
+                     .arg(QString::fromUtf8(findings.front().basis.data(),
+                                            static_cast<qsizetype>(findings.front().basis.size())));
+    }
+    return lines.join(QLatin1Char('\n'));
+}
+
 WorldSlot MainWindow::suggestedSlot(DocumentTab *tab, const QString &dataDirectory) const {
     if (tab != nullptr) {
         const auto name = classifyDataFileName(
@@ -3459,6 +3798,12 @@ void MainWindow::updateUi() {
     refreshInstallationActions();
     enable("fileDeploy", installation_->deployButton()->isEnabled());
     enable("fileRollBack", haveDeploys_);
+    {
+        const bool installed = !installation_->dataDirectory().isEmpty();
+        enable("fileCampaignOverview", installed);
+        enable("fileExportPack", installed);
+        enable("fileImportPack", installed);
+    }
     enable("filePlaytest", hasTab && gameDirectoryFor(tab->profile()) != nullptr);
     enable("editPlaytestCommand", hasTab && tab->profile() != GameProfile::unknown);
     enable("fileConvertRevision", hasTab);

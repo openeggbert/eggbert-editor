@@ -45,9 +45,9 @@ Verification on 2026-11-22, Ubuntu 24.04, GCC 13.3.0, CMake 3.28.3, Ninja, Qt 6.
 ```sh
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
 cmake --build build --parallel              # no warnings
-ctest --test-dir build --output-on-failure  # 57/57 passed (58 registered): layout, le_reader, world_probe, world_view, world_document, world_stats, offset_map, tile_tools, metadata, object_ops, hex_model, doctor, adaptive, animation, atlas_table, editor_groups, revision_convert, new_world, encyclopedia, expert_edit, custom_border, game_convert, installation, view_transform, probe_report, document_file, recovery_store, deploy_store, cli, world_renderer, png_export, game_assets, main_window, docks, tools, metadata_ui, objects_ui, inspector, doctor_ui, adaptive_ui, workspace, artwork_ui, palette, music_player, animation_ui, interface_ui, recovery_ui, convert_ui, new_world_ui, encyclopedia_ui, experimental_ui, convert_game_ui, installation_ui, cli_usage, smoke, version, install_smoke; sample_matrix skipped without EGGBERT_SAMPLE_DIRS
+ctest --test-dir build --output-on-failure  # 60/60 passed (61 registered): layout, le_reader, world_probe, world_view, world_document, world_stats, offset_map, tile_tools, metadata, object_ops, hex_model, doctor, adaptive, animation, atlas_table, editor_groups, revision_convert, new_world, encyclopedia, expert_edit, custom_border, game_convert, installation, campaign, view_transform, probe_report, document_file, recovery_store, deploy_store, campaign_pack, cli, world_renderer, png_export, game_assets, main_window, docks, tools, metadata_ui, objects_ui, inspector, doctor_ui, adaptive_ui, workspace, artwork_ui, palette, music_player, animation_ui, interface_ui, recovery_ui, convert_ui, new_world_ui, encyclopedia_ui, experimental_ui, convert_game_ui, installation_ui, campaign_ui, cli_usage, smoke, version, install_smoke; sample_matrix skipped without EGGBERT_SAMPLE_DIRS
 cmake -S . -B build-asan -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DEGGBERT_SANITIZE=ON
-cmake --build build-asan --parallel && ctest --test-dir build-asan   # 57/57 passed under ASan/UBSan, sample_matrix skipped
+cmake --build build-asan --parallel && ctest --test-dir build-asan   # 60/60 passed under ASan/UBSan, sample_matrix skipped
 ```
 
 Commit `c8f7a77` (binary inspector) was pushed green in Release but with a use-after-free that the sanitizer run reported in `main_window` (the hex views kept a pointer to the document replaced by Revert/Reload); the next commit fixes it with `DocumentTab::documentReplaced` and a regression check in `inspector`. Always run the sanitizer suite to completion before committing.
@@ -82,16 +82,24 @@ Verified and reported observations are recorded with citations in `docs/research
 - **CI steps in a clean system.** A minimal Ubuntu 24.04 system (`debootstrap --variant=minbase`, then `cmake ninja-build g++ dpkg-dev` as a hosted runner has them, then the workflow's `qt6-base-dev`: CMake 3.28.3, GCC 13.3.0, Qt 6.4.2) ran every step of `.github/workflows/ci.yml` on commit `5a5f3d8`: job *build-and-test* — configure, build (0 warnings), `ctest` exit 0 (sample test skipped), `cpack` producing the TGZ and DEB; job *sanitizers* — configure, build (0 warnings), `ctest` exit 0. The sanitizer needs `/proc`, which a bare chroot lacks; with it mounted the job passes. The hosted workflow itself has still not run (no pull request, owner's decision).
 - **Independent documentation audit.** A second reviewer compared `docs/user-guide.md`, `README.md` and `docs/format-notes.md` with the code and reported 23 mismatches (none in the format notes). Six were fixed in the code because the documented behaviour was the better one: second-game tiles 384/385 are now drawn before objects; picking a bigDecor picture while the adaptive tile brush is active switches to the Pencil; music plays from a chosen game directory even when its pictures are unusable (`MainWindow::gameDirectoryFor`); the PNG dialog has a backdrop option recorded in `EggbertSettings`; Save As shows the World Doctor summary like Save; the 1/2 path badges are drawn down to five pixels per cell, so they show when the whole world is in view. The rest were wording corrections in the guide and README. The reviewer could not check statements about the games themselves (it had no access to the research sources); those rest on `docs/research/evidence.md`.
 
-## Next task: slice G of the promoted roadmap (campaign workspace and packs)
+## Next task: slice H of the promoted roadmap (advanced World Doctor)
 
-See `plan.md`, **Promotion of the roadmap**. Evidence for the numbering is in `docs/research/evidence.md`, **Files of an installation**. Design to implement:
+See `plan.md`, **Promotion of the roadmap**: "reachability estimate and cross-world checks; findings carry their basis; estimates are labelled; no finding on the original worlds without review". Design to implement:
 
-1. Headless `src/world/campaign.hpp` (Qt-free): a campaign is a named set of worlds with their slots (official number, or player and number) for one game; structure review from the numbering rules alone (first world, hubs, eight missions per group, final world; what is missing or outside the scheme), each finding labelled with its basis.
-2. `src/app/campaign_pack.hpp`: manifest (JSON: format version, name, game, entries with slot, file name, size, SHA-256) written and read back unchanged; a pack is a directory or a ZIP file holding the manifest and the world files. ZIP is written and read without compression by a small reader here (no new dependency); a member with another method is refused with a clear message.
-3. Hostile input: member names with `..`, absolute paths, backslashes, drive letters, duplicates, names the manifest does not list, sizes or checksums that do not match, oversize members, truncated archives — all refused before anything is written.
-4. No retail data by default: an export offers worlds a player designed and worlds the editor itself deployed (known to `DeployStore`) or that are open; the game's own files in official slots are left out unless the user ticks a box that says what it means.
-5. UI: **File → Export Campaign Pack…** and **Import Campaign Pack…** (contents shown first; every world goes in through `DeployStore`, and a failure rolls back the ones already placed); the Installation dock groups official worlds by the campaign structure.
-6. Tests on generated installations and hand-built archives.
+1. Cross-world checks (facts in `docs/research/evidence.md`, **Files of an installation**; door tiles must be re-read at `src/decblupi.cpp:4075-4086` and `games/sb2/src/decblupi.cpp:4804-4818` and entered there first): for the installation's official worlds, the door tiles of world 1 name group hubs and the door tiles of a hub name its missions; report a door whose target world file is missing, and a mission no door leads to. Headless `src/world/campaign_doors.hpp` taking a map of number → world bytes; shown in **Campaign Overview**.
+2. Reachability estimate inside one world, clearly labelled an estimate: cells the player could stand on (empty cell above a solid one, by the shared collision classes: solid / passable — the classification of tiles 0–245 needs evidence rows first) connected by walking and bounded jumps; report treasures and the goal that lie in no standable region connected to a start. The jump bound must come from evidence or be stated as an assumption in the finding's basis. If no defensible bound can be cited, ship only the "object is enclosed by solid cells on all four sides" structural check.
+3. Both as World Doctor rules with confidence `estimate`, off the error and warning counts by default; run over all 155 original worlds and review every finding before enabling a rule.
+
+### Slice G result (2026-11-23): campaign overview and packs
+
+- `src/world/campaign.hpp` (Qt-free): `Campaign`, `campaignOrder` (the order the game reaches worlds, by number), `reviewCampaign` (missing world 1, hub without missions and missions without hub, numbers outside the scheme, a slot used twice; each finding carries its basis).
+- `src/app/campaign_pack.hpp`: manifest (JSON, format version 1, stable bytes, round trip), ZIP writer and reader without compression (CRC-32; fixed timestamps so equal packs give equal bytes), `assemblePack` checks for everything read from outside, packs as ZIP file or folder.
+- Hostile input refused before use: member names with path separators, `..`, drive letters, leading dots, spaces or non-ASCII; duplicates (also by case); compressed, encrypted, split and ZIP64 archives; sizes over 1 MiB; data or directory outside the archive; wrong CRC or SHA-256; unlisted or missing members; worlds that are not complete; manifest entries outside the games' slots or under another name than the slot's. A truncated archive is refused at every length.
+- No retail data by default: `MainWindow::packCandidates` marks files in official numbers that the editor did not deploy; the export dialog keeps them unselectable until a box naming the consequence is ticked.
+- **File → Campaign Overview**, **Export Campaign Pack…**, **Import Campaign Pack…** (all-or-nothing through `DeployStore`).
+- Tests: `campaign`, `campaign_pack` (archives built by an independent writer in the test, including the hostile ones), `campaign_ui` (generated installations; export contents, import declined / failing at the second world / succeeding / rolled back, wrong game, open file, the export dialog's guard).
+- Checked once that an exported ZIP opens with `unzip` and Python's `zipfile`.
+- Limits: compressed ZIPs made by other tools are refused with a message (no decompressor is included); the overview does not read door tiles (slice H).
 
 ### Slice F result (2026-11-23): installation workspace (and the gallery of slice K)
 
@@ -193,7 +201,7 @@ Order and acceptance are in `plan.md`, **Promotion of the roadmap**. Tick a slic
 - [x] D Revision conversion (1.0/1.1 written and upgraded through converted copies)
 - [x] E Conversion between the two games with a list of what cannot be carried
 - [x] F Installation workspace: world list, deploy with backup and rollback, playtest command
-- [ ] G Campaign workspace and packs
+- [x] G Campaign overview and packs (ZIP and folder)
 - [ ] H Advanced World Doctor
 - [x] I Experimental editing: typed byte edits, unverified music/region numbers, custom border rules
 - [ ] J Stamps, alignment, batch edits

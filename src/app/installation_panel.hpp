@@ -38,6 +38,7 @@ public:
     [[nodiscard]] const QString &gameDirectory() const { return gameDirectory_; }
     // The data directory inside it, or empty.
     [[nodiscard]] const QString &dataDirectory() const { return dataDirectory_; }
+    [[nodiscard]] GameProfile profile() const { return profile_; }
     [[nodiscard]] const std::vector<Entry> &entries() const { return entries_; }
 
     [[nodiscard]] QListWidget *list() const { return list_; }

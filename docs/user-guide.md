@@ -2,7 +2,7 @@
 
 Eggbert Editor edits individual world files of *Speedy Blupi* / *Speedy Eggbert* and *Speedy Blupi II* / *Speedy Eggbert 2*: the `.blp` world files and the exported `.xch` files, which have the same layout. It changes only the bytes you edit. Everything else in the file — reserved fields, unused object slots, text after the title, data after the end of the layout — is written back exactly as it was read.
 
-It is an editor for one world at a time. It can list the worlds of a game installation, put a world into it and take it out again, and start the game with a command you give; it does not manage campaigns.
+It is an editor for one world at a time. It can list the worlds of a game installation, put a world into it and take it out again, and start the game with a command you give; it can review a campaign's numbering and exchange worlds as packs.
 
 ## Opening a world
 
@@ -190,6 +190,14 @@ Type an offset (`1608` or `0x648`), `cell 3,70`, `big 3,70` or `slot 137` to jum
 
 **Playtest** (F5) starts the command you gave for the game — its program, or for example `wine` followed by it — in the game directory. The command is asked for the first time and can be changed in **Edit → Playtest Command**. The games have no option that opens a particular world, so you pick it in the game: on the title screen choose the player, then the design button, and step to the world's number.
 
+### Campaigns and packs
+
+**File → Campaign Overview** lists the worlds of the installation in the order the game reaches them — the first world, each group's hub followed by its missions, the final world, network and demo worlds, other numbers, then designed worlds — and says what the numbering alone shows: a missing world 1, a hub whose missions are absent or missions whose hub is absent, numbers outside the scheme. It rests only on the games' numbering rules; it does not look at the doors inside the worlds.
+
+**File → Export Campaign Pack** writes worlds of the installation, with a manifest (name, game, and for each world its place, size and SHA-256), as one ZIP file or as a folder. The designed worlds and the worlds this editor itself deployed are offered ticked. Files in the game's own world numbers that the editor did not put there are most likely the game's originals: they are listed but cannot be ticked until you tick the box saying that a pack containing them must not be passed on. The ZIP is written without compression and opens in any ZIP program.
+
+**File → Import Campaign Pack** reads a ZIP pack, or a folder pack when you choose the `eggbert-campaign.json` inside it, and checks everything before anything is written: the manifest, that every member is listed and matches its size and checksum, that every world is complete and sits under the file name of a place the games use. Member names may contain only letters, digits, dot, hyphen and underscore, so nothing in a pack can point outside the pack; compressed, encrypted or oversized members are refused with the reason. A pack for the other game is refused. You then see the worlds and which existing files they replace; on confirmation each world is deployed exactly like **Deploy Current World** (kept copy, one-step replacement, read-back). If one world cannot be placed, the ones already placed are taken out again, so an import is all or nothing; afterwards **Roll Back Last Deploy** removes the imported worlds one at a time.
+
 ## Experimental editing
 
 Off by default. **Edit → Preferences → Experimental editing** switches it on; the status bar then says so. It lets you write values the editor has no evidence for, so the result may be something no game expects. Three things become available:
@@ -234,4 +242,4 @@ Exit codes: 0 success, 1 findings, differences or a refused loss, 2 wrong usage 
 
 ## What the editor does not do
 
-It does not edit revisions 1.0 and 1.1 in place (convert a copy instead), does not edit bytes in the hex view itself (see **Experimental editing** for typed byte edits), does not offer objects, border brushes or music and region values it has no evidence for unless experimental editing is on (raw tile numbers and an object's numeric fields are always yours to type), does not create or renumber campaigns, and does not convert to or from the Mobile Eggbert format.
+It does not edit revisions 1.0 and 1.1 in place (convert a copy instead), does not edit bytes in the hex view itself (see **Experimental editing** for typed byte edits), does not offer objects, border brushes or music and region values it has no evidence for unless experimental editing is on (raw tile numbers and an object's numeric fields are always yours to type), does not renumber campaigns or check that the doors inside hub worlds lead to worlds that exist, and does not convert to or from the Mobile Eggbert format.
