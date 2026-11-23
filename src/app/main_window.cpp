@@ -23,6 +23,7 @@
 #include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
+#include <QRegularExpression>
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QSettings>
@@ -189,6 +190,13 @@ MainWindow::MainWindow() {
     poolLabel_ = new QLabel(this);
     poolLabel_->setObjectName(QStringLiteral("poolLabel"));
     statusBar()->addWidget(cellLabel_, 1);
+    experimentalLabel_ = new QLabel(tr("Experimental editing"), this);
+    experimentalLabel_->setObjectName(QStringLiteral("experimentalLabel"));
+    experimentalLabel_->setToolTip(
+        tr("Edit > Edit Bytes is available and music and region accept any number. Switch it "
+           "off in Edit > Preferences."));
+    experimentalLabel_->hide();
+    statusBar()->addPermanentWidget(experimentalLabel_);
     statusBar()->addPermanentWidget(poolLabel_);
     statusBar()->addPermanentWidget(accessLabel_);
     // Zoom: the slider covers the whole range evenly in ratio steps.
@@ -230,6 +238,22 @@ MainWindow::MainWindow() {
     }
     setWindowIcon(applicationIcon());
     applyPreferences();
+    if (const auto rules =
+            QSettings().value(QStringLiteral("experimental/borderRules")).toString();
+        experimental_ && !rules.isEmpty()) {
+        // Quietly: a rules file that vanished or broke is not worth a dialog
+        // at every start; loading it again from the menu says why.
+        QFile file(rules);
+        if (file.open(QIODevice::ReadOnly) && file.size() <= 1024 * 1024) {
+            const auto text = file.readAll();
+            if (auto parsed = parseCustomBorderRules(
+                    std::string_view(text.constData(), static_cast<std::size_t>(text.size())))) {
+                customRules_ = std::make_shared<const std::vector<CustomBorderRule>>(
+                    std::move(parsed.value()));
+                shareCustomRules();
+            }
+        }
+    }
     QSettings settings;
     restoreGeometry(settings.value(QStringLiteral("window/geometry")).toByteArray());
     restoreState(settings.value(QStringLiteral("window/state")).toByteArray());
@@ -328,6 +352,90 @@ void MainWindow::installDefaultPrompts() {
             return RecoveryChoice::saveCopy;
         }
         return box.clickedButton() == discard ? RecoveryChoice::discard : RecoveryChoice::keep;
+    };
+    prompts.editBytes = [this](DocumentTab *tab, qulonglong offset)
+        -> std::optional<std::pair<qulonglong, QByteArray>> {
+        QDialog dialog(this);
+        dialog.setWindowTitle(tr("Edit Bytes"));
+        auto *form = new QFormLayout(&dialog);
+        auto *offsetEdit = new QLineEdit(QString::number(offset), &dialog);
+        offsetEdit->setObjectName(QStringLiteral("editBytesOffset"));
+        form->addRow(tr("Offset (decimal or 0x hex)"), offsetEdit);
+        auto *bytesEdit = new QLineEdit(&dialog);
+        bytesEdit->setObjectName(QStringLiteral("editBytesValue"));
+        bytesEdit->setPlaceholderText(tr("for example 2A 00 FF"));
+        form->addRow(tr("New bytes (hex)"), bytesEdit);
+        auto *summary = new QLabel(&dialog);
+        summary->setObjectName(QStringLiteral("editBytesSummary"));
+        summary->setWordWrap(true);
+        form->addRow(summary);
+        auto *buttons =
+            new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+        form->addRow(buttons);
+        connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+        connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+        const auto parsedOffset = [offsetEdit]() -> std::optional<qulonglong> {
+            bool ok = false;
+            const auto value = offsetEdit->text().trimmed().toULongLong(&ok, 0);
+            return ok ? std::optional(value) : std::nullopt;
+        };
+        const auto parsedBytes = [bytesEdit]() -> std::optional<QByteArray> {
+            auto text = bytesEdit->text();
+            text.remove(QLatin1Char(' '));
+            static const QRegularExpression hex(QStringLiteral("^([0-9A-Fa-f]{2})+$"));
+            if (!hex.match(text).hasMatch()) {
+                return std::nullopt;
+            }
+            return QByteArray::fromHex(text.toLatin1());
+        };
+        const auto refresh = [&] {
+            const auto at = parsedOffset();
+            const auto bytes = parsedBytes();
+            const auto size = tab->document().currentBytes().size();
+            bool valid = at && bytes && *at < size &&
+                         static_cast<qulonglong>(bytes->size()) <= size - *at;
+            QString text;
+            if (!at) {
+                text = tr("Type an offset.");
+            } else if (*at >= size) {
+                text = tr("The file has %1 bytes.").arg(size);
+            } else {
+                const auto current = tab->document().currentBytes();
+                const auto count = bytes ? static_cast<std::size_t>(bytes->size()) : 4u;
+                QStringList now;
+                for (std::size_t index = 0; index < count && *at + index < size; ++index) {
+                    now << QStringLiteral("%1")
+                               .arg(static_cast<unsigned>(current[*at + index]), 2, 16,
+                                    QLatin1Char('0'))
+                               .toUpper();
+                }
+                text = tr("Stored there now: %1").arg(now.join(QLatin1Char(' ')));
+                if (!bytes) {
+                    text += QLatin1Char('\n') + tr("Type whole bytes as pairs of hex digits.");
+                } else if (!valid) {
+                    text += QLatin1Char('\n') + tr("That many bytes do not fit in the file.");
+                }
+            }
+            summary->setText(text);
+            buttons->button(QDialogButtonBox::Ok)->setEnabled(valid);
+        };
+        connect(offsetEdit, &QLineEdit::textChanged, &dialog, refresh);
+        connect(bytesEdit, &QLineEdit::textChanged, &dialog, refresh);
+        refresh();
+        dialog.resize(460, 180);
+        if (dialog.exec() != QDialog::Accepted) {
+            return std::nullopt;
+        }
+        return std::make_pair(*parsedOffset(), *parsedBytes());
+    };
+    prompts.borderRulesPath = [this] {
+        return QFileDialog::getOpenFileName(this, tr("Custom Border Rules"), QString(),
+                                            tr("Border rules (*.txt *.rules);;All files (*)"));
+    };
+    prompts.confirmProtectedEdit = [this](DocumentTab *, const QString &description) {
+        return QMessageBox::warning(this, tr("Edit Bytes"), description,
+                                    QMessageBox::Yes | QMessageBox::Cancel,
+                                    QMessageBox::Cancel) == QMessageBox::Yes;
     };
     prompts.newWorldGame = [this](GameProfile suggested) -> std::optional<GameProfile> {
         const QStringList games{QString::fromUtf8(speedyBlupi1Info.name.data(),
@@ -508,6 +616,7 @@ void MainWindow::installDefaultPrompts() {
     prompts.editMetadata = [this](DocumentTab *tab, int page) -> std::optional<Metadata> {
         MetadataDialog dialog(tab->document().view(), tab->profile(), this);
         dialog.setPage(static_cast<MetadataDialog::Page>(page));
+        dialog.setExperimental(experimental_);
         if (dialog.exec() != QDialog::Accepted) {
             return std::nullopt;
         }
@@ -620,6 +729,17 @@ void MainWindow::installDefaultPrompts() {
         width->setCurrentIndex(
             width->findData(settings.value(QStringLiteral("inspector/bytesPerRow"), 16)));
         form->addRow(tr("Binary Inspector"), width);
+        auto *experimental = new QCheckBox(
+            tr("Experimental editing: Edit > Edit Bytes, and any music or region number"),
+            &dialog);
+        experimental->setObjectName(QStringLiteral("experimentalCheck"));
+        experimental->setToolTip(
+            tr("Lets you write values the editor has no evidence for. Every such edit is one "
+               "undo step; preserved ranges ask again; the revision field and the file length "
+               "never change."));
+        experimental->setChecked(
+            settings.value(QStringLiteral("experimental/enabled"), false).toBool());
+        form->addRow(experimental);
         auto *buttons =
             new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
         connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
@@ -632,6 +752,7 @@ void MainWindow::installDefaultPrompts() {
         settings.setValue(QStringLiteral("view/grid"), grid->isChecked());
         settings.setValue(QStringLiteral("view/labels"), labels->isChecked());
         settings.setValue(QStringLiteral("inspector/bytesPerRow"), width->currentData());
+        settings.setValue(QStringLiteral("experimental/enabled"), experimental->isChecked());
         return true;
     };
     prompts.showReport = [this](const QString &title, const QString &text) {
@@ -835,6 +956,16 @@ void MainWindow::createActions() {
             });
 
     editMenu->addSeparator();
+    connect(addAction(editMenu, QStringLiteral("editBytes"), tr("Edit &Bytes...")),
+            &QAction::triggered, this, [this] { editBytes(currentTab()); });
+    connect(addAction(editMenu, QStringLiteral("editBorderRules"),
+                      tr("Load Custom Border R&ules...")),
+            &QAction::triggered, this, [this] {
+                const auto path = prompts.borderRulesPath();
+                if (!path.isEmpty()) {
+                    loadCustomBorderRules(path);
+                }
+            });
     connect(addAction(editMenu, QStringLiteral("editPreferences"), tr("Pre&ferences..."),
                       QKeySequence::Preferences),
             &QAction::triggered, this, [this] {
@@ -1657,6 +1788,117 @@ void MainWindow::applyPreferences() {
     const QSettings settings;
     setTheme(settings.value(QStringLiteral("appearance/theme"), QStringLiteral("system")).toString());
     inspector_->setBytesPerRow(settings.value(QStringLiteral("inspector/bytesPerRow"), 16).toInt());
+    experimental_ = settings.value(QStringLiteral("experimental/enabled"), false).toBool();
+    shareCustomRules();
+    updateUi();
+}
+
+void MainWindow::setExperimental(bool enabled) {
+    QSettings().setValue(QStringLiteral("experimental/enabled"), enabled);
+    experimental_ = enabled;
+    shareCustomRules();
+    updateUi();
+}
+
+void MainWindow::shareCustomRules() {
+    // Tabs see the rules only while experimental editing is on.
+    const auto rules = experimental_ ? customRules_ : nullptr;
+    for (int index = 0; index < tabCount(); ++index) {
+        tabAt(index)->setCustomBorderRules(rules);
+    }
+    presetProfile_ = GameProfile::unknown; // the brush chooser is rebuilt
+    presetArtwork_ = nullptr;
+    rebuildPresets(currentTab() != nullptr ? currentTab()->profile() : GameProfile::unknown);
+}
+
+bool MainWindow::loadCustomBorderRules(const QString &path) {
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly) || file.size() > 1024 * 1024) {
+        prompts.error(tr("Custom Border Rules"),
+                      tr("%1 cannot be read (or is larger than 1 MiB).").arg(path));
+        return false;
+    }
+    const auto text = file.readAll();
+    auto parsed = parseCustomBorderRules(
+        std::string_view(text.constData(), static_cast<std::size_t>(text.size())));
+    if (!parsed) {
+        prompts.error(tr("Custom Border Rules"),
+                      tr("%1\n%2").arg(path, QString::fromStdString(parsed.error())));
+        return false;
+    }
+    customRules_ =
+        std::make_shared<const std::vector<CustomBorderRule>>(std::move(parsed.value()));
+    QSettings().setValue(QStringLiteral("experimental/borderRules"), path);
+    shareCustomRules();
+    updateUi();
+    statusBar()->showMessage(
+        tr("%n custom border rule(s) loaded", nullptr, static_cast<int>(customRules_->size())),
+        6000);
+    return true;
+}
+
+bool MainWindow::editBytes(DocumentTab *tab) {
+    if (tab == nullptr || !experimental_ || !tab->document().isWritable()) {
+        return false;
+    }
+    const auto choice =
+        prompts.editBytes(tab, static_cast<qulonglong>(inspector_->cursorOffset()));
+    if (!choice || choice->second.isEmpty()) {
+        return false;
+    }
+    const auto offset = static_cast<std::size_t>(choice->first);
+    const auto &bytes = choice->second;
+    EditBuilder builder(tab->document());
+    if (!builder.setBytes(offset, std::span<const std::byte>(
+                                      reinterpret_cast<const std::byte *>(bytes.constData()),
+                                      static_cast<std::size_t>(bytes.size())))) {
+        prompts.error(tr("Edit Bytes"),
+                      tr("%1 byte(s) at offset %2 do not fit in the file (%3 bytes); its "
+                         "length never changes.")
+                          .arg(bytes.size())
+                          .arg(offset)
+                          .arg(tab->document().currentBytes().size()));
+        return false;
+    }
+    auto transaction =
+        builder.build(tr("Edit bytes at offset %1").arg(offset).toStdString());
+    if (transaction.empty()) {
+        statusBar()->showMessage(tr("Nothing would change."), 5000);
+        return false;
+    }
+    for (const auto &change : transaction.changes) {
+        if (change.offset < layout::revisionFieldBytes) {
+            prompts.error(tr("Edit Bytes"),
+                          tr("The revision field (offsets 0 to 3) selects the layout of the "
+                             "whole file and is never edited. Use File > Convert Revision."));
+            return false;
+        }
+    }
+    const auto parts = tab->document().protectedPartsOf(transaction);
+    if (!parts.empty()) {
+        QStringList lines;
+        for (const auto &part : parts) {
+            const auto location = locateOffset(tab->document().probe(), part.offset);
+            const auto what =
+                location.headerField
+                    ? QString::fromUtf8(headerField(*location.headerField).name.data(),
+                                        static_cast<qsizetype>(
+                                            headerField(*location.headerField).name.size()))
+                    : tr("bytes after the world");
+            lines << tr("offsets %1 to %2 (%3)")
+                         .arg(part.offset)
+                         .arg(part.end() - 1)
+                         .arg(what);
+        }
+        if (!prompts.confirmProtectedEdit(
+                tab, tr("This edit changes bytes the editor normally preserves because their "
+                        "meaning is not verified:\n%1\n\nChange them anyway?")
+                         .arg(lines.join(QLatin1Char('\n'))))) {
+            return false;
+        }
+        return tab->applyExpertTransaction(std::move(transaction));
+    }
+    return tab->applyTransaction(std::move(transaction));
 }
 
 bool MainWindow::fitSelection() {
@@ -2138,6 +2380,7 @@ DocumentTab *MainWindow::openPath(const QString &path) {
         return nullptr;
     }
     auto *tab = new DocumentTab(std::move(loaded.value()), tabs_);
+    tab->setCustomBorderRules(experimental_ ? customRules_ : nullptr);
     {
         const QSettings settings;
         auto options = tab->canvas()->renderOptions();
@@ -2607,6 +2850,22 @@ void MainWindow::rebuildPresets(GameProfile profile) {
                                        static_cast<qsizetype>(family.provenance.size()))),
             Qt::ToolTipRole);
     }
+    if (experimental_ && customRules_ != nullptr) {
+        for (std::size_t index = 0; index < customRules_->size(); ++index) {
+            const auto &rule = (*customRules_)[index];
+            adaptiveCombo_->addItem(
+                tr("Custom: %1").arg(QString::fromStdString(rule.name)),
+                QString::fromLatin1(DocumentTab::customBrushPrefix) + QString::number(index));
+            adaptiveCombo_->setItemIcon(
+                adaptiveCombo_->count() - 1,
+                QIcon(tileThumbnail(SectionKind::foreground, rule.forms[15], artwork, iconSize)));
+            adaptiveCombo_->setItemData(
+                adaptiveCombo_->count() - 1,
+                tr("Your own rule, not a game's: writes one of its sixteen tile numbers "
+                   "according to the joined neighbours."),
+                Qt::ToolTipRole);
+        }
+    }
     presetCombo_->clear();
     createMenu_->clear();
     for (const auto &preset : objectPresets(profile)) {
@@ -2738,6 +2997,15 @@ void MainWindow::updateUi() {
     enable("fileSaveAll", anyModified);
     enable("fileRevert", hasTab);
     enable("fileSnapshot", hasTab);
+    enable("editBytes", writable && experimental_);
+    if (auto *item = action(QStringLiteral("editBytes"))) {
+        item->setVisible(experimental_);
+    }
+    if (auto *item = action(QStringLiteral("editBorderRules"))) {
+        item->setVisible(experimental_);
+        item->setEnabled(experimental_);
+    }
+    experimentalLabel_->setVisible(experimental_);
     enable("fileConvertRevision", hasTab);
     enable("fileSnapshots", hasTab);
     enable("fileProperties", hasTab);

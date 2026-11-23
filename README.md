@@ -23,6 +23,7 @@ What works today:
 - **Recovery and snapshots**: unsaved changes are copied to a checksummed store in the user profile a few seconds after an edit and offered at the next start if the editor stopped unexpectedly (restored as one undo step, only onto an unchanged file); named snapshots of a world can be taken and restored the same way. Nothing is written beside a world file.
 - Revisions 1.0 and 1.1, truncated files and unknown content open **read-only** with the reason shown.
 - **Element Encyclopedia**: a searchable list of every catalogued tile, object and border family of the chosen game with what is stored for it and the evidence; any entry can be selected for painting or placing.
+- **Experimental editing** (off by default): typed byte edits as undoable transactions with a second confirmation for preserved ranges, unverified music and region numbers, and border rules of your own for the Adaptive brush. The revision field and the file length never change.
 - **New World** (and the `new` command) writes the world the games' own editors start a mission with, for either game.
 - **Convert Revision** (and the `convert` command) writes a copy of a world in revision 1.0, 1.1, 1.2 or 1.3 to a new file; anything the target cannot store is listed and dropped only on request.
 

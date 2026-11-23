@@ -45,9 +45,9 @@ Verification on 2026-11-22, Ubuntu 24.04, GCC 13.3.0, CMake 3.28.3, Ninja, Qt 6.
 ```sh
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
 cmake --build build --parallel              # no warnings
-ctest --test-dir build --output-on-failure  # 49/49 passed (50 registered): layout, le_reader, world_probe, world_view, world_document, world_stats, offset_map, tile_tools, metadata, object_ops, hex_model, doctor, adaptive, animation, atlas_table, editor_groups, revision_convert, new_world, encyclopedia, view_transform, probe_report, document_file, recovery_store, cli, world_renderer, png_export, game_assets, main_window, docks, tools, metadata_ui, objects_ui, inspector, doctor_ui, adaptive_ui, workspace, artwork_ui, palette, music_player, animation_ui, interface_ui, recovery_ui, convert_ui, new_world_ui, encyclopedia_ui, cli_usage, smoke, version, install_smoke; sample_matrix skipped without EGGBERT_SAMPLE_DIRS
+ctest --test-dir build --output-on-failure  # 52/52 passed (53 registered): layout, le_reader, world_probe, world_view, world_document, world_stats, offset_map, tile_tools, metadata, object_ops, hex_model, doctor, adaptive, animation, atlas_table, editor_groups, revision_convert, new_world, encyclopedia, expert_edit, custom_border, view_transform, probe_report, document_file, recovery_store, cli, world_renderer, png_export, game_assets, main_window, docks, tools, metadata_ui, objects_ui, inspector, doctor_ui, adaptive_ui, workspace, artwork_ui, palette, music_player, animation_ui, interface_ui, recovery_ui, convert_ui, new_world_ui, encyclopedia_ui, experimental_ui, cli_usage, smoke, version, install_smoke; sample_matrix skipped without EGGBERT_SAMPLE_DIRS
 cmake -S . -B build-asan -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DEGGBERT_SANITIZE=ON
-cmake --build build-asan --parallel && ctest --test-dir build-asan   # 49/49 passed under ASan/UBSan, sample_matrix skipped
+cmake --build build-asan --parallel && ctest --test-dir build-asan   # 52/52 passed under ASan/UBSan, sample_matrix skipped
 ```
 
 Commit `c8f7a77` (binary inspector) was pushed green in Release but with a use-after-free that the sanitizer run reported in `main_window` (the hex views kept a pointer to the document replaced by Revert/Reload); the next commit fixes it with `DocumentTab::documentReplaced` and a regression check in `inspector`. Always run the sanitizer suite to completion before committing.
@@ -94,6 +94,17 @@ See `plan.md`, **Promotion of the roadmap**. Design to implement:
 ### Slice A2 result (2026-11-23): New World
 
 Added under the owner's instruction to work on the interface (an editor without a way to start a world was the largest gap seen in a review of the screens). `src/world/new_world.hpp` (Qt-free) builds the state both games' editors start a mission with (evidence: **New world** in `docs/research/evidence.md`, read in both sources): revision 1.2 for the first game, 1.3 for the second. **File → New World…** (Ctrl+N), the welcome page's **New World…** and `eggbert-editor new OUT --game 1|2` write it to a new file; the window opens it with the game selected and remembered. Tests: `new_world` (bytes equal an independent description built with the fixture helpers; nothing else set; Doctor: no error, no warning under either profile), `new_world_ui` (welcome button and menu, suggestions, edit and save afterwards, open file not replaced, cancel paths, unwritable destination), `cli` (both games, existing output kept, usage errors). Not covered: loading the file in a running game.
+
+### Slice I result (2026-11-23): experimental editing
+
+Done out of order for the same reason as K. Off by default (`experimental/enabled` in the settings, a check box in Preferences, a status-bar label while on).
+
+- Core: `EditBuilder::setBytes` (raw bytes anywhere in the document) and `EditPolicy::expert` for `WorldDocument::apply`: reserved fields, `world` and the suffix may change; the revision field never (it selects the layout) and the length never; read-only documents stay read-only. `protectedPartsOf` names what a transaction touches in preserved ranges. The default policy is unchanged and every existing caller uses it.
+- **Edit → Edit Bytes…**: offset and hex bytes, current bytes shown; one undo step; a second confirmation naming the preserved offsets before the expert policy is used; revision field and out-of-file edits refused with a reason.
+- Metadata dialog: with the switch on, music and region outside the verified ranges are accepted and labelled.
+- `src/world/custom_border.hpp`: user-written rules (text format, errors with line numbers) and `customBorderStroke`; **Edit → Load Custom Border Rules…** adds them to the Adaptive brush chooser as "Custom: name"; the file is remembered.
+- Tests: `expert_edit`, `custom_border`, `experimental_ui` (switch off: nothing offered and the entry point inert; ordinary, preserved, suffix, revision and oversize edits; the real dialog; metadata; rule file errors, painting, undo; read-only world).
+- Limits: no in-place typing in the hex view (edits go through the dialog); custom rules know only the four orthogonal neighbours and the map edge.
 
 ### Slice K, first half (2026-11-23): Element Encyclopedia
 
@@ -163,7 +174,7 @@ Order and acceptance are in `plan.md`, **Promotion of the roadmap**. Tick a slic
 - [ ] F Installation workspace: world list, deploy with backup and rollback, playtest command
 - [ ] G Campaign workspace and packs
 - [ ] H Advanced World Doctor
-- [ ] I Experimental raw hex editing, custom adaptive rules
+- [x] I Experimental editing: typed byte edits, unverified music/region numbers, custom border rules
 - [ ] J Stamps, alignment, batch edits
 - [ ] K Element encyclopedia (done, 2026-11-23) and installation gallery (open: comes with slice F's world list)
 - [ ] L Localization (Czech), accessibility, Windows/macOS build configurations

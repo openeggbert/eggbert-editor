@@ -160,11 +160,11 @@ std::optional<Metadata> MetadataDialog::metadata() const {
     const auto *info = profileInfo(profile_);
     // A changed music or region must be a value the chosen game offers; an
     // unchanged stored value is kept whatever it is.
-    if (music_->value() != original_.music &&
+    if (!experimental_ && music_->value() != original_.music &&
         (info == nullptr || !info->music.contains(music_->value()))) {
         return std::nullopt;
     }
-    if (region_->value() != original_.region &&
+    if (!experimental_ && region_->value() != original_.region &&
         (info == nullptr || !info->region.contains(region_->value()))) {
         return std::nullopt;
     }
@@ -208,7 +208,10 @@ QString MetadataDialog::messages() const {
         if (!info->music.contains(music_->value())) {
             lines << (music_->value() == original_.music
                           ? tr("Note: the stored music %1 is outside %2 to %3 and is kept.")
-                          : tr("Music %1 is outside the verified range %2 to %3."))
+                          : experimental_
+                                ? tr("Experimental: music %1 is outside the verified range %2 "
+                                     "to %3 and is written as typed.")
+                                : tr("Music %1 is outside the verified range %2 to %3."))
                          .arg(music_->value())
                          .arg(info->music.minimum)
                          .arg(info->music.maximum);
@@ -216,13 +219,25 @@ QString MetadataDialog::messages() const {
         if (!info->region.contains(region_->value())) {
             lines << (region_->value() == original_.region
                           ? tr("Note: the stored region %1 is outside %2 to %3 and is kept.")
-                          : tr("Region %1 is outside the verified range %2 to %3."))
+                          : experimental_
+                                ? tr("Experimental: region %1 is outside the verified range %2 "
+                                     "to %3 and is written as typed.")
+                                : tr("Region %1 is outside the verified range %2 to %3."))
                          .arg(region_->value())
                          .arg(info->region.minimum)
                          .arg(info->region.maximum);
         }
     }
     return lines.join(QLatin1Char('\n'));
+}
+
+void MetadataDialog::setExperimental(bool experimental) {
+    experimental_ = experimental;
+    if (experimental) {
+        music_->setEnabled(true);
+        region_->setEnabled(true);
+    }
+    refresh();
 }
 
 void MetadataDialog::refresh() {

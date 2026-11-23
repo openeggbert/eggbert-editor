@@ -173,7 +173,15 @@ bool DocumentTab::replaceBytes(std::span<const std::byte> wanted, const QString 
 }
 
 bool DocumentTab::applyTransaction(Transaction transaction) {
-    const auto result = document().apply(std::move(transaction));
+    return applyWithPolicy(std::move(transaction), EditPolicy::guarded);
+}
+
+bool DocumentTab::applyExpertTransaction(Transaction transaction) {
+    return applyWithPolicy(std::move(transaction), EditPolicy::expert);
+}
+
+bool DocumentTab::applyWithPolicy(Transaction transaction, EditPolicy policy) {
+    const auto result = document().apply(std::move(transaction), policy);
     if (!result) {
         if (result.error().error == EditError::readOnly) {
             emit statusMessage(fromView(writeAccessReason(document().writeAccess())));
@@ -441,6 +449,22 @@ void DocumentTab::setAdaptiveBrush(const QString &id) {
     }
 }
 
+void DocumentTab::setCustomBorderRules(
+    std::shared_ptr<const std::vector<CustomBorderRule>> rules) {
+    customRules_ = std::move(rules);
+    emit toolStateChanged();
+}
+
+const CustomBorderRule *DocumentTab::customBorderRule() const {
+    const QLatin1String prefix(customBrushPrefix);
+    if (customRules_ == nullptr || !adaptiveBrush_.startsWith(prefix)) {
+        return nullptr;
+    }
+    bool ok = false;
+    const auto index = adaptiveBrush_.mid(prefix.size()).toULongLong(&ok);
+    return ok && index < customRules_->size() ? &(*customRules_)[index] : nullptr;
+}
+
 void DocumentTab::setVariantSource(std::unique_ptr<VariantSource> variants) {
     variants_ = std::move(variants);
 }
@@ -457,6 +481,14 @@ std::optional<std::int16_t> DocumentTab::adaptiveValue() const {
 }
 
 AdaptiveResult DocumentTab::previewAdaptive(CellPos cell) const {
+    if (const auto *rule = customBorderRule()) {
+        if (!document().isWritable() || isLayerLocked(SectionKind::foreground) ||
+            (!selection_.empty() && !selection_.test(cell))) {
+            return {};
+        }
+        EditBuilder builder(document());
+        return customBorderStroke(builder, *rule, {&cell, 1}, false);
+    }
     const auto value = adaptiveValue();
     if (!value || profile_ == GameProfile::unknown || !document().isWritable() ||
         isLayerLocked(SectionKind::foreground) ||
@@ -473,7 +505,8 @@ bool DocumentTab::adaptiveAt(std::span<const CellPos> cells, std::uint64_t merge
     if (!requireWritable()) {
         return false;
     }
-    if (profile_ == GameProfile::unknown) {
+    const auto *customRule = customBorderRule();
+    if (customRule == nullptr && profile_ == GameProfile::unknown) {
         emit statusMessage(tr("Choose a game profile first: border rules are verified per game."));
         return false;
     }
@@ -482,7 +515,7 @@ bool DocumentTab::adaptiveAt(std::span<const CellPos> cells, std::uint64_t merge
         return false;
     }
     const auto value = adaptiveValue();
-    if (!value) {
+    if (customRule == nullptr && !value) {
         emit statusMessage(tr("Choose an adaptive brush of the chosen game first."));
         return false;
     }
@@ -498,11 +531,15 @@ bool DocumentTab::adaptiveAt(std::span<const CellPos> cells, std::uint64_t merge
         return false;
     }
     EditBuilder builder(document());
-    const auto result = adaptiveStroke(builder, profile_, footprint, *value, *variants_);
+    const auto result =
+        customRule != nullptr
+            ? customBorderStroke(builder, *customRule, footprint, false)
+            : adaptiveStroke(builder, profile_, footprint, *value, *variants_);
     if (!builder.hasChanges()) {
         return false;
     }
-    if (!applyTransaction(builder.build(tr("Adaptive Brush").toStdString(), mergeKey))) {
+    const auto label = customRule != nullptr ? tr("Custom Border Brush") : tr("Adaptive Brush");
+    if (!applyTransaction(builder.build(label.toStdString(), mergeKey))) {
         return false;
     }
     if (!result.sideEffects.empty()) {

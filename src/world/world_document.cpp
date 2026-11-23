@@ -141,14 +141,32 @@ WorldDocument::WorldDocument(std::vector<std::byte> bytes)
       probe_(probeWorld(original_)), access_(accessFor(probe_)),
       protected_(protectedRangesFor(probe_, original_.size())) {}
 
-std::expected<void, EditFailure> WorldDocument::apply(Transaction transaction) {
+std::vector<ByteRange> WorldDocument::protectedPartsOf(const Transaction &transaction) const {
+    std::vector<ByteRange> parts;
+    for (const auto &change : transaction.changes) {
+        for (const auto &range : protected_) {
+            const auto begin = std::max(range.offset, change.offset);
+            const auto end = std::min(range.end(), change.offset + change.after.size());
+            if (begin < end) {
+                parts.push_back({begin, end - begin});
+            }
+        }
+    }
+    std::ranges::sort(parts, {}, &ByteRange::offset);
+    return parts;
+}
+
+std::expected<void, EditFailure> WorldDocument::apply(Transaction transaction,
+                                                      EditPolicy policy) {
     if (!isWritable()) {
         return std::unexpected(EditFailure{EditError::readOnly, 0, 0});
     }
     if (transaction.changes.empty()) {
         return std::unexpected(EditFailure{EditError::emptyTransaction, 0, 0});
     }
-    const auto layoutEnd = probe_.descriptor->expectedBytes;
+    const bool expert = policy == EditPolicy::expert;
+    const auto layoutEnd = expert ? current_.size() : probe_.descriptor->expectedBytes;
+    constexpr ByteRange revisionField{0, layout::revisionFieldBytes};
     std::size_t previousEnd = 0;
     for (std::size_t index = 0; index < transaction.changes.size(); ++index) {
         const auto &change = transaction.changes[index];
@@ -161,10 +179,17 @@ std::expected<void, EditFailure> WorldDocument::apply(Transaction transaction) {
         if (index > 0 && change.offset < previousEnd) {
             return fail(EditError::unsortedOrOverlapping, change.offset);
         }
-        for (const auto &range : protected_) {
-            if (range.overlaps(change.range()) ||
-                (change.offset >= range.offset && range.contains(change.offset))) {
-                return fail(EditError::protectedRange, std::max(range.offset, change.offset));
+        if (expert) {
+            if (revisionField.overlaps(change.range())) {
+                return fail(EditError::protectedRange, change.offset);
+            }
+        } else {
+            for (const auto &range : protected_) {
+                if (range.overlaps(change.range()) ||
+                    (change.offset >= range.offset && range.contains(change.offset))) {
+                    return fail(EditError::protectedRange,
+                                std::max(range.offset, change.offset));
+                }
             }
         }
         if (!rangeFits(layoutEnd, change.offset, change.after.size())) {
@@ -425,6 +450,14 @@ bool EditBuilder::copyObjectSlot(std::size_t fromSlot, std::size_t toSlot) {
 
 bool EditBuilder::hasChanges() const {
     return !std::ranges::equal(working_, document_->currentBytes());
+}
+
+bool EditBuilder::setBytes(std::size_t offset, std::span<const std::byte> bytes) {
+    if (bytes.empty() || offset > working_.size() || bytes.size() > working_.size() - offset) {
+        return false;
+    }
+    std::ranges::copy(bytes, working_.begin() + static_cast<std::ptrdiff_t>(offset));
+    return true;
 }
 
 Transaction EditBuilder::build(std::string label, std::uint64_t mergeKey) const {

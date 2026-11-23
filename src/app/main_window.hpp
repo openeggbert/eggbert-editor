@@ -52,6 +52,14 @@ struct Prompts {
     // the copy was made; `detail` says so.
     std::function<RecoveryChoice(const RecoveryEntry &, bool canRestore, const QString &detail)>
         recover;
+    // Experimental editing: the offset and the new bytes; nullopt cancels.
+    std::function<std::optional<std::pair<qulonglong, QByteArray>>(DocumentTab *,
+                                                                    qulonglong offset)>
+        editBytes;
+    // File with user-written border rules; empty cancels.
+    std::function<QString()> borderRulesPath;
+    // Second confirmation before bytes in a preserved range are changed.
+    std::function<bool(DocumentTab *, const QString &description)> confirmProtectedEdit;
     // The game a new world is for; nullopt cancels.
     std::function<std::optional<GameProfile>(GameProfile suggested)> newWorldGame;
     // The revision to convert a copy to and whether loss is accepted.
@@ -206,6 +214,21 @@ public:
     // Offers the unsaved changes of earlier sessions; returns how many were
     // restored into tabs. Called once after start.
     int checkRecovery();
+    // Experimental editing (off by default, kept in the settings): raw byte
+    // edits and music or region numbers outside the verified ranges.
+    [[nodiscard]] bool experimental() const { return experimental_; }
+    void setExperimental(bool enabled);
+    // Replaces bytes of the tab's world as one undo step; bytes in a
+    // preserved range need a second confirmation; the revision field and the
+    // length never change. Needs experimental editing. True when applied.
+    bool editBytes(DocumentTab *tab);
+    // Reads user-written border rules (see custom_border.hpp) and offers
+    // them in the Adaptive brush chooser while experimental editing is on.
+    // False, with the reason shown, when the file cannot be used.
+    bool loadCustomBorderRules(const QString &path);
+    [[nodiscard]] std::size_t customBorderRuleCount() const {
+        return customRules_ != nullptr ? customRules_->size() : 0;
+    }
     // Asks for the game and a file, writes the world the games' editors
     // start with and opens it; returns the new tab or null.
     DocumentTab *createWorld();
@@ -258,6 +281,10 @@ private:
     ObjectsPanel *objects_ = nullptr;
     PalettePanel *palette_ = nullptr;
     EncyclopediaDialog *encyclopedia_ = nullptr;
+    bool experimental_ = false;
+    std::shared_ptr<const std::vector<CustomBorderRule>> customRules_;
+    void shareCustomRules();
+    QLabel *experimentalLabel_ = nullptr;
     RecoveryStore recovery_;
     QTimer *autosaveTimer_ = nullptr;
     QStackedWidget *central_ = nullptr;

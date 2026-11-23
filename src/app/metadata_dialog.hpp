@@ -29,6 +29,9 @@ public:
     MetadataDialog(const WorldView &world, GameProfile profile, QWidget *parent = nullptr);
 
     void setPage(Page page);
+    // Experimental editing: music and region numbers the chosen game is not
+    // known to offer are accepted as typed (and said to be so).
+    void setExperimental(bool experimental);
     // The edited values, or nullopt while something cannot be stored.
     [[nodiscard]] std::optional<Metadata> metadata() const;
     [[nodiscard]] bool isValid() const { return metadata().has_value(); }
@@ -41,6 +44,7 @@ private:
     Metadata original_;
     GameProfile profile_;
     bool titleRead_ = true;
+    bool experimental_ = false;
     QTabWidget *pages_ = nullptr;
     QLineEdit *name_ = nullptr;
     QSpinBox *music_ = nullptr;

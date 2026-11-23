@@ -70,6 +70,18 @@ struct EditFailure {
     std::size_t offset = 0;
 };
 
+// How strictly a transaction is checked.
+enum class EditPolicy {
+    // The rule for every ordinary edit: nothing in a protected range,
+    // nothing after the layout.
+    guarded,
+    // An explicit override by the user (experimental editing): reserved
+    // fields, the `world` field and the bytes after the layout may change.
+    // The revision field never may, because it selects the layout, and the
+    // length never changes.
+    expert,
+};
+
 // Maximal runs of positions where the two equally sized inputs differ.
 [[nodiscard]] std::vector<ByteRange> differingRanges(std::span<const std::byte> left,
                                                      std::span<const std::byte> right);
@@ -100,7 +112,11 @@ public:
 
     // Validates the whole transaction before changing anything. On failure
     // the document, including its history, is exactly as before.
-    std::expected<void, EditFailure> apply(Transaction transaction);
+    std::expected<void, EditFailure> apply(Transaction transaction,
+                                           EditPolicy policy = EditPolicy::guarded);
+    // The parts of protected ranges the transaction would change (empty for
+    // an ordinary edit); what an expert edit must be confirmed for.
+    [[nodiscard]] std::vector<ByteRange> protectedPartsOf(const Transaction &transaction) const;
     // Stops the next transaction from merging into the previous one.
     void endMerge() { mergeOpen_ = false; }
 
@@ -170,6 +186,9 @@ public:
     bool setObjectRecord(std::size_t slot, const ObjectRecord &record);
     // Copies all 48 raw bytes, opaque fields included, between slots.
     bool copyObjectSlot(std::size_t fromSlot, std::size_t toSlot);
+    // Raw bytes at an absolute offset, anywhere in the document. Whether
+    // the result may be applied is decided by WorldDocument::apply.
+    bool setBytes(std::size_t offset, std::span<const std::byte> bytes);
 
     [[nodiscard]] bool hasChanges() const;
     [[nodiscard]] Transaction build(std::string label, std::uint64_t mergeKey = 0) const;

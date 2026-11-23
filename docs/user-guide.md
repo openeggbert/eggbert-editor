@@ -169,6 +169,24 @@ For the byte under the cursor it shows the offset, the structural name (for exam
 
 Type an offset (`1608` or `0x648`), `cell 3,70`, `big 3,70` or `slot 137` to jump; pick a section from the list; search for hex bytes or ASCII text; set bookmarks; choose 8 to 32 bytes per row; view the original bytes or original and current side by side. The inspector follows the cell cursor and the selected object, and clicking a byte moves the canvas there.
 
+## Experimental editing
+
+Off by default. **Edit → Preferences → Experimental editing** switches it on; the status bar then says so. It lets you write values the editor has no evidence for, so the result may be something no game expects. Three things become available:
+
+- **Edit → Edit Bytes** replaces bytes at an offset you type (decimal or `0x` hex; it starts at the Binary Inspector's cursor) with the hex bytes you type, and shows what is stored there now. The edit is one undo step like any other. If it touches a range the editor otherwise preserves — the reserved header fields, the `world` field or bytes after the end of the world — it names those offsets and asks again before changing them. The revision field (offsets 0 to 3) is never edited, because it decides how the rest of the file is read, and the file never changes length.
+- **World → Metadata** accepts any music and region number, and says when a number is outside the range verified for the game.
+- **Edit → Load Custom Border Rules** reads a text file with border rules of your own and adds them to the Adaptive brush chooser as **Custom: name**. A rule is sixteen tile numbers, one for each combination of joined neighbours:
+
+  ```
+  # mask order: +1 the cell below joins, +2 above, +4 right, +8 left
+  [Stone wall]
+  forms = 153 147 148 146 40 151 150 144 39 152 149 145 38 36 37 35
+  ```
+
+  Painting with it writes the form for no neighbours and then gives the painted cell and its four neighbours the form that matches which of their neighbours hold a number of the same rule; the edge of the map counts as joined. Only the foreground layer changes. These rules are yours, not a game's: nothing checks that a game draws them as a border. The file is remembered and read again at the next start while experimental editing stays on.
+
+Read-only worlds stay read-only.
+
 ## Exporting a picture
 
 **File → Export World PNG** (Ctrl+E) writes one image of the complete world: 6,400 × 6,400 pixels at the native 64 pixels per cell, or smaller. Choose the whole world or only the selected cells, the layers and overlays, a solid or transparent background and, with artwork, whether the world's backdrop picture is drawn (tiled from the top-left corner, without the canvas's scrolling shift); the dialog shows the size and the memory needed first. The picture is drawn with the same code as the canvas and records the game profile, the kind of drawing and the settings in its metadata. It is schematic unless you tick **Draw with game artwork** (available when artwork for the tab's game is loaded). Pictures drawn with artwork contain copyrighted material of the game's owners: keep them for your own use unless you have permission to share them.
@@ -194,4 +212,4 @@ Exit codes: 0 success, 1 findings, differences or a refused loss, 2 wrong usage 
 
 ## What the editor does not do
 
-It does not edit revisions 1.0 and 1.1 in place (convert a copy instead), does not edit bytes in the hex view, does not offer objects, border brushes or music and region values it has no evidence for (raw tile numbers and an object's numeric fields are yours to type), does not create or renumber campaigns, does not copy worlds into a game installation, does not launch a game, and does not convert between Speedy Blupi 1 and 2 or to the Mobile Eggbert format.
+It does not edit revisions 1.0 and 1.1 in place (convert a copy instead), does not edit bytes in the hex view itself (see **Experimental editing** for typed byte edits), does not offer objects, border brushes or music and region values it has no evidence for unless experimental editing is on (raw tile numbers and an object's numeric fields are always yours to type), does not create or renumber campaigns, does not copy worlds into a game installation, does not launch a game, and does not convert between Speedy Blupi 1 and 2 or to the Mobile Eggbert format.

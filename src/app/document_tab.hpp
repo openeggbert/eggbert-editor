@@ -10,6 +10,7 @@
 #include "app/document_file.hpp"
 #include "app/world_canvas.hpp"
 #include "world/adaptive.hpp"
+#include "world/custom_border.hpp"
 #include "world/doctor.hpp"
 #include "world/metadata.hpp"
 #include "world/object_ops.hpp"
@@ -105,6 +106,9 @@ public:
     // The single mutation entry point for every tool, panel and command.
     // Returns false and reports why when the document refuses the change.
     bool applyTransaction(Transaction transaction);
+    // The same with the expert policy (see EditPolicy): for confirmed
+    // experimental edits only.
+    bool applyExpertTransaction(Transaction transaction);
     // Makes the current bytes equal to `wanted` (same length) as one undo
     // step; the document's own validation applies, so protected ranges and
     // read-only documents refuse. False when nothing differs or it fails.
@@ -142,6 +146,11 @@ public:
     static constexpr const char *adaptiveTileBrush = "@tile";   // the raw tile ID
     static constexpr const char *adaptiveEraseBrush = "@erase"; // -1
     [[nodiscard]] QString adaptiveBrush() const { return adaptiveBrush_; }
+    // User-written border rules (experimental editing); brush ids
+    // "custom:<index>" refer to them.
+    static constexpr const char *customBrushPrefix = "custom:";
+    void setCustomBorderRules(std::shared_ptr<const std::vector<CustomBorderRule>> rules);
+    [[nodiscard]] const CustomBorderRule *customBorderRule() const;
     void setAdaptiveBrush(const QString &id);
     // Value the current brush writes; nullopt when the brush is a family
     // the chosen profile does not have.
@@ -224,6 +233,7 @@ signals:
     void statusMessage(const QString &message);
 
 private:
+    bool applyWithPolicy(Transaction transaction, EditPolicy policy);
     void updateBanner();
     // Checks writability and the layer lock for a tile edit.
     bool canEditActiveLayer();
@@ -256,6 +266,7 @@ private:
     QString placePresetId_;
     std::vector<std::size_t> bookmarks_;
     QString adaptiveBrush_ = QString::fromLatin1(adaptiveTileBrush);
+    std::shared_ptr<const std::vector<CustomBorderRule>> customRules_;
     std::unique_ptr<VariantSource> variants_;
     enum class Grab { none, body, end };
     Grab grab_ = Grab::none;
