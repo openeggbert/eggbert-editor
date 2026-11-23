@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-only
+#include "app/game_assets.hpp"
 #include "app/main_window.hpp"
 #include "app/metadata_dialog.hpp"
 
 #include "check.hpp"
 #include "fixture.hpp"
+#include "generated_game.hpp"
 
 #include <QAction>
 #include <QApplication>
@@ -11,7 +13,9 @@
 #include <QComboBox>
 #include <QDialogButtonBox>
 #include <QFile>
+#include <QLabel>
 #include <QLineEdit>
+#include <QListWidget>
 #include <QPushButton>
 #include <QSettings>
 #include <QSpinBox>
@@ -282,5 +286,81 @@ int main(int argc, char **argv) {
     CHECK(!old->document().isModified());
 
     CHECK(window.close());
+    // Background and music are chosen by picture and from a list, with the
+    // numbers following, and the music can be listened to.
+    {
+        QTemporaryDir gameDir;
+        const auto game = makeGame(gameDir.filePath("game"));
+        addBackdrops(game, 3);
+        addMusic(game);
+        // Music 2 is a real tune: a note of half a second.
+        {
+            QFile tune(game.root + "/SOUND/MUSIC001.BLP");
+            CHECK(tune.open(QIODevice::WriteOnly | QIODevice::Truncate));
+            tune.write(QByteArray("MThd\0\0\0\x06\0\0\0\x01\x01\xE0MTrk\0\0\0\x0D"
+                                  "\0\x90\x3C\x50\x83\x60\x80\x3C\0\0\xFF\x2F\0",
+                                  35));
+        }
+        const auto assets = GameAssets::load(game.root, GameProfile::speedyBlupi1);
+        const WorldView world(bytes);
+        MetadataDialog dialog(world, GameProfile::speedyBlupi1);
+        auto *music = dialog.findChild<QSpinBox *>("musicSpin");
+        auto *region = dialog.findChild<QSpinBox *>("regionSpin");
+        // Without a game directory: numbered swatches and plain names.
+        CHECK_EQ(dialog.backgroundList()->count(), 24); // regions 0 to 23
+        CHECK_EQ(dialog.musicList()->count(), 11);      // none and 1 to 10
+        CHECK_EQ(dialog.musicList()->item(0)->text(), QString("No music"));
+        CHECK_EQ(dialog.musicList()->item(2)->text(), QString("Music 2"));
+        dialog.setGame(assets, assets);
+        CHECK_EQ(dialog.musicList()->item(2)->text(), QString("Music 2 - 0:01"));
+        CHECK_EQ(dialog.musicList()->item(3)->text(), QString("Music 3"));
+        // The picture of region 1 is the game's backdrop, scaled.
+        const auto picture = dialog.backgroundList()->item(1)->icon().pixmap(96, 72).toImage();
+        CHECK(picture.pixelColor(10, 36) == backdropColor(1, false));
+        CHECK(picture.pixelColor(86, 36) == backdropColor(1, true));
+        // The lists show the stored numbers and set them.
+        // The stored region (40) is outside the game's range: no picture is chosen.
+        CHECK_EQ(region->value(), 40);
+        CHECK_EQ(dialog.backgroundList()->currentRow(), -1);
+        CHECK_EQ(dialog.musicList()->currentRow(), music->value());
+        dialog.backgroundList()->setCurrentRow(2);
+        CHECK_EQ(region->value(), 2);
+        dialog.musicList()->setCurrentRow(2);
+        CHECK_EQ(music->value(), 2);
+        region->setValue(3);
+        CHECK_EQ(dialog.backgroundList()->currentRow(), 3);
+        music->setValue(5);
+        CHECK_EQ(dialog.musicList()->currentRow(), 5);
+        CHECK(dialog.metadata().has_value() && dialog.metadata()->region == 3 &&
+              dialog.metadata()->music == 5);
+        // Listening: Play asks for the chosen number, Stop and closing end it.
+        auto *play = dialog.findChild<QPushButton *>("metadataMusicPlay");
+        auto *stop = dialog.findChild<QPushButton *>("metadataMusicStop");
+        CHECK(play != nullptr && !play->isEnabled());
+        std::vector<int> played;
+        int stopped = 0;
+        dialog.setMusicControls(
+            [&](int number) {
+                played.push_back(number);
+                return true;
+            },
+            [&] { ++stopped; }, [&] { return QString("line %1").arg(played.size()); });
+        CHECK(play->isEnabled() && stop->isEnabled());
+        dialog.musicList()->setCurrentRow(2);
+        play->click();
+        CHECK((played == std::vector<int>{2}));
+        CHECK_EQ(dialog.findChild<QLabel *>("metadataMusicLine")->text(), QString("line 1"));
+        stop->click();
+        CHECK_EQ(stopped, 1);
+        dialog.musicList()->setCurrentRow(0); // no music: Play only stops
+        play->click();
+        CHECK_EQ(played.size(), std::size_t{1});
+        CHECK_EQ(stopped, 2);
+        dialog.reject();
+        CHECK_EQ(stopped, 3);
+        // Without a game profile there is nothing to choose from.
+        MetadataDialog unknown(world, GameProfile::unknown);
+        CHECK(unknown.backgroundList()->isHidden() && unknown.musicList()->isHidden());
+    }
     return test::finish("metadata_ui");
 }

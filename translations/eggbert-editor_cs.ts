@@ -5072,6 +5072,26 @@ Sestaveno s Qt %2, běží na Qt %3.</translation>
    <source>A Mobile Eggbert world has no title.</source>
    <translation>Svět Mobile Eggbert nemá název.</translation>
   </message>
+  <message>
+   <source>Music</source>
+   <translation>Hudba</translation>
+  </message>
+  <message>
+   <source>Play</source>
+   <translation>Přehrát</translation>
+  </message>
+  <message>
+   <source>Stop</source>
+   <translation>Zastavit</translation>
+  </message>
+  <message>
+   <source>Background</source>
+   <translation>Pozadí</translation>
+  </message>
+  <message>
+   <source>Background %1</source>
+   <translation>Pozadí %1</translation>
+  </message>
  </context>
  <context>
   <name>eggbert::MusicPlayer</name>
@@ -5082,10 +5102,6 @@ Sestaveno s Qt %2, běží na Qt %3.</translation>
   <message>
    <source>%1 stopped with an error%2</source>
    <translation>%1 skončil s chybou%2</translation>
-  </message>
-  <message>
-   <source>No MIDI player was found. The games' music is MIDI; install FluidSynth with a sound font, TiMidity++ or WildMIDI to listen to it here.</source>
-   <translation>Nebyl nalezen žádný přehrávač MIDI. Hudba her je ve formátu MIDI; chcete-li ji zde poslouchat, nainstalujte FluidSynth se zvukovým fontem, TiMidity++ nebo WildMIDI.</translation>
   </message>
   <message>
    <source>Playing music %1 with %2.</source>
@@ -5106,6 +5122,34 @@ Sestaveno s Qt %2, běží na Qt %3.</translation>
   <message>
    <source>A temporary copy of the music could not be written.</source>
    <translation>Dočasnou kopii hudby se nepodařilo zapsat.</translation>
+  </message>
+  <message>
+   <source>the editor's own synthesizer (through %1)</source>
+   <translation>vlastního syntezátoru editoru (přes %1)</translation>
+  </message>
+  <message>
+   <source>No MIDI player and no sound player was found. The editor can turn the games' music into sound itself, but it needs a program that plays sound: pw-play, paplay or aplay (PipeWire, PulseAudio or ALSA utilities), or a MIDI player such as FluidSynth or TiMidity++.</source>
+   <translation>Nebyl nalezen žádný přehrávač MIDI ani přehrávač zvuku. Editor umí hudbu her převést na zvuk sám, ale potřebuje program, který zvuk přehraje: pw-play, paplay nebo aplay (nástroje PipeWire, PulseAudio nebo ALSA), případně přehrávač MIDI jako FluidSynth nebo TiMidity++.</translation>
+  </message>
+  <message>
+   <source>No music</source>
+   <translation>Bez hudby</translation>
+  </message>
+  <message>
+   <source>Music %1 - %2:%3</source>
+   <translation>Hudba %1 - %2:%3</translation>
+  </message>
+  <message>
+   <source>Music %1</source>
+   <translation>Hudba %1</translation>
+  </message>
+  <message>
+   <source>Music %1 cannot be played: %2</source>
+   <translation>Hudbu %1 nelze přehrát: %2</translation>
+  </message>
+  <message>
+   <source>%1 could not play the music.</source>
+   <translation>%1 hudbu nepřehrál.</translation>
   </message>
  </context>
  <context>
@@ -5320,14 +5364,6 @@ Sestaveno s Qt %2, běží na Qt %3.</translation>
   <message>
    <source>Background %1</source>
    <translation>Pozadí %1</translation>
-  </message>
-  <message>
-   <source>No music</source>
-   <translation>Bez hudby</translation>
-  </message>
-  <message>
-   <source>Music %1</source>
-   <translation>Hudba %1</translation>
   </message>
   <message>
    <source>%1: %2 tile(s) in %3 kind(s), as one button of the game's own editor offers them</source>

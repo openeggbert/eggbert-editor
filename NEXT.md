@@ -108,6 +108,17 @@ Owner's decisions of 2026-11-23 (asked directly, both answered):
 - **Packages from CI as downloads: yes.** Each run now keeps the Linux packages, the Windows ZIP and the macOS disk image as workflow artifacts for 14 days ("development build"). Nothing is tagged or released.
 - **Interface: "propose and make the adjustments yourself", and show the result in screenshots.** The review and what was changed are in **Interface review** just below.
 
+### Music the editor plays itself; background and music chosen by picture and list (2026-11-23, owner's request)
+
+The owner's words: background and music must be selectable visually, not by numbers only, and the editor should be able to play the games' MIDI music files.
+
+- **Playing.** Until now the editor could only start a MIDI player found on the system and was silent without one. `src/app/midi_synth.hpp` (no Qt): `parseMidi` reads a standard MIDI file of format 0 or 1 (tempo changes, running status, bounded sizes, refusals with a reason) and `renderMidi` turns it into sound with simple instrument shapes by General MIDI family and noise or falling tones for percussion; `wavFile` wraps the samples. `MusicPlayer` now has three ways, in this order after a command of the user's: Windows' own MIDI playback through the media control interface (as the games play it), an installed MIDI player, and the editor's own synthesizer played through afplay, pw-play, paplay or aplay. `durationSeconds` and `trackLabel` give each piece its length in the lists.
+- **Choosing.** World → Metadata has, under the two number boxes, the backgrounds as pictures and the music as a list with lengths and Play/Stop (`MetadataDialog::setGame`, `setMusicControls`); the boxes and lists follow each other, and listening stops when the dialog closes. The Palette's World tab already chose both this way; its music list now shows lengths too.
+- **Tests**: `midi_synth` (a file built in the test: note times through a tempo change, 440 Hz for A4 by counting zero crossings, silence between notes, the WAV header, eleven refusals), `music_player` (the synthesizer path hands the player a WAV file; lengths; a damaged file), `metadata_ui` (pictures from the game's backdrops, lists and numbers following each other, Play/Stop and closing). 78 tests registered.
+- **Checked privately** on the second game's ten music files (read only): all are read; each renders in 0.1 to 0.7 s for three to six minutes of music.
+- **Not verified here**: any sound reaching speakers (this machine has none), and Windows' own playback, which is compiled and run only on the hosted Windows runner. The synthesizer's instruments are approximations; the installed players and Windows sound like the game.
+- Mobile Eggbert has no music files, so there is nothing to play for its worlds.
+
 ### Interface review (2026-11-23, at the owner's "propose and make the adjustments yourself")
 
 The current build was looked at again in fresh screenshots of every layout, menu and dialog, and these things were changed:

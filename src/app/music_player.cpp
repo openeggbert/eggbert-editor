@@ -7,10 +7,39 @@
 #include <QSettings>
 #include <QStandardPaths>
 #include <QTemporaryFile>
+#include <QTimer>
+
+#include "app/core_texts.hpp"
+#include "app/midi_synth.hpp"
+
+#include <string_view>
+
+#ifdef Q_OS_WIN
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+
+#include <mmsystem.h>
+#endif
 
 namespace eggbert {
 
 namespace {
+
+#ifdef Q_OS_WIN
+// One command to Windows' media control interface; the answer, when wanted.
+bool mediaControl(const QString &command, QString *answer = nullptr) {
+    wchar_t buffer[128] = {};
+    const auto error = mciSendStringW(reinterpret_cast<const wchar_t *>(command.utf16()), buffer,
+                                      127, nullptr);
+    if (answer != nullptr) {
+        *answer = QString::fromWCharArray(buffer);
+    }
+    return error == 0;
+}
+constexpr char nativeAlias[] = "eggberteditormusic";
+#endif
 
 constexpr qint64 maximumMusicBytes = 16 * 1024 * 1024;
 
@@ -32,6 +61,20 @@ QString findSoundFont() {
 MusicPlayer::MusicPlayer(QObject *parent) : QObject(parent), backend_(detectBackend()) {
     process_.setProcessChannelMode(QProcess::MergedChannels);
     connect(&process_, &QProcess::stateChanged, this, [this] { emit stateChanged(); });
+    nativeTimer_ = new QTimer(this);
+    nativeTimer_->setInterval(500);
+    connect(nativeTimer_, &QTimer::timeout, this, [this] {
+#ifdef Q_OS_WIN
+        QString mode;
+        if (nativePlaying_ &&
+            (!mediaControl(QStringLiteral("status %1 mode").arg(QLatin1String(nativeAlias)),
+                           &mode) ||
+             mode != QLatin1String("playing"))) {
+            stopNative();
+            emit stateChanged();
+        }
+#endif
+    });
     connect(&process_, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
         if (error == QProcess::FailedToStart && backend_) {
             lastError_ = tr("%1 could not be started.").arg(backend_->name);
@@ -85,6 +128,9 @@ std::optional<MusicPlayer::Backend> MusicPlayer::detectBackend() {
             return backend;
         }
     }
+#ifdef Q_OS_WIN
+    return Backend{QString(), {}, QStringLiteral("Windows"), false, true};
+#endif
     if (const auto fluid = QStandardPaths::findExecutable(QStringLiteral("fluidsynth"));
         !fluid.isEmpty()) {
         if (const auto font = findSoundFont(); !font.isEmpty()) {
@@ -101,6 +147,20 @@ std::optional<MusicPlayer::Backend> MusicPlayer::detectBackend() {
         !wild.isEmpty()) {
         return Backend{wild, {QStringLiteral("%f")}, QStringLiteral("WildMIDI")};
     }
+    // No MIDI player: the editor renders the music itself and only needs
+    // something that plays a WAV file.
+    for (const char *player : {"afplay", "pw-play", "paplay", "aplay"}) {
+        if (const auto found = QStandardPaths::findExecutable(QString::fromLatin1(player));
+            !found.isEmpty()) {
+            return Backend{found,
+                           player == std::string_view("aplay")
+                               ? QStringList{QStringLiteral("-q"), QStringLiteral("%f")}
+                               : QStringList{QStringLiteral("%f")},
+                           tr("the editor's own synthesizer (through %1)")
+                               .arg(QString::fromLatin1(player)),
+                           true, false};
+        }
+    }
     return std::nullopt;
 }
 
@@ -112,8 +172,10 @@ void MusicPlayer::setBackend(std::optional<Backend> backend) {
 
 QString MusicPlayer::statusText() const {
     if (!backend_) {
-        return tr("No MIDI player was found. The games' music is MIDI; install FluidSynth with "
-                  "a sound font, TiMidity++ or WildMIDI to listen to it here.");
+        return tr("No MIDI player and no sound player was found. The editor can turn the "
+                  "games' music into sound itself, but it needs a program that plays sound: "
+                  "pw-play, paplay or aplay (PipeWire, PulseAudio or ALSA utilities), or a MIDI "
+                  "player such as FluidSynth or TiMidity++.");
     }
     if (isPlaying()) {
         return tr("Playing music %1 with %2.").arg(number_).arg(backend_->name);
@@ -125,10 +187,53 @@ QString MusicPlayer::statusText() const {
 }
 
 bool MusicPlayer::isPlaying() const {
-    return process_.state() != QProcess::NotRunning;
+    return nativePlaying_ || process_.state() != QProcess::NotRunning;
+}
+
+void MusicPlayer::stopNative() {
+#ifdef Q_OS_WIN
+    mediaControl(QStringLiteral("stop %1").arg(QLatin1String(nativeAlias)));
+    mediaControl(QStringLiteral("close %1").arg(QLatin1String(nativeAlias)));
+#endif
+    nativeTimer_->stop();
+    nativePlaying_ = false;
+    copy_.reset();
+}
+
+std::optional<int> MusicPlayer::durationSeconds(const QString &musicFile) {
+    QFile file(musicFile);
+    if (musicFile.isEmpty() || !file.open(QIODevice::ReadOnly) ||
+        file.size() > static_cast<qint64>(midiLargestFile)) {
+        return std::nullopt;
+    }
+    const auto bytes = file.readAll();
+    const auto song = parseMidi({reinterpret_cast<const std::byte *>(bytes.constData()),
+                                 static_cast<std::size_t>(bytes.size())});
+    if (!song) {
+        return std::nullopt;
+    }
+    return static_cast<int>(song->duration + 0.5);
+}
+
+QString MusicPlayer::trackLabel(int number, const QString &musicFile) {
+    if (number == 0) {
+        return tr("No music");
+    }
+    if (const auto seconds = durationSeconds(musicFile)) {
+        return tr("Music %1 - %2:%3")
+            .arg(number)
+            .arg(*seconds / 60)
+            .arg(*seconds % 60, 2, 10, QLatin1Char('0'));
+    }
+    return tr("Music %1").arg(number);
 }
 
 void MusicPlayer::stop() {
+    if (nativePlaying_) {
+        stopNative();
+        emit stateChanged();
+        return;
+    }
     if (process_.state() == QProcess::NotRunning) {
         return;
     }
@@ -165,15 +270,52 @@ bool MusicPlayer::play(const QString &musicFile, int musicNumber) {
         emit stateChanged();
         return false;
     }
-    copy_ = std::make_unique<QTemporaryFile>(QDir::tempPath() +
-                                             QStringLiteral("/eggbert-music-XXXXXX.mid"));
-    if (!copy_->open() || copy_->write(bytes) != bytes.size()) {
+    // What is played: the MIDI file itself, or its sound from the editor's
+    // own synthesizer.
+    auto played = bytes;
+    if (backend_->rendersSound) {
+        const auto song = parseMidi({reinterpret_cast<const std::byte *>(bytes.constData()),
+                                     static_cast<std::size_t>(bytes.size())});
+        if (!song) {
+            lastError_ = tr("Music %1 cannot be played: %2")
+                             .arg(musicNumber)
+                             .arg(coreText(song.error()));
+            emit stateChanged();
+            return false;
+        }
+        const auto wave = wavFile(renderMidi(*song));
+        played = QByteArray(reinterpret_cast<const char *>(wave.data()),
+                            static_cast<qsizetype>(wave.size()));
+    }
+    copy_ = std::make_unique<QTemporaryFile>(
+        QDir::tempPath() + (backend_->rendersSound ? QStringLiteral("/eggbert-music-XXXXXX.wav")
+                                                   : QStringLiteral("/eggbert-music-XXXXXX.mid")));
+    if (!copy_->open() || copy_->write(played) != played.size()) {
         lastError_ = tr("A temporary copy of the music could not be written.");
         copy_.reset();
         emit stateChanged();
         return false;
     }
     copy_->close();
+    number_ = musicNumber;
+    if (backend_->native) {
+#ifdef Q_OS_WIN
+        const auto alias = QLatin1String(nativeAlias);
+        if (mediaControl(QStringLiteral("open \"%1\" type sequencer alias %2")
+                             .arg(QDir::toNativeSeparators(copy_->fileName()), alias)) &&
+            mediaControl(QStringLiteral("play %1").arg(alias))) {
+            nativePlaying_ = true;
+            nativeTimer_->start();
+            emit stateChanged();
+            return true;
+        }
+        mediaControl(QStringLiteral("close %1").arg(alias));
+#endif
+        lastError_ = tr("%1 could not play the music.").arg(backend_->name);
+        copy_.reset();
+        emit stateChanged();
+        return false;
+    }
     auto arguments = backend_->arguments;
     arguments.replaceInStrings(QStringLiteral("%f"), copy_->fileName());
     number_ = musicNumber;

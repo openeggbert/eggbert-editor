@@ -10,13 +10,17 @@
 #include <optional>
 
 class QTemporaryFile;
+class QTimer;
 
 namespace eggbert {
 
 // Plays one of a game's music files (standard MIDI files under another
-// name) for listening while choosing. The editor contains no synthesizer:
-// it starts a MIDI player installed on the system and stops it again. The
-// game's file is never touched; a temporary copy with a .mid name is played.
+// name) for listening while choosing. Three ways, in this order: Windows'
+// own MIDI playback, as the games use it; a MIDI player installed on the
+// system (FluidSynth, TiMidity++, WildMIDI or a command of the user's); or
+// the editor's own small synthesizer (midi_synth.hpp), whose sound only
+// needs a program that sends a WAV file to the speakers, which every desktop
+// has. The game's file is never touched; a temporary copy is played.
 class MusicPlayer final : public QObject {
     Q_OBJECT
 
@@ -28,6 +32,11 @@ public:
         QStringList arguments;
         // Shown to the user, e.g. "TiMidity++".
         QString name;
+        // True when the command plays sound the editor renders itself (a WAV
+        // file) instead of the MIDI file.
+        bool rendersSound = false;
+        // True for Windows' own MIDI playback; no command is started.
+        bool native = false;
 
         friend bool operator==(const Backend &, const Backend &) = default;
     };
@@ -36,8 +45,10 @@ public:
     ~MusicPlayer() override;
 
     // Looks for a usable player: the command stored in the settings key
-    // "music/command" (program and arguments, "%f" for the file), then
-    // FluidSynth with a General MIDI sound font, TiMidity++ and WildMIDI.
+    // "music/command" (program and arguments, "%f" for the file), Windows'
+    // own playback, FluidSynth with a General MIDI sound font, TiMidity++,
+    // WildMIDI, and last a sound player for the editor's own synthesizer
+    // (afplay, pw-play, paplay, aplay).
     [[nodiscard]] static std::optional<Backend> detectBackend();
     // Splits a command line the way a shell would for simple quoting.
     [[nodiscard]] static std::optional<Backend> backendFromCommand(const QString &command);
@@ -58,6 +69,13 @@ public:
     [[nodiscard]] int playingNumber() const { return isPlaying() ? number_ : 0; }
     [[nodiscard]] QString lastError() const { return lastError_; }
 
+    // How long a music file plays, in seconds; nothing when it is missing
+    // or not a MIDI file the editor can read.
+    [[nodiscard]] static std::optional<int> durationSeconds(const QString &musicFile);
+    // What a list shows for a music number: "No music" for 0, otherwise the
+    // number and, when its file can be read, how long it plays.
+    [[nodiscard]] static QString trackLabel(int number, const QString &musicFile);
+
 signals:
     void stateChanged();
 
@@ -68,6 +86,11 @@ private:
     int number_ = 0;
     QString lastError_;
     bool stopping_ = false;
+    // Windows' own playback has no process to watch: it is asked now and
+    // then whether it still plays.
+    bool nativePlaying_ = false;
+    QTimer *nativeTimer_ = nullptr;
+    void stopNative();
 };
 
 } // namespace eggbert

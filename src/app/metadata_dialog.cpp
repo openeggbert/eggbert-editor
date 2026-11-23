@@ -6,16 +6,41 @@
 #include <QDialogButtonBox>
 #include <QFormLayout>
 #include <QGridLayout>
+#include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
+#include <QListWidget>
+#include <QPainter>
 #include <QPushButton>
+#include <QSignalBlocker>
 #include <QSpinBox>
 #include <QTabWidget>
 #include <QVBoxLayout>
 
 #include <limits>
 
+#include "app/game_assets.hpp"
+#include "app/music_player.hpp"
+#include "app/world_renderer.hpp"
+
 namespace eggbert {
+
+namespace {
+
+constexpr QSize backgroundPicture(96, 72);
+
+void selectNumber(QListWidget *list, int number) {
+    const QSignalBlocker blocker(list);
+    list->setCurrentItem(nullptr);
+    for (int row = 0; row < list->count(); ++row) {
+        if (list->item(row)->data(Qt::UserRole).toInt() == number) {
+            list->setCurrentRow(row);
+            list->scrollToItem(list->item(row));
+        }
+    }
+}
+
+} // namespace
 
 QString decodeTitle(std::span<const std::byte> bytes) {
     return QString::fromStdU32String(decodeWindows1252(bytes));
@@ -61,11 +86,42 @@ MetadataDialog::MetadataDialog(const WorldView &world, GameProfile profile, QWid
                                        .arg(info->music.maximum)
                                  : tr("Music (choose a game profile to edit)"),
                  music_);
+    // The same choice by ear: the list, and a way to listen.
+    musicList_ = new QListWidget(worldPageWidget);
+    musicList_->setObjectName(QStringLiteral("metadataMusicList"));
+    musicList_->setAccessibleName(tr("Music"));
+    musicList_->setMaximumHeight(118);
+    form->addRow(musicList_);
+    {
+        auto *row = new QHBoxLayout;
+        play_ = new QPushButton(tr("Play"), worldPageWidget);
+        play_->setObjectName(QStringLiteral("metadataMusicPlay"));
+        stop_ = new QPushButton(tr("Stop"), worldPageWidget);
+        stop_->setObjectName(QStringLiteral("metadataMusicStop"));
+        musicLine_ = new QLabel(worldPageWidget);
+        musicLine_->setObjectName(QStringLiteral("metadataMusicLine"));
+        musicLine_->setWordWrap(true);
+        row->addWidget(play_);
+        row->addWidget(stop_);
+        row->addWidget(musicLine_, 1);
+        form->addRow(row);
+    }
     form->addRow(info != nullptr ? tr("Region / background (%1 to %2)")
                                        .arg(info->region.minimum)
                                        .arg(info->region.maximum)
                                  : tr("Region (choose a game profile to edit)"),
                  region_);
+    // The same choice by picture.
+    backgrounds_ = new QListWidget(worldPageWidget);
+    backgrounds_->setObjectName(QStringLiteral("metadataBackgroundList"));
+    backgrounds_->setAccessibleName(tr("Background"));
+    backgrounds_->setViewMode(QListView::IconMode);
+    backgrounds_->setResizeMode(QListView::Adjust);
+    backgrounds_->setMovement(QListView::Static);
+    backgrounds_->setIconSize(backgroundPicture);
+    backgrounds_->setGridSize(backgroundPicture + QSize(10, 24));
+    backgrounds_->setFixedHeight(2 * (backgroundPicture.height() + 24) + 8);
+    form->addRow(backgrounds_);
 
     scrollX_ = new QCheckBox(tr("Scrolls horizontally (otherwise one screen, 10 cells wide)"),
                              worldPageWidget);
@@ -137,9 +193,117 @@ MetadataDialog::MetadataDialog(const WorldView &world, GameProfile profile, QWid
     layout->addWidget(buttons_);
 
     connect(name_, &QLineEdit::textChanged, this, [this] { refresh(); });
-    connect(music_, &QSpinBox::valueChanged, this, [this] { refresh(); });
-    connect(region_, &QSpinBox::valueChanged, this, [this] { refresh(); });
+    connect(music_, &QSpinBox::valueChanged, this, [this] {
+        followNumbers();
+        refresh();
+    });
+    connect(region_, &QSpinBox::valueChanged, this, [this] {
+        followNumbers();
+        refresh();
+    });
+    connect(musicList_, &QListWidget::currentItemChanged, this, [this](QListWidgetItem *item) {
+        if (item != nullptr) {
+            music_->setValue(item->data(Qt::UserRole).toInt());
+        }
+    });
+    connect(backgrounds_, &QListWidget::currentItemChanged, this, [this](QListWidgetItem *item) {
+        if (item != nullptr) {
+            region_->setValue(item->data(Qt::UserRole).toInt());
+        }
+    });
+    connect(musicList_, &QListWidget::itemActivated, this, [this] { play_->click(); });
+    connect(play_, &QPushButton::clicked, this, [this] {
+        if (playMusic_ && music_->value() > 0) {
+            playMusic_(music_->value());
+        } else if (stopMusic_) {
+            stopMusic_();
+        }
+        musicLine_->setText(musicStatus_ ? musicStatus_() : QString());
+    });
+    connect(stop_, &QPushButton::clicked, this, [this] {
+        if (stopMusic_) {
+            stopMusic_();
+        }
+        musicLine_->setText(musicStatus_ ? musicStatus_() : QString());
+    });
+    // Whatever was being listened to ends with the dialog.
+    connect(this, &QDialog::finished, this, [this] {
+        if (stopMusic_) {
+            stopMusic_();
+        }
+    });
+    fillLists();
     refresh();
+    // Wide enough for five background pictures in a row.
+    setMinimumWidth(5 * (backgroundPicture.width() + 10) + 90);
+}
+
+void MetadataDialog::setGame(std::shared_ptr<const GameAssets> pictures,
+                             std::shared_ptr<const GameAssets> game) {
+    pictures_ = std::move(pictures);
+    game_ = std::move(game);
+    fillLists();
+}
+
+void MetadataDialog::setMusicControls(std::function<bool(int)> play, std::function<void()> stop,
+                                      std::function<QString()> status) {
+    playMusic_ = std::move(play);
+    stopMusic_ = std::move(stop);
+    musicStatus_ = std::move(status);
+    fillLists();
+}
+
+void MetadataDialog::fillLists() {
+    const auto *info = profileInfo(profile_);
+    {
+        const QSignalBlocker blocker(backgrounds_);
+        backgrounds_->clear();
+        for (int region = info != nullptr ? info->region.minimum : 0;
+             info != nullptr && region <= info->region.maximum; ++region) {
+            QPixmap pixmap(backgroundPicture);
+            const auto picture = pictures_ != nullptr ? pictures_->readBackdrop(region) : QImage();
+            if (!picture.isNull()) {
+                pixmap = QPixmap::fromImage(picture.scaled(backgroundPicture, Qt::IgnoreAspectRatio,
+                                                           Qt::SmoothTransformation));
+            } else {
+                pixmap.fill(schematicBackgroundColor());
+                QPainter painter(&pixmap);
+                painter.setPen(Qt::white);
+                painter.drawText(pixmap.rect(), Qt::AlignCenter, QString::number(region));
+            }
+            auto *item = new QListWidgetItem(QIcon(pixmap), QString::number(region), backgrounds_);
+            item->setData(Qt::UserRole, region);
+            item->setTextAlignment(Qt::AlignHCenter | Qt::AlignTop);
+            item->setToolTip(tr("Background %1").arg(region));
+        }
+    }
+    {
+        const QSignalBlocker blocker(musicList_);
+        musicList_->clear();
+        for (int number = info != nullptr ? info->music.minimum : 0;
+             info != nullptr && number <= info->music.maximum; ++number) {
+            auto *item = new QListWidgetItem(
+                MusicPlayer::trackLabel(number, game_ != nullptr ? game_->musicFile(number)
+                                                                 : QString()),
+                musicList_);
+            item->setData(Qt::UserRole, number);
+        }
+    }
+    const bool lists = info != nullptr;
+    backgrounds_->setVisible(lists);
+    musicList_->setVisible(lists);
+    play_->setVisible(lists);
+    stop_->setVisible(lists);
+    musicLine_->setVisible(lists);
+    play_->setEnabled(static_cast<bool>(playMusic_));
+    stop_->setEnabled(static_cast<bool>(stopMusic_));
+    musicLine_->setText(musicStatus_ ? musicStatus_() : QString());
+    followNumbers();
+}
+
+void MetadataDialog::followNumbers() {
+    selectNumber(musicList_, music_->value());
+    selectNumber(backgrounds_, region_->value());
 }
 
 void MetadataDialog::setPage(Page page) {

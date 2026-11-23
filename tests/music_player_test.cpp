@@ -88,6 +88,54 @@ int main(int argc, char **argv) {
     CHECK(!QFile::exists(playedPath)); // the temporary copy is gone
     CHECK(changes > 0);
 
+    // Without a MIDI player the editor renders the music itself: the player
+    // then receives a WAV file made by the editor's own synthesizer.
+    {
+        const QByteArray tune("MThd\0\0\0\x06\0\0\0\x01\x01\xE0MTrk\0\0\0\x0D"
+                              "\0\x90\x3C\x50\x83\x60\x80\x3C\0\0\xFF\x2F\0",
+                              35);
+        const auto tunePath = dir.filePath("tune.blp");
+        QFile tuneFile(tunePath);
+        CHECK(tuneFile.open(QIODevice::WriteOnly));
+        tuneFile.write(tune);
+        tuneFile.close();
+        CHECK(MusicPlayer::durationSeconds(tunePath) == 1); // half a second, rounded
+        CHECK(!MusicPlayer::durationSeconds(notMidi).has_value());
+        CHECK(!MusicPlayer::durationSeconds(dir.filePath("missing.blp")).has_value());
+
+        const auto waveLog = dir.filePath("played-wave.txt");
+        MusicPlayer::Backend own{EGGBERT_STANDIN_PLAYER, {"--log", waveLog, "%f"}, "Own"};
+        own.rendersSound = true;
+        player.setBackend(own);
+        CHECK(player.play(tunePath, 2));
+        CHECK(player.isPlaying());
+        CHECK(QTest::qWaitFor([&] { return QFile::exists(waveLog); }, 3000));
+        QFile logged(waveLog);
+        CHECK(logged.open(QIODevice::ReadOnly));
+        const auto wavePath = QString::fromLocal8Bit(logged.readAll()).trimmed();
+        CHECK(wavePath.endsWith(".wav"));
+        QFile wave(wavePath);
+        CHECK(wave.open(QIODevice::ReadOnly));
+        const auto sound = wave.readAll();
+        CHECK(sound.startsWith("RIFF") && sound.mid(8, 4) == "WAVE");
+        // Half a second of note and the tail, 22,050 samples a second.
+        CHECK(sound.size() > 44 + 2 * 22'050 / 2);
+        CHECK(sound.mid(44).count('\0') < sound.size() - 44);
+        player.stop();
+        CHECK(!player.isPlaying());
+        CHECK(!QFile::exists(wavePath));
+        // A file that begins like MIDI but is damaged is refused with the reason.
+        const auto brokenPath = dir.filePath("broken.blp");
+        QFile broken(brokenPath);
+        CHECK(broken.open(QIODevice::WriteOnly));
+        broken.write(tune.left(30));
+        broken.close();
+        CHECK(!player.play(brokenPath, 5));
+        CHECK(player.lastError().contains("Music 5 cannot be played"));
+        player.setBackend(
+            MusicPlayer::Backend{EGGBERT_STANDIN_PLAYER, {"--log", log, "%f"}, "Stand-in"});
+    }
+
     // Files that are missing or not MIDI are refused before anything runs.
     CHECK(!player.play(notMidi, 2));
     CHECK(player.lastError().contains("not a MIDI file"));

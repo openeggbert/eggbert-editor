@@ -3,6 +3,8 @@
 
 #include <QDialog>
 
+#include <functional>
+#include <memory>
 #include <optional>
 
 #include "world/metadata.hpp"
@@ -13,10 +15,14 @@ class QComboBox;
 class QDialogButtonBox;
 class QLabel;
 class QLineEdit;
+class QListWidget;
+class QPushButton;
 class QSpinBox;
 class QTabWidget;
 
 namespace eggbert {
+
+class GameAssets;
 
 // Edits the verified header fields of one document. It only collects values;
 // the caller applies them as one transaction.
@@ -35,6 +41,18 @@ public:
     // A Mobile Eggbert world: no title, and one start (the other three rows
     // follow the first and cannot be edited).
     void setTextWorld(bool textWorld);
+    // Background and music are chosen from lists as well as by number: the
+    // backgrounds as the game's pictures (numbered swatches without them),
+    // the music by number and length. `pictures` may be null; `game` is the
+    // game directory the music files are in (may be null too).
+    void setGame(std::shared_ptr<const GameAssets> pictures,
+                 std::shared_ptr<const GameAssets> game);
+    // Listening while choosing: `play` starts a music number and says
+    // whether it plays, `stop` ends it, `status` is a line about it.
+    void setMusicControls(std::function<bool(int)> play, std::function<void()> stop,
+                          std::function<QString()> status);
+    [[nodiscard]] QListWidget *backgroundList() const { return backgrounds_; }
+    [[nodiscard]] QListWidget *musicList() const { return musicList_; }
     // The edited values, or nullopt while something cannot be stored.
     [[nodiscard]] std::optional<Metadata> metadata() const;
     [[nodiscard]] bool isValid() const { return metadata().has_value(); }
@@ -43,7 +61,19 @@ public:
 
 private:
     void refresh();
+    void fillLists();
+    void followNumbers();
 
+    std::shared_ptr<const GameAssets> pictures_;
+    std::shared_ptr<const GameAssets> game_;
+    std::function<bool(int)> playMusic_;
+    std::function<void()> stopMusic_;
+    std::function<QString()> musicStatus_;
+    QListWidget *backgrounds_ = nullptr;
+    QListWidget *musicList_ = nullptr;
+    QPushButton *play_ = nullptr;
+    QPushButton *stop_ = nullptr;
+    QLabel *musicLine_ = nullptr;
     Metadata original_;
     GameProfile profile_;
     bool titleRead_ = true;

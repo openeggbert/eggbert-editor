@@ -1177,6 +1177,10 @@ void MainWindow::installDefaultPrompts() {
         dialog.setPage(static_cast<MetadataDialog::Page>(page));
         dialog.setExperimental(experimental_);
         dialog.setTextWorld(tab->file().isTextWorld());
+        dialog.setGame(artworkFor(tab->profile()), gameDirectoryFor(tab->profile()));
+        dialog.setMusicControls([this](int number) { return playMusic(number); },
+                                [this] { music_->stop(); },
+                                [this] { return music_->statusText(); });
         if (dialog.exec() != QDialog::Accepted) {
             return std::nullopt;
         }

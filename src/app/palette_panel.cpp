@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "app/document_tab.hpp"
+#include "app/music_player.hpp"
 #include "app/game_assets.hpp"
 #include "app/catalog_texts.hpp"
 #include "app/sprite_icons.hpp"
@@ -448,7 +449,9 @@ void PalettePanel::rebuildWorld() {
         if (info != nullptr && world_.available) {
             for (int number = info->music.minimum; number <= info->music.maximum; ++number) {
                 auto *item = new QListWidgetItem(
-                    number == 0 ? tr("No music") : tr("Music %1").arg(number), music_);
+                    MusicPlayer::trackLabel(number, artwork != nullptr ? artwork->musicFile(number)
+                                                                       : QString()),
+                    music_);
                 item->setData(Qt::UserRole, number);
             }
             selectByData(music_, world_.music);
