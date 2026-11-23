@@ -3,7 +3,9 @@ name: Linux CI
 
 on:
   push:
-    branches: [main, develop]
+    # Task branches too, so that work is checked on hosted runners (and on
+    # Windows and macOS at all) before anyone opens a pull request.
+    branches: [main, develop, "claude/**"]
   pull_request:
     branches: [main, develop]
 
