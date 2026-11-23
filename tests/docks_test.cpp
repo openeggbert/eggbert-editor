@@ -153,13 +153,16 @@ int main(int argc, char **argv) {
     const auto stats = computeWorldStats(tab->document().view());
     CHECK_EQ(statistics->valueOf("Size"), QString("50468 bytes"));
     // In a narrow dock the value stays whole and the name gives way; the
-    // tooltip of a row says both in full.
+    // tooltip of a row says both in full. Checked on a panel of its own, so
+    // that its width is the test's and not a dock layout's.
     {
-        auto *tree = statistics->findChild<QTreeWidget *>("statisticsTree");
-        CHECK(tree != nullptr);
-        const auto width = tree->width();
-        tree->resize(260, 400);
+        StatisticsPanel own;
+        own.setTab(tab);
+        own.resize(300, 500);
+        own.show();
         QCoreApplication::processEvents();
+        auto *tree = own.findChild<QTreeWidget *>("statisticsTree");
+        CHECK(tree != nullptr);
         const auto metrics = tree->fontMetrics();
         QTreeWidgetItem *sizeRow = nullptr;
         for (QTreeWidgetItemIterator item(tree); *item != nullptr; ++item) {
@@ -170,8 +173,8 @@ int main(int argc, char **argv) {
         }
         CHECK(sizeRow != nullptr && sizeRow->toolTip(0) == "Size: 50468 bytes");
         CHECK(sizeRow != nullptr && sizeRow->toolTip(1) == "Size: 50468 bytes");
-        CHECK(tree->columnWidth(0) + tree->columnWidth(1) <= 260);
-        tree->resize(width, 400);
+        // Both columns fit the table: nothing is pushed out of view.
+        CHECK(tree->columnWidth(0) + tree->columnWidth(1) <= tree->viewport()->width());
     }
     CHECK_EQ(statistics->valueOf("Revision field"), QString("1.3"));
     CHECK_EQ(statistics->valueOf("Occupied cells"), QString::number(stats.foreground.occupied));

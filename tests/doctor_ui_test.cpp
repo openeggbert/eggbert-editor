@@ -245,9 +245,16 @@ int main(int argc, char **argv) {
 
     // A finding is read in the table itself: it wraps inside the width the
     // table has instead of running out of it, and a narrower table makes
-    // its row taller.
+    // its row taller. Checked on a panel of its own, so that its width is
+    // the test's and not a dock layout's.
     {
-        auto *tree = panel->tree();
+        DiagnosticsPanel own;
+        own.setTab(old);
+        own.resize(1600, 400);
+        own.show();
+        QApplication::processEvents();
+        auto *tree = own.tree();
+        CHECK(tree->topLevelItemCount() > 0);
         const auto longest = [&] {
             int row = 0;
             for (int index = 0; index < tree->topLevelItemCount(); ++index) {
@@ -260,22 +267,23 @@ int main(int argc, char **argv) {
         }();
         const auto rect = [&] { return tree->visualItemRect(tree->topLevelItem(longest)); };
         const auto oneLine = tree->fontMetrics().height();
-        const auto text = tree->topLevelItem(longest)->text(2);
-        CHECK(text.size() > 60);
-        tree->resize(1600, 300);
-        QApplication::processEvents();
+        CHECK(tree->topLevelItem(longest)->text(2).size() > 60);
+        const auto fits = [&] {
+            int columns = 0;
+            for (int column = 0; column < 4; ++column) {
+                columns += tree->columnWidth(column);
+            }
+            return columns <= tree->viewport()->width();
+        };
         const auto wide = rect().height();
-        tree->resize(420, 300);
+        CHECK(fits());
+        own.resize(460, 400);
         QApplication::processEvents();
         const auto narrow = rect().height();
         CHECK(narrow > wide);
         CHECK(narrow >= 2 * oneLine);
         // All four columns fit the table: nothing is pushed out of view.
-        int columns = 0;
-        for (int column = 0; column < 4; ++column) {
-            columns += tree->columnWidth(column);
-        }
-        CHECK(columns <= tree->viewport()->width());
+        CHECK(fits());
         CHECK(tree->wordWrap());
     }
 
