@@ -213,6 +213,8 @@ The gate of `plan.md` ("Version 1.0 ships only when ...") was gone through claus
 
 The fixed 1.0 scope table of `plan.md` item by item: both games as explicit profiles (profile chooser, per-game catalogs); one `.blp` or `.xch` world per tab, several tabs; revisions 1.0/1.1 read-only and 1.2/1.3 editable; foreground, `bigDecor`, metadata, four starts and every verified object type; schematic view and optional artwork from a chosen read-only directory; World Doctor with budget warnings, the read-only hex inspector and the PNG exporter; Linux source build and package (TGZ and DEB built by `cpack` on this commit). The stage table's evidence (stages 0–7) is the test list above.
 
+Owner's decision, 2026-11-23 (asked because the session goal's wording still said "post-1.0 work is excluded"): **the instruction of 2026-11-22 to do the whole roadmap governs.** The promoted work stays on the branch as it is; nothing is reverted and no 1.0-only branch is wanted.
+
 What the 1.0 scope does **not** require, and what is therefore not a gate item: a hosted CI run, Windows or macOS builds, translations, and the roadmap features. Those are tracked under **Next task** as open follow-ups of the promoted roadmap, which the owner added to the work on 2026-11-22 (`plan.md`, **Promotion of the roadmap**); the original instruction not to implement post-1.0 features was superseded by that decision.
 
 Release-gate status on 2026-11-22 (evidence in this file and the tests named above):
