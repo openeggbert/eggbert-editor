@@ -23,6 +23,7 @@ What works today:
 - **Recovery and snapshots**: unsaved changes are copied to a checksummed store in the user profile a few seconds after an edit and offered at the next start if the editor stopped unexpectedly (restored as one undo step, only onto an unchanged file); named snapshots of a world can be taken and restored the same way. Nothing is written beside a world file.
 - Revisions 1.0 and 1.1, truncated files and unknown content open **read-only** with the reason shown.
 - **Element Encyclopedia**: a searchable list of every catalogued tile, object and border family of the chosen game with what is stored for it and the evidence; any entry can be selected for painting or placing.
+- **Stamps** (a selection saved for reuse, with its objects, placed as an overlay in one undo step), **Align Objects in Selection**, and **Replace Value in All Open Worlds** with a per-world preview.
 - **Experimental editing** (off by default): typed byte edits as undoable transactions with a second confirmation for preserved ranges, unverified music and region numbers, and border rules of your own for the Adaptive brush. The revision field and the file length never change.
 - **New World** (and the `new` command) writes the world the games' own editors start a mission with, for either game.
 - **Installation** dock: the worlds of the game directory you chose, with pictures, roles and titles; **Deploy** puts the current world into a slot with a verified backup of what it replaces, **Roll Back** restores it byte for byte, **Playtest** starts a command you configure.

@@ -93,6 +93,14 @@ Except for Adaptive these tools are *raw*: they never touch the other layer or a
 
 A layer can be locked (**Layer → Lock**) or shown alone (**Isolate Active Layer**). Before an edit that changes more than 64 cells the editor shows how many cells and bytes, and which offsets, will change.
 
+### Stamps
+
+A stamp is a piece of a world you keep for reuse. Select the cells, then **Edit → Save Selection as Stamp** stores the bounding box of the selection under a name: both tile layers and, if you leave the box ticked, the objects that start in it (with their paths). Saving changes nothing in the world. **Edit → Place Stamp** lists the stored stamps and places the chosen one with its top-left corner at the cursor cell, as one undo step. Empty cells of a stamp are holes: they leave what is there. Tiles that would fall outside the map are clipped and counted. The objects of a stamp are placed all or not at all — if the pool has too few free slots, or an object would lie outside the world, nothing is placed and the reason is given. A stamp made under one game is not placed into a world of the other. Stamps are small text files in your user profile (`stamps` in the editor's data folder), one per stamp; a file that cannot be read as a stamp is not offered.
+
+### Replacing a value in all open worlds
+
+**Layer → Replace Value in All Open Worlds** asks for the value and its replacement like **Replace Value**, then shows, for every open world, how many cells of the current layer hold the value — or why the world is skipped (another game, read-only, layer locked). After you confirm, each affected world gets one undo step of its own; nothing is saved.
+
 ### Adaptive brush
 
 Some tile families have several forms depending on their neighbours: rock, triangular rock, grass and bars in both games; bricks, green slime, palace and pipes in Speedy Blupi II. The games' own level editors pick the form automatically. The Adaptive tool does the same: it writes the family at the cell and then recomputes the forms of that cell and its four direct neighbours with the chosen game's rules, including its random variations.
@@ -120,6 +128,10 @@ A world stores up to 200 object records (100 in revisions 1.0 and 1.1). A record
 - A record whose type the chosen game's editor cannot place (types created only while playing, or unknown numbers) is shown with its raw values and can be deleted but not changed.
 
 The 200-slot limit is a hard limit of the format. The games also need free slots while playing, for explosions, splashes, projectiles and similar effects; the panel and World Doctor point out a nearly full pool as an *estimate*.
+
+### Aligning objects
+
+**Object → Align Objects in Selection** moves the objects whose start lies in the selected cells as a group: to the leftmost, rightmost, topmost or bottommost start among them, or spread evenly between the outermost two (at least three objects). An object's start, end and current position move by the same amount, so its path keeps its shape. It is one undo step.
 
 ## Undo, save and files changed on disk
 

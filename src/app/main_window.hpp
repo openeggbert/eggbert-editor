@@ -83,6 +83,13 @@ struct Prompts {
     std::function<QString()> borderRulesPath;
     // Second confirmation before bytes in a preserved range are changed.
     std::function<bool(DocumentTab *, const QString &description)> confirmProtectedEdit;
+    // Name of a new stamp and whether it takes the objects along.
+    std::function<std::optional<std::pair<QString, bool>>(DocumentTab *)> stampName;
+    // Which of the stored stamps to place; nullopt cancels.
+    std::function<std::optional<std::size_t>(DocumentTab *, const std::vector<Stamp> &)>
+        chooseStamp;
+    // Shown with one line per open world before a batch edit.
+    std::function<bool(const QString &title, const QStringList &lines)> confirmBatch;
     std::function<std::optional<PackExportChoice>(const std::vector<PackCandidate> &)>
         exportPack;
     // A pack file or directory to import; empty cancels.
@@ -166,6 +173,8 @@ public:
 
     [[nodiscard]] int tabCount() const;
     [[nodiscard]] DocumentTab *tabAt(int index) const;
+    // Makes an open tab the current one.
+    void setCurrentTab(DocumentTab *tab);
     [[nodiscard]] DocumentTab *currentTab() const;
 
     // Opens the file in a new tab, or activates the tab that already has it.
@@ -280,6 +289,15 @@ public:
     // Asks for the game and a file, writes the world the games' editors
     // start with and opens it; returns the new tab or null.
     DocumentTab *createWorld();
+    // Stamps live as text files in the user's data directory.
+    [[nodiscard]] static QString stampDirectory();
+    [[nodiscard]] std::vector<Stamp> stamps() const;
+    bool saveSelectionAsStamp(DocumentTab *tab);
+    bool placeStamp(DocumentTab *tab);
+    // Replace Value in the current tab's active layer of every open
+    // writable world of the same game; one undo step per world. Returns the
+    // number of worlds changed.
+    int replaceInAllOpenWorlds();
     [[nodiscard]] InstallationPanel *installation() const { return installation_; }
     // The complete worlds of the current installation, with the game's own
     // files marked.

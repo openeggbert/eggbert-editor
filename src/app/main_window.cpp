@@ -25,6 +25,7 @@
 #include <QMessageBox>
 #include <QProcess>
 #include <QRadioButton>
+#include <QStandardPaths>
 #include <QRegularExpression>
 #include <QPlainTextEdit>
 #include <QPushButton>
@@ -441,6 +442,58 @@ void MainWindow::installDefaultPrompts() {
         return QMessageBox::warning(this, tr("Edit Bytes"), description,
                                     QMessageBox::Yes | QMessageBox::Cancel,
                                     QMessageBox::Cancel) == QMessageBox::Yes;
+    };
+    prompts.stampName = [this](DocumentTab *) -> std::optional<std::pair<QString, bool>> {
+        QDialog dialog(this);
+        dialog.setWindowTitle(tr("Save Selection as Stamp"));
+        auto *form = new QFormLayout(&dialog);
+        auto *name = new QLineEdit(&dialog);
+        name->setObjectName(QStringLiteral("stampNameEdit"));
+        name->setMaxLength(60);
+        form->addRow(tr("Name"), name);
+        auto *objects = new QCheckBox(tr("Include the objects that start in the selection"),
+                                      &dialog);
+        objects->setObjectName(QStringLiteral("stampObjects"));
+        objects->setChecked(true);
+        form->addRow(objects);
+        auto *buttons =
+            new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+        form->addRow(buttons);
+        connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+        connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+        if (dialog.exec() != QDialog::Accepted || name->text().trimmed().isEmpty()) {
+            return std::nullopt;
+        }
+        return std::make_pair(name->text().trimmed(), objects->isChecked());
+    };
+    prompts.chooseStamp = [this](DocumentTab *tab,
+                                 const std::vector<Stamp> &list) -> std::optional<std::size_t> {
+        QStringList names;
+        for (const auto &stamp : list) {
+            names << tr("%1 (%2 x %3 cells, %4 object(s))")
+                         .arg(QString::fromStdString(stamp.name))
+                         .arg(stamp.width)
+                         .arg(stamp.height)
+                         .arg(stamp.objects.size());
+        }
+        const auto cursor = tab->canvas()->cursorCell();
+        bool accepted = false;
+        const auto chosen = QInputDialog::getItem(
+            this, tr("Place Stamp"),
+            tr("The stamp is placed with its top-left corner at the cursor cell (%1, %2). "
+               "Empty cells of a stamp leave what is there.")
+                .arg(cursor.x)
+                .arg(cursor.y),
+            names, 0, false, &accepted);
+        const auto index = names.indexOf(chosen);
+        if (!accepted || index < 0) {
+            return std::nullopt;
+        }
+        return static_cast<std::size_t>(index);
+    };
+    prompts.confirmBatch = [this](const QString &title, const QStringList &lines) {
+        return QMessageBox::question(this, title, lines.join(QLatin1Char('\n')),
+                                     QMessageBox::Yes | QMessageBox::Cancel) == QMessageBox::Yes;
     };
     prompts.exportPack =
         [this](const std::vector<PackCandidate> &candidates) -> std::optional<PackExportChoice> {
@@ -1248,6 +1301,11 @@ void MainWindow::createActions() {
             });
 
     editMenu->addSeparator();
+    connect(addAction(editMenu, QStringLiteral("editSaveStamp"),
+                      tr("Save Selection as S&tamp...")),
+            &QAction::triggered, this, [this] { saveSelectionAsStamp(currentTab()); });
+    connect(addAction(editMenu, QStringLiteral("editPlaceStamp"), tr("P&lace Stamp...")),
+            &QAction::triggered, this, [this] { placeStamp(currentTab()); });
     connect(addAction(editMenu, QStringLiteral("editPlaytestCommand"),
                       tr("Pla&ytest Command...")),
             &QAction::triggered, this, [this] {
@@ -1379,6 +1437,9 @@ void MainWindow::createActions() {
                                             static_cast<std::int16_t>(values->second));
                 }
             });
+    connect(addAction(layerMenu, QStringLiteral("layerReplaceAll"),
+                      tr("Replace Value in &All Open Worlds...")),
+            &QAction::triggered, this, [this] { replaceInAllOpenWorlds(); });
     connect(addAction(layerMenu, QStringLiteral("layerClearSelection"),
                       tr("&Clear Selection to Empty (-1)")),
             &QAction::triggered, this, tabCommand(&DocumentTab::deleteSelection));
@@ -1398,6 +1459,27 @@ void MainWindow::createActions() {
             });
 
     createMenu_ = objectMenu->addMenu(tr("&Create Verified Type"));
+    {
+        auto *alignMenu = objectMenu->addMenu(tr("&Align Objects in Selection"));
+        alignMenu->setObjectName(QStringLiteral("objectAlignMenu"));
+        const std::tuple<const char *, QString, AlignMode> modes[] = {
+            {"objectAlignLeft", tr("&Left"), AlignMode::left},
+            {"objectAlignRight", tr("&Right"), AlignMode::right},
+            {"objectAlignTop", tr("&Top"), AlignMode::top},
+            {"objectAlignBottom", tr("&Bottom"), AlignMode::bottom},
+            {"objectDistributeH", tr("Distribute &Horizontally"),
+             AlignMode::distributeHorizontally},
+            {"objectDistributeV", tr("Distribute &Vertically"), AlignMode::distributeVertically},
+        };
+        for (const auto &[name, label, mode] : modes) {
+            connect(addAction(alignMenu, QString::fromLatin1(name), label), &QAction::triggered,
+                    this, [this, mode = mode] {
+                        if (auto *tab = currentTab()) {
+                            tab->alignSelectedObjects(mode);
+                        }
+                    });
+        }
+    }
     createMenu_->setObjectName(QStringLiteral("objectCreateMenu"));
     connect(addAction(objectMenu, QStringLiteral("objectDuplicate"), tr("D&uplicate"),
                       QKeySequence(Qt::CTRL | Qt::Key_D)),
@@ -3018,6 +3100,156 @@ void MainWindow::refreshInstallationActions() {
     installation_->setActions(complete, haveDeploys_, hint);
 }
 
+void MainWindow::setCurrentTab(DocumentTab *tab) {
+    if (const auto index = tabs_->indexOf(tab); index >= 0) {
+        tabs_->setCurrentIndex(index);
+    }
+}
+
+QString MainWindow::stampDirectory() {
+    return QDir(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation))
+        .filePath(QStringLiteral("stamps"));
+}
+
+std::vector<Stamp> MainWindow::stamps() const {
+    std::vector<Stamp> result;
+    const QDir directory(stampDirectory());
+    for (const auto &name :
+         directory.entryList({QStringLiteral("*.stamp")}, QDir::Files, QDir::Name)) {
+        QFile file(directory.filePath(name));
+        if (file.size() > 4 * 1024 * 1024 || !file.open(QIODevice::ReadOnly)) {
+            continue;
+        }
+        const auto text = file.readAll();
+        if (auto stamp = readStamp(
+                std::string_view(text.constData(), static_cast<std::size_t>(text.size())))) {
+            result.push_back(std::move(*stamp));
+        }
+    }
+    return result;
+}
+
+bool MainWindow::saveSelectionAsStamp(DocumentTab *tab) {
+    if (tab == nullptr) {
+        return false;
+    }
+    if (tab->selection().empty()) {
+        prompts.error(tr("Save Selection as Stamp"),
+                      tr("Select the cells of the stamp first (the Select tool)."));
+        return false;
+    }
+    const auto choice = prompts.stampName(tab);
+    if (!choice || choice->first.trimmed().isEmpty()) {
+        return false;
+    }
+    const auto stamp = tab->stampFromSelection(choice->first.trimmed(), choice->second);
+    if (!stamp) {
+        return false;
+    }
+    // A file name from the name's letters and digits.
+    QString base;
+    for (const auto character : choice->first.trimmed()) {
+        base += character.isLetterOrNumber() && character.unicode() < 128 ? character
+                                                                          : QLatin1Char('-');
+    }
+    const QDir directory(stampDirectory());
+    const auto path = directory.filePath(base.left(60) + QStringLiteral(".stamp"));
+    if (QFileInfo::exists(path)) {
+        prompts.error(tr("Save Selection as Stamp"),
+                      tr("A stamp is already stored as %1. Choose another name.").arg(path));
+        return false;
+    }
+    const auto text = writeStamp(*stamp);
+    QSaveFile file(path);
+    if (!QDir().mkpath(directory.path()) || !file.open(QIODevice::WriteOnly) ||
+        file.write(text.data(), static_cast<qint64>(text.size())) !=
+            static_cast<qint64>(text.size()) ||
+        !file.commit()) {
+        prompts.error(tr("Save Selection as Stamp"), tr("%1 could not be written.").arg(path));
+        return false;
+    }
+    statusBar()->showMessage(tr("Stamp \"%1\" saved: %2 x %3 cells, %4 object(s)")
+                                 .arg(choice->first.trimmed())
+                                 .arg(stamp->width)
+                                 .arg(stamp->height)
+                                 .arg(stamp->objects.size()),
+                             8000);
+    return true;
+}
+
+bool MainWindow::placeStamp(DocumentTab *tab) {
+    if (tab == nullptr || !tab->document().isWritable()) {
+        return false;
+    }
+    const auto list = stamps();
+    if (list.empty()) {
+        prompts.error(tr("Place Stamp"),
+                      tr("No stamp is stored yet. Select cells and use Edit > Save Selection as "
+                         "Stamp."));
+        return false;
+    }
+    const auto index = prompts.chooseStamp(tab, list);
+    if (!index || *index >= list.size()) {
+        return false;
+    }
+    return tab->placeStampAt(list[*index], tab->canvas()->cursorCell());
+}
+
+int MainWindow::replaceInAllOpenWorlds() {
+    auto *tab = currentTab();
+    if (tab == nullptr) {
+        return 0;
+    }
+    const auto values = prompts.replaceValues(tab);
+    if (!values) {
+        return 0;
+    }
+    const auto from = static_cast<std::int16_t>(values->first);
+    const auto to = static_cast<std::int16_t>(values->second);
+    const auto layer = tab->activeLayer();
+    std::vector<std::pair<DocumentTab *, std::size_t>> targets;
+    QStringList lines;
+    for (int index = 0; index < tabCount(); ++index) {
+        auto *other = tabAt(index);
+        const auto name = QFileInfo(other->file().path()).fileName();
+        if (other->profile() != tab->profile()) {
+            lines << tr("%1: skipped (another game)").arg(name);
+            continue;
+        }
+        if (!other->document().isWritable() || other->isLayerLocked(layer)) {
+            lines << tr("%1: skipped (read-only or layer locked)").arg(name);
+            continue;
+        }
+        const auto count = other->countValue(layer, from);
+        lines << tr("%1: %n cell(s)", nullptr, static_cast<int>(count)).arg(name);
+        if (count != 0 && from != to) {
+            targets.emplace_back(other, count);
+        }
+    }
+    if (targets.empty()) {
+        statusBar()->showMessage(tr("No open world holds %1 in that layer.").arg(from), 6000);
+        return 0;
+    }
+    lines.prepend(tr("Replace %1 with %2 in the %3 layer of every open world of this game "
+                     "(one undo step in each):")
+                      .arg(from)
+                      .arg(to)
+                      .arg(layer == SectionKind::bigDecor ? tr("bigDecor") : tr("foreground")));
+    if (!prompts.confirmBatch(tr("Replace in All Open Worlds"), lines)) {
+        return 0;
+    }
+    int changed = 0;
+    for (const auto &[target, count] : targets) {
+        if (target->replaceEverywhere(layer, from, to,
+                                      tr("Replace %1 with %2 (all open worlds)").arg(from).arg(to))) {
+            ++changed;
+        }
+    }
+    updateUi();
+    statusBar()->showMessage(tr("%n world(s) changed", nullptr, changed), 8000);
+    return changed;
+}
+
 std::vector<PackCandidate> MainWindow::packCandidates() const {
     std::vector<PackCandidate> candidates;
     const auto records = deployStore_.records();
@@ -3958,6 +4190,13 @@ void MainWindow::updateUi() {
     enable("layerFillSelection", writable && hasSelection);
     enable("layerClearSelection", writable && hasSelection);
     enable("layerReplace", writable);
+    enable("layerReplaceAll", writable);
+    enable("editSaveStamp", hasTab);
+    enable("editPlaceStamp", writable);
+    for (const auto *name : {"objectAlignLeft", "objectAlignRight", "objectAlignTop",
+                             "objectAlignBottom", "objectDistributeH", "objectDistributeV"}) {
+        enable(name, writable);
+    }
     enable("layerFlipHorizontal", writable && hasSelection);
     enable("layerFlipVertical", writable && hasSelection);
     enable("layerIsolate", hasTab);

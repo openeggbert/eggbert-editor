@@ -45,9 +45,9 @@ Verification on 2026-11-22, Ubuntu 24.04, GCC 13.3.0, CMake 3.28.3, Ninja, Qt 6.
 ```sh
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
 cmake --build build --parallel              # no warnings
-ctest --test-dir build --output-on-failure  # 62/62 passed (63 registered): layout, le_reader, world_probe, world_view, world_document, world_stats, offset_map, tile_tools, metadata, object_ops, hex_model, doctor, adaptive, animation, atlas_table, editor_groups, revision_convert, new_world, encyclopedia, expert_edit, custom_border, game_convert, installation, campaign, campaign_doors, reachability, view_transform, probe_report, document_file, recovery_store, deploy_store, campaign_pack, cli, world_renderer, png_export, game_assets, main_window, docks, tools, metadata_ui, objects_ui, inspector, doctor_ui, adaptive_ui, workspace, artwork_ui, palette, music_player, animation_ui, interface_ui, recovery_ui, convert_ui, new_world_ui, encyclopedia_ui, experimental_ui, convert_game_ui, installation_ui, campaign_ui, cli_usage, smoke, version, install_smoke; sample_matrix skipped without EGGBERT_SAMPLE_DIRS
+ctest --test-dir build --output-on-failure  # 64/64 passed (65 registered): layout, le_reader, world_probe, world_view, world_document, world_stats, offset_map, tile_tools, metadata, object_ops, hex_model, doctor, adaptive, animation, atlas_table, editor_groups, revision_convert, new_world, encyclopedia, expert_edit, custom_border, game_convert, installation, campaign, campaign_doors, reachability, stamp, view_transform, probe_report, document_file, recovery_store, deploy_store, campaign_pack, cli, world_renderer, png_export, game_assets, main_window, docks, tools, metadata_ui, objects_ui, inspector, doctor_ui, adaptive_ui, workspace, artwork_ui, palette, music_player, animation_ui, interface_ui, recovery_ui, convert_ui, new_world_ui, encyclopedia_ui, experimental_ui, convert_game_ui, installation_ui, campaign_ui, stamps_ui, cli_usage, smoke, version, install_smoke; sample_matrix skipped without EGGBERT_SAMPLE_DIRS
 cmake -S . -B build-asan -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DEGGBERT_SANITIZE=ON
-cmake --build build-asan --parallel && ctest --test-dir build-asan   # 62/62 passed under ASan/UBSan, sample_matrix skipped
+cmake --build build-asan --parallel && ctest --test-dir build-asan   # 64/64 passed under ASan/UBSan, sample_matrix skipped
 ```
 
 Commit `c8f7a77` (binary inspector) was pushed green in Release but with a use-after-free that the sanitizer run reported in `main_window` (the hex views kept a pointer to the document replaced by Revert/Reload); the next commit fixes it with `DocumentTab::documentReplaced` and a regression check in `inspector`. Always run the sanitizer suite to completion before committing.
@@ -82,14 +82,21 @@ Verified and reported observations are recorded with citations in `docs/research
 - **CI steps in a clean system.** A minimal Ubuntu 24.04 system (`debootstrap --variant=minbase`, then `cmake ninja-build g++ dpkg-dev` as a hosted runner has them, then the workflow's `qt6-base-dev`: CMake 3.28.3, GCC 13.3.0, Qt 6.4.2) ran every step of `.github/workflows/ci.yml` on commit `5a5f3d8`: job *build-and-test* — configure, build (0 warnings), `ctest` exit 0 (sample test skipped), `cpack` producing the TGZ and DEB; job *sanitizers* — configure, build (0 warnings), `ctest` exit 0. The sanitizer needs `/proc`, which a bare chroot lacks; with it mounted the job passes. The hosted workflow itself has still not run (no pull request, owner's decision).
 - **Independent documentation audit.** A second reviewer compared `docs/user-guide.md`, `README.md` and `docs/format-notes.md` with the code and reported 23 mismatches (none in the format notes). Six were fixed in the code because the documented behaviour was the better one: second-game tiles 384/385 are now drawn before objects; picking a bigDecor picture while the adaptive tile brush is active switches to the Pencil; music plays from a chosen game directory even when its pictures are unusable (`MainWindow::gameDirectoryFor`); the PNG dialog has a backdrop option recorded in `EggbertSettings`; Save As shows the World Doctor summary like Save; the 1/2 path badges are drawn down to five pixels per cell, so they show when the whole world is in view. The rest were wording corrections in the guide and README. The reviewer could not check statements about the games themselves (it had no access to the research sources); those rest on `docs/research/evidence.md`.
 
-## Next task: slice J of the promoted roadmap (stamps, alignment, batch edits)
+## Next task: slice L of the promoted roadmap (localization, accessibility, other platforms)
 
-See `plan.md`, **Promotion of the roadmap**: "each operation is one undo step per document with a preview". Design to implement:
+See `plan.md`, **Promotion of the roadmap**: "translations load and fall back cleanly; CI configurations exist; packages for platforms that cannot be built here are marked untested". Design to implement:
 
-1. Stamps: a rectangular piece of both tile layers (and optionally the objects standing in it) saved under a name in the user's data directory with the game it came from; **Edit → Save Selection as Stamp…**, a Stamps tab in the Palette with thumbnails, placing a stamp with a ghost preview as one undo step (tiles only where the stamp has them, objects through `createObjects` so the pool limit holds). Stamp files are the editor's own small format, validated on load.
-2. Alignment of selected objects: align starts to the left / top / cell grid, distribute evenly — on object records only, one undo step, preview of the affected slots.
-3. Batch edit across open worlds: **Replace Value** in all open writable tabs of the same game, with a per-document count preview and one undo step per document.
-4. Tests for each, including refusal on read-only tabs and atomicity when the pool is full.
+1. Translations without a new build dependency (the CI image has no Qt Linguist tools): a small `QTranslator` subclass that reads a `.ts` file from the program's resources at start; language from the settings (**Edit → Preferences**: system, English, Czech) with clean fallback to the English source text for anything untranslated.
+2. A Czech catalogue (`translations/eggbert-editor_cs.ts`) for the menus, tool bar, docks, welcome page and the most used dialogs first; a test that every message in it names an existing context and source text, so stale entries are caught, and a count of covered against total strings recorded here.
+3. Accessibility pass: accessible names for the icon-only and custom-painted controls, tab order of the dialogs added in the promoted slices, and a test that walks the main window for unnamed focusable widgets.
+4. Windows and macOS: CMake presets and CI jobs that configure, build and run the tests; they cannot be run in this environment, so they are marked untested until a hosted run exists.
+
+### Slice J result (2026-11-23): stamps, alignment, batch replace
+
+- `src/world/stamp.hpp` (Qt-free): `Stamp` (both layers of a rectangle with holes, objects relative to its corner), `makeStamp`, `placeStamp` (overlay; tiles clipped at the map edge; objects all or none), the text format with line-numbered errors, and `alignObjects` (left, right, top, bottom, distribute; start, end and current move together).
+- UI: **Edit → Save Selection as Stamp…** / **Place Stamp…** (files in the user's data directory, never overwritten silently, damaged files not offered, same-game rule as for pasting); **Object → Align Objects in Selection**; **Layer → Replace Value in All Open Worlds…** with one line per open world before anything changes and one undo step per world.
+- Tests: `stamp` (round trip of the format and its refusals, overlay, clipping, full pool and edge refusals with an untouched builder, every alignment mode), `stamps_ui` (through the menu actions: saving changes nothing, placing and undo, other game refused, alignment, batch replace declined / applied / undone, read-only and other-game worlds skipped).
+- Limits: stamps are chosen from a list by name (no thumbnails yet, no ghost under the cursor before placing — the broad-edit question appears for more than 64 cells); alignment works on the objects in the cell selection because objects have no multi-selection of their own.
 
 ### Slice H result (2026-11-23): cross-world door checks and a reachability estimate
 
@@ -214,7 +221,7 @@ Order and acceptance are in `plan.md`, **Promotion of the roadmap**. Tick a slic
 - [x] G Campaign overview and packs (ZIP and folder)
 - [x] H Cross-world door checks and a labelled reachability estimate
 - [x] I Experimental editing: typed byte edits, unverified music/region numbers, custom border rules
-- [ ] J Stamps, alignment, batch edits
+- [x] J Stamps, alignment, replace in all open worlds
 - [x] K Element encyclopedia and installation gallery (the Installation dock's world list)
 - [ ] L Localization (Czech), accessibility, Windows/macOS build configurations
 - [ ] M Mobile Eggbert text worlds

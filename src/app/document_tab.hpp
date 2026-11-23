@@ -11,6 +11,7 @@
 #include "app/world_canvas.hpp"
 #include "world/adaptive.hpp"
 #include "world/custom_border.hpp"
+#include "world/stamp.hpp"
 #include "world/doctor.hpp"
 #include "world/metadata.hpp"
 #include "world/object_ops.hpp"
@@ -207,6 +208,22 @@ public:
     bool deleteSelection();
     bool fillSelection();
     bool replaceInSelection(std::int16_t from, std::int16_t to);
+    // Cells of `layer` holding `from`, anywhere in the world (0 when the
+    // tab is read-only or that layer is locked).
+    [[nodiscard]] std::size_t countValue(SectionKind layer, std::int16_t from) const;
+    // Replaces every `from` in `layer` as one undo step, whatever the
+    // selection and without the broad-edit question (the caller asked).
+    bool replaceEverywhere(SectionKind layer, std::int16_t from, std::int16_t to,
+                           const QString &label);
+    // The selection's bounding box as a stamp; nullopt without a selection.
+    [[nodiscard]] std::optional<Stamp> stampFromSelection(const QString &name,
+                                                          bool withObjects) const;
+    // Places a stamp with its top-left at a cell as one undo step.
+    bool placeStampAt(const Stamp &stamp, CellPos at);
+    // Slots of active objects whose start lies in the selection.
+    [[nodiscard]] std::vector<std::size_t> objectsInSelection() const;
+    // Aligns or distributes them as one undo step.
+    bool alignSelectedObjects(AlignMode mode);
     bool flipSelection(bool horizontally);
 
     // Applies a World Doctor proposal as one named undo step.

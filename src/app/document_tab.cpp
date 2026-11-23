@@ -956,6 +956,119 @@ bool DocumentTab::replaceInSelection(std::int16_t from, std::int16_t to) {
     return commit(builder, changed, tr("Replace %1 with %2").arg(from).arg(to));
 }
 
+std::size_t DocumentTab::countValue(SectionKind layer, std::int16_t from) const {
+    if (!document().isWritable() || isLayerLocked(layer)) {
+        return 0;
+    }
+    EditBuilder builder(document());
+    // Counted by replacing with a value that differs, in a scratch builder.
+    return replaceValue(builder, layer, from, static_cast<std::int16_t>(from == 0 ? 1 : 0));
+}
+
+bool DocumentTab::replaceEverywhere(SectionKind layer, std::int16_t from, std::int16_t to,
+                                    const QString &label) {
+    if (!requireWritable()) {
+        return false;
+    }
+    if (isLayerLocked(layer)) {
+        emit statusMessage(tr("The %1 layer is locked.").arg(layerDisplayName(layer)));
+        return false;
+    }
+    EditBuilder builder(document());
+    replaceValue(builder, layer, from, to);
+    if (!builder.hasChanges()) {
+        return false;
+    }
+    return applyTransaction(builder.build(label.toStdString()));
+}
+
+std::optional<Stamp> DocumentTab::stampFromSelection(const QString &name,
+                                                     bool withObjects) const {
+    const auto bounds = selection_.bounds();
+    if (!bounds) {
+        return std::nullopt;
+    }
+    return makeStamp(document().view(), *bounds, name.toStdString(), profile_, withObjects);
+}
+
+bool DocumentTab::placeStampAt(const Stamp &stamp, CellPos at) {
+    if (!requireWritable()) {
+        return false;
+    }
+    if (stamp.game != GameProfile::unknown && stamp.game != profile_) {
+        emit statusMessage(tr("This stamp was made under another game profile; placing it here "
+                              "is not available."));
+        return false;
+    }
+    for (const auto layer : {SectionKind::foreground, SectionKind::bigDecor}) {
+        if (isLayerLocked(layer)) {
+            emit statusMessage(tr("The %1 layer is locked.").arg(layerDisplayName(layer)));
+            return false;
+        }
+    }
+    EditBuilder builder(document());
+    const auto placed = placeStamp(builder, stamp, at);
+    if (!placed) {
+        emit statusMessage(QString::fromStdString(placed.error()));
+        return false;
+    }
+    if (!builder.hasChanges()) {
+        emit statusMessage(tr("The stamp equals what is already there."));
+        return false;
+    }
+    if (!commit(builder, placed->tilesChanged,
+                tr("Place Stamp %1").arg(QString::fromStdString(stamp.name)))) {
+        return false;
+    }
+    emit statusMessage(tr("%1 tile(s) written, %2 object(s) created%3")
+                           .arg(placed->tilesChanged)
+                           .arg(placed->objectsCreated)
+                           .arg(placed->tilesClipped != 0
+                                    ? tr("; %1 fell outside the map").arg(placed->tilesClipped)
+                                    : QString()));
+    return true;
+}
+
+std::vector<std::size_t> DocumentTab::objectsInSelection() const {
+    std::vector<std::size_t> found;
+    const auto pool = document().view().objects();
+    if (!pool || selection_.empty()) {
+        return found;
+    }
+    for (std::size_t slot = 0; slot < pool->slotCount(); ++slot) {
+        const auto record = *pool->record(slot);
+        if (record.isFree() || record.posStart.x < 0 || record.posStart.y < 0) {
+            continue;
+        }
+        const CellPos cell{static_cast<std::size_t>(record.posStart.x) / layout::cellPixels,
+                           static_cast<std::size_t>(record.posStart.y) / layout::cellPixels};
+        if (TileLayerView::contains(cell.x, cell.y) && selection_.test(cell)) {
+            found.push_back(slot);
+        }
+    }
+    return found;
+}
+
+bool DocumentTab::alignSelectedObjects(AlignMode mode) {
+    if (!requireWritable()) {
+        return false;
+    }
+    const auto found = objectsInSelection();
+    EditBuilder builder(document());
+    const auto changed = alignObjects(builder, found, mode);
+    if (changed == 0 || !builder.hasChanges()) {
+        emit statusMessage(found.size() < 2
+                               ? tr("Select an area with at least two objects first.")
+                               : tr("The objects are already placed that way."));
+        return false;
+    }
+    if (!applyTransaction(builder.build(tr("Align Objects").toStdString()))) {
+        return false;
+    }
+    emit statusMessage(tr("%n object(s) moved", nullptr, static_cast<int>(changed)));
+    return true;
+}
+
 bool DocumentTab::flipSelection(bool horizontally) {
     const auto bounds = selection_.bounds();
     if (!bounds || !canEditActiveLayer()) {
