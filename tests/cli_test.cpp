@@ -336,6 +336,38 @@ int main(int argc, char **argv) {
         CHECK(!QFile::exists(unused));
         CHECK(readAll(modernPath).size() == 50'468 && readAll(modernPath)[2] == 3);
     }
+    // info on a Mobile Eggbert text world: described as such, not as BLP.
+    {
+        QByteArray text = "DescFile: posDecor=0;0 dimDecor=100;100 world=0 music=2 region=5 "
+                          "blupiPos=194;198 blupiDir=2 \n";
+        for (const auto *section : {"Decor: \n", "BigDecor: \n"}) {
+            text += section;
+            for (int x = 0; x < 100; ++x) {
+                text += QByteArray(100, ',') + "\n";
+            }
+        }
+        text += "MoveObject: type=7 posStart=322;196 posEnd=322;196 posCurrent=322;196 "
+                "channel=10 icon=29 \n";
+        const auto textPath = dir.filePath("world001.txt");
+        QFile file(textPath);
+        CHECK(file.open(QIODevice::WriteOnly));
+        file.write(text);
+        file.close();
+        const auto result = run({"info", textPath});
+        CHECK_EQ(result.code, 0);
+        CHECK(result.out.contains("world001.txt"));
+        CHECK(result.out.contains("Mobile Eggbert text world"));
+        CHECK(result.out.contains("music 2; region 5"));
+        CHECK(result.out.contains("objects: 1, type 7 x 1"));
+        CHECK(result.out.contains("The file has the expected shape."));
+        CHECK(!result.out.contains("Revision"));
+        CHECK(readAll(textPath) == text);
+        // The converters have nothing to do with it.
+        const auto unused = dir.filePath("never.blp");
+        CHECK_EQ(run({"convert", textPath, unused, "--to", "1.3"}).code, 2);
+        CHECK_EQ(run({"convert-game", textPath, unused, "--from", "1", "--to", "2"}).code, 2);
+        CHECK(!QFile::exists(unused));
+    }
     CHECK_EQ(run({}).code, 2);
     CHECK_EQ(run({"frobnicate"}).code, 2);
     // No command changed its input.

@@ -231,5 +231,32 @@ int main(int argc, char **argv) {
     }
     CHECK(directoryDigest(first.root) == firstDigest);
     CHECK(directoryDigest(second.root) == secondDigest);
+    // A Mobile Eggbert text world is described in a report and opens no tab.
+    {
+        MainWindow window;
+        QStringList reports;
+        QStringList errors;
+        window.prompts.showReport = [&](const QString &title, const QString &text) {
+            reports << title + "\n" + text;
+        };
+        window.prompts.error = [&](const QString &, const QString &text) { errors << text; };
+        QTemporaryDir textDir;
+        const auto textPath = textDir.filePath("world020.txt");
+        QFile file(textPath);
+        CHECK(file.open(QIODevice::WriteOnly));
+        const QByteArray content = "DescFile: posDecor=0;0 dimDecor=100;100 world=0 music=1 "
+                                   "region=2 blupiPos=194;198 blupiDir=2 \nDecor: \n";
+        file.write(content);
+        file.close();
+        CHECK(window.openPath(textPath) == nullptr);
+        CHECK_EQ(window.tabCount(), 0);
+        CHECK(errors.isEmpty());
+        CHECK_EQ(reports.size(), qsizetype{1});
+        CHECK(reports[0].startsWith("Mobile Eggbert Text World\nworld020.txt"));
+        CHECK(reports[0].contains("music 1; region 2"));
+        CHECK(reports[0].contains("problem(s):")); // this little file is incomplete
+        QFile again(textPath);
+        CHECK(again.open(QIODevice::ReadOnly) && again.readAll() == content);
+    }
     return test::finish("interface_ui");
 }

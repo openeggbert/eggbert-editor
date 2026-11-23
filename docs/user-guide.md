@@ -258,6 +258,12 @@ Besides opening files (`eggbert-editor world.blp ...`), the program has commands
 
 Exit codes: 0 success, 1 findings, differences or a refused loss, 2 wrong usage or a file that cannot be read or written. `eggbert-editor --help` lists everything.
 
+## Mobile Eggbert text worlds
+
+Mobile Eggbert, the port of the phone game, stores its worlds as text files (`world011.txt`): one `DescFile:` line of `name=value` fields, a `Decor:` and a `BigDecor:` block with one comma-separated line per map column, and one `MoveObject:` line per object. They are a different kind of document from the BLP worlds of the Windows games.
+
+The editor recognises such a file and describes it — header values, occupied cells of each block, objects by type, and anything that does not have the expected shape, with its line number — when you open it (a report window; no tab is opened) or run `eggbert-editor info FILE`. It does not edit these files in the window and it never converts between them and BLP worlds, in either direction: the two formats belong to different games, and a conversion would have to invent what one of them cannot say.
+
 ## What the editor does not do
 
 It does not edit revisions 1.0 and 1.1 in place (convert a copy instead), does not edit bytes in the hex view itself (see **Experimental editing** for typed byte edits), does not offer objects, border brushes or music and region values it has no evidence for unless experimental editing is on (raw tile numbers and an object's numeric fields are always yours to type), does not renumber campaigns, and does not convert to or from the Mobile Eggbert format.

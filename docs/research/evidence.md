@@ -132,6 +132,20 @@ Basis of World Doctor's `REACH-CUT-OFF` (`src/world/reachability.cpp`), which is
 
 The estimate connects cells that hold no block, horizontally and vertically, starting from the four starts, and reports a treasure (type 5) or goal (type 7) whose cell is not connected. It does not model jumping, falling, vehicles or lifts, so it can only say "cut off", never "reachable"; and the games can change the map while playing (explosions, pushed crates, key doors), which is why it is labelled an estimate and reported as a note. It is not made for a second-game world with teleporters or key doors. Reviewed on the original worlds (2026-11-23, private): without that exception ten second-game worlds are reported, each of which contains teleporters; with it the estimate is made for all 59 worlds of the first game and 72 of 96 of the second and reports nothing.
 
+## Mobile Eggbert text worlds
+
+Basis of `src/world/text_world.cpp`. Source: `mobile-eggbert` at `dd0a592d878c7b678934945fb0e8ef8f76b63800`, read only; nothing was copied from it and its world files are not used as fixtures.
+
+| Observation | Where | How |
+| --- | --- | --- |
+| A world is the text file `worlds/world%03d.txt`; it is read whole and split at line feeds | `src/WindowsPhoneSpeedyBlupi/Worlds.cpp:146`, `:181`, `:184-193` | read |
+| A section is a line beginning with its name and a colon; the n-th such line is the n-th record (used for `MoveObject`) | `Worlds.cpp:393-398`, `:497` | read |
+| A field's value is the text between `name=` and the next space; without that space the field is not read | `Worlds.cpp:386-418` | read |
+| A point field is `name=x;y` followed by a space | `Worlds.cpp:486-540` | read |
+| A tile of `Decor` (and `BigDecor`) at column x, row y is entry y of the comma-separated line x + 1 lines below the section line; an empty entry is -1 | `Worlds.cpp:543-575` | read |
+
+Checked against that repository's 78 world files (2026-11-23, private, read only): each consists of one `DescFile:` line, a `Decor:` and a `BigDecor:` block of 100 lines and 3,560 `MoveObject:` lines in total; every file is written back byte for byte by the codec and none has a shape problem.
+
 ## New world
 
 | Observation | Where | How |

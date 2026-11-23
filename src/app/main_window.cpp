@@ -69,6 +69,7 @@
 #include "world/new_world.hpp"
 #include "world/campaign_doors.hpp"
 #include "world/revision_convert.hpp"
+#include "world/text_world.hpp"
 #include "app/png_export_dialog.hpp"
 #include "app/probe_report.hpp"
 #include "app/statistics_panel.hpp"
@@ -2800,6 +2801,22 @@ DocumentTab *MainWindow::openPath(const QString &path) {
         if (samePathKey(tabAt(index)->file().path()) == key) {
             tabs_->setCurrentIndex(index);
             return tabAt(index);
+        }
+    }
+    // A Mobile Eggbert text world is a different kind of document: it is
+    // described, not opened for editing, and never converted.
+    {
+        QFile file(path);
+        if (file.size() <= 4 * 1024 * 1024 && file.open(QIODevice::ReadOnly)) {
+            const auto bytes = file.readAll();
+            const std::string_view text(bytes.constData(), static_cast<std::size_t>(bytes.size()));
+            if (looksLikeTextWorld(text)) {
+                prompts.showReport(
+                    tr("Mobile Eggbert Text World"),
+                    QFileInfo(path).fileName() + QLatin1Char('\n') +
+                        QString::fromStdString(TextWorld::parse(text).describe()));
+                return nullptr;
+            }
         }
     }
     auto loaded = DocumentFile::load(path);

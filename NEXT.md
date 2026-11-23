@@ -4,6 +4,8 @@
 
 Version 1.0.0. Every part of the fixed 1.0 scope in `plan.md` is implemented and covered by asset-free tests. On 2026-11-22 the project owner first accepted the release gate without original game data and then supplied Speedy Eggbert 1 and Speedy Eggbert 2; the editor was verified against both (see **Original-data evidence** below). One defect was found and fixed that way (an ambiguous sprite-table search in the first game's executable).
 
+Since then the owner promoted the whole roadmap (see `plan.md`, **Promotion of the roadmap**) with the instruction not to publish a release: the version number is 1.0.0 but **nothing is tagged or released**, and the tree is an unreleased development version. Of the promoted slices A–N, thirteen are done as far as they could be verified in this environment and one (N) was examined and not started; each has a result section below stating what was built, how it was tested and what is not covered. The checklist near the end of this file is the summary.
+
 Implemented and covered by asset-free tests:
 
 - `src/world/layout.hpp`: immutable `RevisionDescriptor` entries for header revisions 1.0–1.3 (header size, layers, object count/width, contiguous section table, expected size, 1.0 write policy, rule); `headerFields` and `objectFields` tables with exact offsets and wire types; `ByteRange` and `Point`. Only the four exact `(major, minor)` pairs are recognized.
@@ -45,9 +47,9 @@ Verification on 2026-11-22, Ubuntu 24.04, GCC 13.3.0, CMake 3.28.3, Ninja, Qt 6.
 ```sh
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
 cmake --build build --parallel              # no warnings
-ctest --test-dir build --output-on-failure  # 65/65 passed (66 registered): layout, le_reader, world_probe, world_view, world_document, world_stats, offset_map, tile_tools, metadata, object_ops, hex_model, doctor, adaptive, animation, atlas_table, editor_groups, revision_convert, new_world, encyclopedia, expert_edit, custom_border, game_convert, installation, campaign, campaign_doors, reachability, stamp, view_transform, probe_report, document_file, recovery_store, deploy_store, campaign_pack, cli, world_renderer, png_export, game_assets, main_window, docks, tools, metadata_ui, objects_ui, inspector, doctor_ui, adaptive_ui, workspace, artwork_ui, palette, music_player, animation_ui, interface_ui, recovery_ui, convert_ui, new_world_ui, encyclopedia_ui, experimental_ui, convert_game_ui, installation_ui, campaign_ui, stamps_ui, translation, cli_usage, smoke, version, install_smoke; sample_matrix skipped without EGGBERT_SAMPLE_DIRS
+ctest --test-dir build --output-on-failure  # 66/66 passed (67 registered): layout, le_reader, world_probe, world_view, world_document, world_stats, offset_map, tile_tools, metadata, object_ops, hex_model, doctor, adaptive, animation, atlas_table, editor_groups, revision_convert, new_world, encyclopedia, expert_edit, custom_border, game_convert, installation, campaign, campaign_doors, reachability, stamp, text_world, view_transform, probe_report, document_file, recovery_store, deploy_store, campaign_pack, cli, world_renderer, png_export, game_assets, main_window, docks, tools, metadata_ui, objects_ui, inspector, doctor_ui, adaptive_ui, workspace, artwork_ui, palette, music_player, animation_ui, interface_ui, recovery_ui, convert_ui, new_world_ui, encyclopedia_ui, experimental_ui, convert_game_ui, installation_ui, campaign_ui, stamps_ui, translation, cli_usage, smoke, version, install_smoke; sample_matrix skipped without EGGBERT_SAMPLE_DIRS
 cmake -S . -B build-asan -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DEGGBERT_SANITIZE=ON
-cmake --build build-asan --parallel && ctest --test-dir build-asan   # 65/65 passed under ASan/UBSan, sample_matrix skipped
+cmake --build build-asan --parallel && ctest --test-dir build-asan   # 66/66 passed under ASan/UBSan, sample_matrix skipped
 ```
 
 Commit `c8f7a77` (binary inspector) was pushed green in Release but with a use-after-free that the sanitizer run reported in `main_window` (the hex views kept a pointer to the document replaced by Revert/Reload); the next commit fixes it with `DocumentTab::documentReplaced` and a regression check in `inspector`. Always run the sanitizer suite to completion before committing.
@@ -82,14 +84,33 @@ Verified and reported observations are recorded with citations in `docs/research
 - **CI steps in a clean system.** A minimal Ubuntu 24.04 system (`debootstrap --variant=minbase`, then `cmake ninja-build g++ dpkg-dev` as a hosted runner has them, then the workflow's `qt6-base-dev`: CMake 3.28.3, GCC 13.3.0, Qt 6.4.2) ran every step of `.github/workflows/ci.yml` on commit `5a5f3d8`: job *build-and-test* — configure, build (0 warnings), `ctest` exit 0 (sample test skipped), `cpack` producing the TGZ and DEB; job *sanitizers* — configure, build (0 warnings), `ctest` exit 0. The sanitizer needs `/proc`, which a bare chroot lacks; with it mounted the job passes. The hosted workflow itself has still not run (no pull request, owner's decision).
 - **Independent documentation audit.** A second reviewer compared `docs/user-guide.md`, `README.md` and `docs/format-notes.md` with the code and reported 23 mismatches (none in the format notes). Six were fixed in the code because the documented behaviour was the better one: second-game tiles 384/385 are now drawn before objects; picking a bigDecor picture while the adaptive tile brush is active switches to the Pencil; music plays from a chosen game directory even when its pictures are unusable (`MainWindow::gameDirectoryFor`); the PNG dialog has a backdrop option recorded in `EggbertSettings`; Save As shows the World Doctor summary like Save; the 1/2 path badges are drawn down to five pixels per cell, so they show when the whole world is in view. The rest were wording corrections in the guide and README. The reviewer could not check statements about the games themselves (it had no access to the research sources); those rest on `docs/research/evidence.md`.
 
-## Next task: slice M of the promoted roadmap (Mobile Eggbert text worlds)
+## Next task: none of the promoted roadmap remains except what is listed as open below
 
-See `plan.md`, **Planned Mobile Eggbert world support** and the promotion table: "a separate document profile; token-preserving round trip on synthetic text fixtures; no conversion to or from BLP". Rules: `mobile-eggbert` is read for research only (never modified, nothing copied from it); fixtures are written fresh here. Design to implement:
+Slices A–M are done as far as they could be verified here; slice N was examined and not started (see its entry). What remains open, in the order it would be worth doing:
 
-1. Research the text world format in `mobile-eggbert` (`Worlds.cpp`, `Worlds.hpp`, the designed-world path of `Decor::Read`) and record the findings with citations in `docs/research/evidence.md`.
-2. Headless `src/world/text_world.hpp` (Qt-free): a tokenizer that keeps every byte (line ends, spacing, unknown lines), a typed view of the fields it understands, and a writer that reproduces an untouched file byte for byte and changes only the tokens of an edited field.
-3. Tests on synthetic fixtures: untouched round trip, single-field edits touching only that token, unknown content preserved, malformed input reported with its line.
-4. Product surface kept small and honest: `eggbert-editor info` recognises and describes such a file; the GUI opens it read-only with the structural report. No conversion in either direction.
+1. **A hosted CI run** (needs the owner: a pull request or a push to `main`/`develop`). It would exercise the Linux jobs on GitHub's runners and give the first real result for the `windows-untested` and `macos-untested` jobs.
+2. **The other half of the Czech catalogue** (392 of 831 texts are still English) and a Czech guide.
+3. **Editing Mobile Eggbert text worlds in the window.** The codec (`src/world/text_world.hpp`) already changes single tokens losslessly; what is missing is a document tab that uses it. It needs its own design for tools, validation and rendering because none of the BLP catalogs may be assumed to apply.
+4. **Stamps:** thumbnails and a ghost under the cursor before placing.
+5. **A reachability estimate with movement** (jumps, falls, lifts), if a bound can be cited from the sources.
+6. **Compressed ZIP packs** (a decompressor would be a new dependency or a sizeable piece of code).
+7. Evidence gaps listed under **Original-data evidence**: other editions, original 1.0/1.1 worlds, behaviour in the running games, the 25 eggs stored four pixels higher than the catalog writes.
+
+### Slice N (2026-11-23): three-way merge, playtest traces and heatmaps — not started
+
+The plan allows this slice "only with a verifiable design; otherwise documented as not started". Examined and left out, for these reasons:
+
+- **Playtest traces and heatmaps** need positions recorded while a game runs. The games write demo recordings (`demo%.3d.blp`: a 204-byte header and 4-byte time/input records, per the notes used for slice F), but those hold inputs, not positions: turning inputs into positions means re-running the game's physics, which the editor does not have and which could not be checked here without running a game. Nothing verifiable can be built on that.
+- **Three-way merge** of worlds is well defined at the byte level (the format is fixed-size, so a base and two edits can be merged cell by cell and record by record, with conflicts where both changed the same bytes), and `diff` already lists differing ranges by name. It was not started because it is a feature of its own size with a conflict interface to design, and the remaining session was better spent leaving the tree documented and green. A sound design exists; it is simply not implemented.
+
+### Slice M result (2026-11-23): Mobile Eggbert text worlds
+
+- Evidence: **Mobile Eggbert text worlds** in `docs/research/evidence.md` (read at the pinned baseline; that repository was not modified).
+- `src/world/text_world.hpp` (Qt-free): `TextWorld` keeps the file as its lines; reading follows the game's own rules (value up to the next space, `x;y` points, comma-separated columns, empty entry = -1); every setter replaces one token; `problems()` reports shape faults with line numbers; `describe()` is the text shown to people.
+- Product surface, deliberately small: `eggbert-editor info FILE` and opening such a file in the window show the description (no tab, no editing). **No conversion to or from BLP**, in line with the plan's permanent non-goal; the BLP converters refuse such a file.
+- Tests: `text_world` (fixtures built in the test: byte-exact round trip for several endings, CR LF and stray bytes; every reader; each edit changing exactly one token; unknown fields and lines kept; refusals; every shape problem), `cli`, `interface_ui`.
+- Checked privately and read-only against that project's 78 worlds: all 78 round-trip byte for byte with no shape problem.
+- Not done: a tab that edits these worlds (see the list above).
 
 ### Slice L result (2026-11-23): Czech interface, accessibility, other platforms
 
@@ -233,8 +254,8 @@ Order and acceptance are in `plan.md`, **Promotion of the roadmap**. Tick a slic
 - [x] J Stamps, alignment, replace in all open worlds
 - [x] K Element encyclopedia and installation gallery (the Installation dock's world list)
 - [x] L Czech interface (439 of 831 texts), accessibility names, Windows/macOS configurations (untested)
-- [ ] M Mobile Eggbert text worlds
-- [ ] N Three-way merge, playtest traces
+- [x] M Mobile Eggbert text worlds: lossless codec and description (no editing tab, no conversion)
+- [ ] N Three-way merge, playtest traces — examined, not started (reasons above)
 
 ## Explicit non-goals
 

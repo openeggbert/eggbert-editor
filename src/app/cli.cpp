@@ -18,6 +18,7 @@
 #include "world/new_world.hpp"
 #include "world/offset_map.hpp"
 #include "world/revision_convert.hpp"
+#include "world/text_world.hpp"
 
 namespace eggbert {
 
@@ -74,11 +75,26 @@ int usageError(QTextStream &err, const QString &message) {
     return exitUsage;
 }
 
+std::optional<QByteArray> readFile(const QString &path);
+
 int info(const QStringList &arguments, QTextStream &out, QTextStream &err) {
     const auto parsed = parse(arguments, {}, {});
     if (!parsed.error.isEmpty() || parsed.positional.size() != 1) {
         return usageError(err, parsed.error.isEmpty() ? QStringLiteral("info needs one file")
                                                       : parsed.error);
+    }
+    // A Mobile Eggbert text world is another kind of file: described, never
+    // treated as BLP.
+    if (const auto bytes = readFile(parsed.positional[0]);
+        bytes && bytes->size() <= 4 * 1024 * 1024 &&
+        looksLikeTextWorld(std::string_view(bytes->constData(),
+                                            static_cast<std::size_t>(bytes->size())))) {
+        out << QFileInfo(parsed.positional[0]).fileName() << "\n"
+            << QString::fromStdString(
+                   TextWorld::parse(std::string_view(bytes->constData(),
+                                                     static_cast<std::size_t>(bytes->size())))
+                       .describe());
+        return exitOk;
     }
     auto loaded = DocumentFile::load(parsed.positional[0]);
     if (!loaded) {

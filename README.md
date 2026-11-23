@@ -1,6 +1,6 @@
 # Eggbert Editor
 
-A desktop editor for 2D worlds from the Windows games Speedy Blupi and Speedy Blupi II, also released as Speedy Eggbert and Speedy Eggbert 2. Its core is lossless editing of individual world files; this unreleased development version has also grown revision and game conversion, recovery, a command line and other items of the roadmap in `plan.md`. A separate Mobile Eggbert text-world profile is planned, but conversion between BLP and Mobile Eggbert worlds is intentionally unsupported in both directions.
+A desktop editor for 2D worlds from the Windows games Speedy Blupi and Speedy Blupi II, also released as Speedy Eggbert and Speedy Eggbert 2. Its core is lossless editing of individual world files; this unreleased development version has also grown revision and game conversion, recovery, a command line and other items of the roadmap in `plan.md`. Mobile Eggbert text worlds are a separate kind of document that the editor can describe; conversion between BLP and Mobile Eggbert worlds is intentionally unsupported in both directions.
 
 What works today:
 
@@ -24,6 +24,7 @@ What works today:
 - Revisions 1.0 and 1.1, truncated files and unknown content open **read-only** with the reason shown.
 - **Element Encyclopedia**: a searchable list of every catalogued tile, object and border family of the chosen game with what is stored for it and the evidence; any entry can be selected for painting or placing.
 - **Stamps** (a selection saved for reuse, with its objects, placed as an overlay in one undo step), **Align Objects in Selection**, and **Replace Value in All Open Worlds** with a per-world preview.
+- **Mobile Eggbert text worlds** are recognised and described (on opening and by `info`) through a lossless reader of their own; they are not edited in the window and never converted to or from BLP.
 - **Experimental editing** (off by default): typed byte edits as undoable transactions with a second confirmation for preserved ranges, unverified music and region numbers, and border rules of your own for the Adaptive brush. The revision field and the file length never change.
 - **New World** (and the `new` command) writes the world the games' own editors start a mission with, for either game.
 - **Installation** dock: the worlds of the game directory you chose, with pictures, roles and titles; **Deploy** puts the current world into a slot with a verified backup of what it replaces, **Roll Back** restores it byte for byte, **Playtest** starts a command you configure.
