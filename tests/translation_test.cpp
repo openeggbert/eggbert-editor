@@ -8,9 +8,11 @@
 
 #include "app/catalog_texts.hpp"
 #include "app/catalog_translator.hpp"
+#include "app/doctor_texts.hpp"
 #include "app/main_window.hpp"
 
 #include "world/adaptive.hpp"
+#include "world/doctor.hpp"
 #include "world/editor_groups.hpp"
 #include "world/object_catalog.hpp"
 
@@ -172,6 +174,58 @@ int main(int argc, char **argv) {
         }
     }
 
+    // World Doctor's sentences: every pattern the core can produce is marked
+    // for translation, and without a catalogue a finding reads as the core
+    // wrote it.
+    eggbert::test::Bytes troubled = eggbert::test::blankWorld(eggbert::test::fxRevision13);
+    {
+        using namespace eggbert::test;
+        put32(troubled, 212, 100);
+        put32(troubled, 216, 100);
+        put16(troubled, 222, 77); // a music no game offers
+        put16(troubled, 224, 2);
+        for (int index = 0; index < 4; ++index) {
+            put32(troubled, 328 + 8 * index, 194);
+            put32(troubled, 332 + 8 * index, 198);
+            put32(troubled, 360 + 4 * index, 2);
+        }
+        const auto slot = fxSlotOffset(fxRevision13, 3);
+        put16(troubled, slot, 5);      // a treasure chest
+        put16(troubled, slot + 42, 9); // in a channel the games' editors do not write
+        for (const std::size_t field : {12u, 20u, 28u}) {
+            put32(troubled, slot + field, 640);
+            put32(troubled, slot + field + 4, 640);
+        }
+    }
+    const WorldView troubledView(troubled);
+    const auto findings = runDoctor(troubledView, GameProfile::speedyBlupi1);
+    const auto *music = findings.first("HDR-MUSIC-RANGE");
+    const auto *channel = findings.first("OBJ-CHANNEL");
+    CHECK(music != nullptr && channel != nullptr);
+    {
+        QSet<QString> marked;
+        for (const auto *text : doctorTexts()) {
+            marked.insert(QString::fromUtf8(text));
+        }
+        for (const auto pattern : doctorMessagePatterns()) {
+            const auto text =
+                QString::fromUtf8(pattern.data(), static_cast<qsizetype>(pattern.size()));
+            if (!marked.contains(text)) {
+                std::fprintf(stderr, "doctor pattern not marked: %s\n", qPrintable(text));
+            }
+            CHECK(marked.contains(text));
+        }
+        CHECK_EQ(marked.size(), static_cast<qsizetype>(doctorMessagePatterns().size()));
+        for (const auto &finding : findings.findings) {
+            CHECK_EQ(findingText(finding), QString::fromStdString(finding.message));
+        }
+        if (music != nullptr && channel != nullptr) {
+            CHECK_EQ(findingText(*music), QString("Music 77 is outside 0 to 10."));
+            CHECK(findingText(*channel).startsWith("Slot 3: channel 9 is not one"));
+        }
+        CHECK_EQ(confidenceText(Confidence::estimate), QString("estimate"));
+    }
+
     // English window first: the reference texts.
     QStringList englishMenus;
     {
@@ -186,6 +240,20 @@ int main(int argc, char **argv) {
     // With the catalogue installed the window is Czech where translated and
     // English elsewhere.
     QCoreApplication::installTranslator(&czech);
+    // The same findings in Czech: the numbers in their places, the object's
+    // catalog name translated, and the slot in front.
+    if (music != nullptr && channel != nullptr) {
+        CHECK_EQ(findingText(*music), QString::fromUtf8("Hudba 77 je mimo rozsah 0 a\u017e 10."));
+        const auto czechChannel = findingText(*channel);
+        CHECK(czechChannel.startsWith(QString::fromUtf8("Slot 3: kan\u00e1l 9 ")));
+        CHECK(!czechChannel.contains("Treasure chest"));
+        CHECK(czechChannel.contains(catalogText("Treasure chest")));
+        CHECK(catalogText("Treasure chest") != QString("Treasure chest"));
+        CHECK(confidenceText(Confidence::estimate) != QString("estimate"));
+        for (const auto &finding : findings.findings) {
+            CHECK(findingText(finding) != QString::fromStdString(finding.message));
+        }
+    }
     {
         MainWindow window;
         window.resize(1200, 800);

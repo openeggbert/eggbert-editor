@@ -91,10 +91,14 @@ Verified and reported observations are recorded with citations in `docs/research
 Slices A–P are done as far as they could be verified here. Every bullet of `plan.md`, **Post-1.0 roadmap**, now has a slice; the one part without an implementation is the heat map of slice N (see slice P for why). What remains open, in the order it would be worth doing:
 
 1. **A hosted CI run** (needs the owner: a pull request or a push to `main`/`develop`). It would exercise the Linux jobs on GitHub's runners and give the first real result for the `windows-untested` and `macos-untested` jobs.
-2. **Czech for the texts the core composes** (World Doctor findings, conversion notes, report details, encyclopedia facts) — it needs those messages restructured into translatable templates — and a Czech guide.
+2. **Czech for the other texts the core composes** (conversion notes, report details, encyclopedia facts, scenario lines) — World Doctor's findings are done and show the way: patterns with arguments — and a Czech guide.
 3. **More for Mobile Eggbert text worlds**: selections and shapes on the map, and names or pictures for its tiles and objects — the last only with evidence from that project, which was not gathered.
 4. **A reachability estimate with movement** (jumps, falls, lifts), if a bound can be cited from the sources.
 5. Evidence gaps listed under **Original-data evidence**: other editions, original 1.0/1.1 worlds, behaviour in the running games, the 25 eggs stored four pixels higher than the catalog writes.
+
+### World Doctor in Czech (2026-11-23)
+
+An item from the open list. Every sentence of World Doctor is now a pattern with arguments in the core (`Finding::messagePattern`, `messageArguments`, `slotPrefix`; `doctorMessagePatterns()`, `fillPattern`), from which the English `message` is built exactly as before: the `validate` output for all 155 original worlds under both games and without a game (4,456 lines) is byte-identical before and after (private comparison). `src/app/doctor_texts.hpp`: `findingText()` fills the translated pattern with the same arguments — catalog names among them translated — and `confidenceText()`; the Diagnostics panel, its detail line and the status bar use them. The diagnostics text file and the command line stay English by design. Tests: `doctor` (every finding of every fixture is a listed pattern and rebuilds to its message; every listed pattern is produced, for which a walled-in treasure and goal were added), `translation` (every pattern is marked for the tools; English equals the core's text; Czech has numbers and names in place). 40 Czech texts added.
 
 ### Mobile Eggbert text worlds: object lines (2026-11-23)
 
@@ -152,7 +156,7 @@ The plan allows this slice "only with a verifiable design; otherwise documented 
 ### Slice L result (2026-11-23): Czech interface, accessibility, other platforms
 
 - `src/app/catalog_translator.hpp`: a `QTranslator` that reads `.ts` catalogues from the program's resources at run time (no Linguist tools in the build); unfinished or empty translations fall back to English; Czech plural forms. Language preference in **Edit → Preferences** (system, English, Čeština), applied at start.
-- `translations/eggbert-editor_cs.ts`: 1,096 messages extracted with `lupdate` (command in `translations/README.md`), **all translated** (completed 2026-11-23 at the owner's request). The catalog names (tile entries, objects, groups, border families, run-time object types) are listed for the tools in `src/app/catalog_texts.cpp` and shown through `catalogText()`; the `translation` test fails when a catalog name is missing there or the catalogue has unfinished entries. Still English: texts composed in the Qt-free core (World Doctor findings, conversion notes, report details, the encyclopedia's facts) and the documents.
+- `translations/eggbert-editor_cs.ts`: 1,136 messages extracted with `lupdate` (command in `translations/README.md`), **all translated** (completed 2026-11-23 at the owner's request). The catalog names (tile entries, objects, groups, border families, run-time object types) are listed for the tools in `src/app/catalog_texts.cpp` and shown through `catalogText()`; the `translation` test fails when a catalog name is missing there or the catalogue has unfinished entries. Still English: other texts composed in the Qt-free core (conversion notes, report details, the encyclopedia's facts, scenario lines) and the documents; World Doctor's findings are translated since 2026-11-23 (see **World Doctor in Czech**).
 - Accessibility: 28 controls that had no name for a screen reader (the Palette's picture lists, the Objects panel's fields, the inspector's choosers, the trees) now have accessible names; a test walks the main window and fails on any focusable control without one.
 - `CMakePresets.json` (`linux`, `linux-sanitizers`, `windows-msvc`, `macos`) and two CI jobs, `windows-untested` and `macos-untested`, allowed to fail. **Neither platform has been built or run**: there is no Windows or macOS machine here and no hosted run (the owner asked for no pull request). No package for them is claimed. Since 2026-11-23 the build also *describes* packages for them — on Windows a ZIP and on macOS a disk image, with Qt gathered by Qt's deployment script (`qt_generate_deploy_app_script`), and a `cpack` step in each of the two CI jobs. These lines were written from Qt's and CMake's documentation and have **never run**; the Linux configuration is unchanged (`CPACK_GENERATOR` is still `TGZ;DEB` there, checked).
 - Tests: `translation` (language choice, plural forms, a catalogue from text including damaged input, the shipped catalogue's placeholders, accelerators and ellipses, the main window's menus in Czech with English fallback, the accessibility walk).
@@ -309,7 +313,7 @@ Order and acceptance are in `plan.md`, **Promotion of the roadmap**. Tick a slic
 - [x] I Experimental editing: typed byte edits, unverified music/region numbers, custom border rules
 - [x] J Stamps, alignment, replace in all open worlds
 - [x] K Element encyclopedia and installation gallery (the Installation dock's world list)
-- [x] L Czech interface (all 1,096 interface texts and catalog names), accessibility names, Windows/macOS configurations (untested)
+- [x] L Czech interface (all 1,136 interface texts and catalog names), accessibility names, Windows/macOS configurations (untested)
 - [x] M Mobile Eggbert text worlds: lossless codec, description and an editing window (no conversion)
 - [x] O SVG export, PNG batches, campaign graph listing, world regression scenarios
 - [x] N Three-way merge (command and window); playtest traces as slice P; heat maps not built (recordings hold no positions)

@@ -9,6 +9,7 @@
 #include <QTreeWidget>
 #include <QVBoxLayout>
 
+#include "app/doctor_texts.hpp"
 #include "world/hex_model.hpp"
 
 namespace eggbert {
@@ -146,7 +147,7 @@ DiagnosticsPanel::DiagnosticsPanel(QWidget *parent) : QWidget(parent) {
         }
         detail_->setText(
             tr("%1\nBasis: %2. %3\nBytes: offset %4, length %5%6")
-                .arg(QString::fromStdString(finding->message), fromView(confidenceName(finding->confidence)),
+                .arg(findingText(*finding), confidenceText(finding->confidence),
                      fromView(finding->evidence))
                 .arg(finding->range.offset)
                 .arg(finding->range.size)
@@ -234,9 +235,9 @@ void DiagnosticsPanel::rebuildList() {
         item->setData(0, indexRole, static_cast<int>(index));
         item->setText(0, severityText(finding.severity));
         item->setText(1, fromView(finding.ruleId));
-        item->setText(2, QString::fromStdString(finding.message));
+        item->setText(2, findingText(finding));
         item->setText(3, QString::number(finding.range.offset));
-        item->setToolTip(2, QString::fromStdString(finding.message));
+        item->setToolTip(2, findingText(finding));
     }
 }
 

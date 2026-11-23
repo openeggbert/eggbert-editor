@@ -1006,6 +1006,169 @@ Posuzováno pro: %1</translation>
   </message>
  </context>
  <context>
+  <name>eggbert::Doctor</name>
+  <message>
+   <source>The file has %1 byte(s); at least 4 are needed for the revision field.</source>
+   <translation>Soubor má bajtů: %1; pole revize potřebuje alespoň 4.</translation>
+  </message>
+  <message>
+   <source>Revision field %1.%2 is later than every known revision; its layout is unverified.</source>
+   <translation>Pole revize %1.%2 je novější než všechny známé revize; její rozložení není ověřeno.</translation>
+  </message>
+  <message>
+   <source>Revision field %1.%2 is not a known revision; this may not be a world file.</source>
+   <translation>Pole revize %1.%2 není známá revize; možná nejde o soubor světa.</translation>
+  </message>
+  <message>
+   <source>The file ends at offset %1; %2 byte(s) of the revision %3.%4 layout are missing.</source>
+   <translation>Soubor končí na offsetu %1; z rozložení revize %3.%4 chybí bajtů: %2.</translation>
+  </message>
+  <message>
+   <source>%1 byte(s) follow the layout; they are kept unchanged.</source>
+   <translation>Za rozložením následuje bajtů: %1; zůstávají beze změny.</translation>
+  </message>
+  <message>
+   <source>Revision %1.%2 can be viewed and inspected but not edited in this editor.</source>
+   <translation>Revizi %1.%2 lze v tomto editoru prohlížet a zkoumat, ale ne upravovat.</translation>
+  </message>
+  <message>
+   <source>Music %1 is outside %2 to %3.</source>
+   <translation>Hudba %1 je mimo rozsah %2 až %3.</translation>
+  </message>
+  <message>
+   <source>Region %1 is outside %2 to %3; the game would look for a background picture that it does not offer.</source>
+   <translation>Region %1 je mimo rozsah %2 až %3; hra by hledala obrázek pozadí, který nenabízí.</translation>
+  </message>
+  <message>
+   <source>Start %1 at (%2, %3) is outside the 6400 x 6400 pixel world.</source>
+   <translation>Start %1 na (%2, %3) leží mimo svět 6400 x 6400 pixelů.</translation>
+  </message>
+  <message>
+   <source>Start %1 has direction %2; the games treat anything but 1 as facing right.</source>
+   <translation>Start %1 má směr %2; hry berou cokoli jiného než 1 jako pohled vpravo.</translation>
+  </message>
+  <message>
+   <source>The title fills all 100 bytes without a terminator; the game copies it as a C string and would read past the field.</source>
+   <translation>Název zabírá všech 100 bajtů bez ukončovacího znaku; hra jej kopíruje jako řetězec jazyka C a četla by za konec pole.</translation>
+  </message>
+  <message>
+   <source>The title fills all 100 bytes without a terminator.</source>
+   <translation>Název zabírá všech 100 bajtů bez ukončovacího znaku.</translation>
+  </message>
+  <message>
+   <source>The title has %1 bytes; a player can type at most 40.</source>
+   <translation>Název má bajtů: %1; hráč může napsat nejvýše 40.</translation>
+  </message>
+  <message>
+   <source>Non-zero bytes follow the title's terminator; they are kept unchanged.</source>
+   <translation>Za ukončovacím znakem názvu následují nenulové bajty; zůstávají beze změny.</translation>
+  </message>
+  <message>
+   <source>This file is not revision 1.3, so the games do not read its stored title.</source>
+   <translation>Tento soubor není revize 1.3, takže hry jeho uložený název nečtou.</translation>
+  </message>
+  <message>
+   <source>%1 is not all zero; it is kept unchanged (demo editions use its first value as a marker).</source>
+   <translation>%1 není celé nulové; zůstává beze změny (demoverze používají jeho první hodnotu jako značku).</translation>
+  </message>
+  <message>
+   <source>%1 is not all zero; it is kept unchanged.</source>
+   <translation>%1 není celé nulové; zůstává beze změny.</translation>
+  </message>
+  <message>
+   <source>dimDecor holds %1; the games only test it for zero, so it behaves like 100.</source>
+   <translation>dimDecor obsahuje %1; hry jej testují jen na nulu, takže se chová jako 100.</translation>
+  </message>
+  <message>
+   <source>%1 %2 cell(s) store %3: values below -1 are not tile numbers.</source>
+   <translation>Počet buněk vrstvy %2 s hodnotou %3: %1. Hodnoty menší než -1 nejsou čísla dlaždic.</translation>
+  </message>
+  <message>
+   <source>%1 %2 cell(s) store %3: the chosen game's picture table has no such entry, so nothing is drawn.</source>
+   <translation>Počet buněk vrstvy %2 s hodnotou %3: %1. Tabulka obrázků zvolené hry takovou položku nemá, takže se nic nevykreslí.</translation>
+  </message>
+  <message>
+   <source>%1 %2 cell(s) store %3: the chosen game has a picture but no collision data for it and treats it as passable.</source>
+   <translation>Počet buněk vrstvy %2 s hodnotou %3: %1. Zvolená hra pro ni má obrázek, ale žádná kolizní data, a bere ji jako průchozí.</translation>
+  </message>
+  <message>
+   <source>%1 foreground cell(s) store 48 to 67; Speedy Blupi 2 shows them as 215 after loading. The file keeps the stored values.</source>
+   <translation>Počet buněk popředí s hodnotou 48 až 67: %1. Speedy Blupi 2 je po načtení zobrazí jako 215. Soubor si uložené hodnoty ponechá.</translation>
+  </message>
+  <message>
+   <source>%1 foreground cell(s) store %2 where the game's editor would currently give a different border form (%3 at the first of them). This can be intentional.</source>
+   <translation>Počet buněk popředí s hodnotou %2, kde by editor hry nyní dal jiný tvar okraje (u první z nich %3): %1. Může to být záměr.</translation>
+  </message>
+  <message>
+   <source>%1 (%2, %3) is outside the 6400 x 6400 pixel world.</source>
+   <translation>%1 (%2, %3) leží mimo svět 6400 x 6400 pixelů.</translation>
+  </message>
+  <message>
+   <source>start and end differ but a travel duration is 0; the engines skip the movement when the duration is 0, so the object never arrives.</source>
+   <translation>začátek a konec se liší, ale doba cesty je 0; hry pohyb při nulové době přeskočí, takže objekt nikdy nedorazí.</translation>
+  </message>
+  <message>
+   <source>type %1 (%2) is created by the game only while playing.</source>
+   <translation>typ %1 (%2) vytváří hra jen během hraní.</translation>
+  </message>
+  <message>
+   <source>type %1 is not an object type of the chosen game.</source>
+   <translation>typ %1 není typem objektu zvolené hry.</translation>
+  </message>
+  <message>
+   <source>channel %1 is not one the game's editor writes for %2.</source>
+   <translation>kanál %1 není ten, který editor hry zapisuje pro objekt „%2“.</translation>
+  </message>
+  <message>
+   <source>icon %1 has no entry in the chosen game's tile picture table, so nothing is drawn.</source>
+   <translation>ikona %1 nemá v tabulce obrázků dlaždic zvolené hry položku, takže se nic nevykreslí.</translation>
+  </message>
+  <message>
+   <source>All %1 object slots are in use. This is the format's hard limit: nothing can be added and effects the game creates while playing find no slot.</source>
+   <translation>Všech %1 slotů objektů je obsazeno. Je to pevný limit formátu: nic nelze přidat a efekty, které hra vytváří při hraní, nenajdou volný slot.</translation>
+  </message>
+  <message>
+   <source>Only %1 object slot(s) are free; fewer than %2 may leave no room for effects created while playing. This is an estimate, not a proven limit.</source>
+   <translation>Volných slotů objektů: %1; méně než %2 nemusí stačit pro efekty vytvářené při hraní. Jde o odhad, ne o doložený limit.</translation>
+  </message>
+  <message>
+   <source>%1 free slot(s) hold other non-zero bytes; they are kept unchanged until the slot is reused.</source>
+   <translation>Počet volných slotů, které obsahují jiné nenulové bajty: %1; zůstávají beze změny, dokud se slot znovu nepoužije.</translation>
+  </message>
+  <message>
+   <source>The goal in slot %1 at (%2, %3) is in a cell that no chain of cells free of fully solid tiles connects to a start. Unless the game changes the map while playing (a block destroyed, a crate pushed), it cannot be collected. Jumps, falls and lifts are not judged.</source>
+   <translation>Cíl ve slotu %1 na (%2, %3) je v buňce, kterou se startem nespojuje žádný řetěz buněk bez zcela pevných dlaždic. Pokud hra mapu při hraní nezmění (zničený blok, odsunutá bedna), nelze jej sebrat. Skoky, pády a výtahy se neposuzují.</translation>
+  </message>
+  <message>
+   <source>The treasure in slot %1 at (%2, %3) is in a cell that no chain of cells free of fully solid tiles connects to a start. Unless the game changes the map while playing (a block destroyed, a crate pushed), it cannot be collected. Jumps, falls and lifts are not judged.</source>
+   <translation>Poklad ve slotu %1 na (%2, %3) je v buňce, kterou se startem nespojuje žádný řetěz buněk bez zcela pevných dlaždic. Pokud hra mapu při hraní nezmění (zničený blok, odsunutá bedna), nelze jej sebrat. Skoky, pády a výtahy se neposuzují.</translation>
+  </message>
+  <message>
+   <source>Slot %1: %2</source>
+   <translation>Slot %1: %2</translation>
+  </message>
+  <message>
+   <source>structural fact</source>
+   <translation>strukturální fakt</translation>
+  </message>
+  <message>
+   <source>read in the game's source</source>
+   <translation>přečteno ve zdrojovém kódu hry</translation>
+  </message>
+  <message>
+   <source>outside the game's verified range</source>
+   <translation>mimo ověřený rozsah hry</translation>
+  </message>
+  <message>
+   <source>reported, not re-checked</source>
+   <translation>převzato, znovu neověřeno</translation>
+  </message>
+  <message>
+   <source>estimate</source>
+   <translation>odhad</translation>
+  </message>
+ </context>
+ <context>
   <name>eggbert::DocumentFile</name>
   <message>
    <source>The file does not exist.</source>

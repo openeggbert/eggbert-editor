@@ -43,7 +43,15 @@ struct Finding {
     Confidence confidence = Confidence::structural;
     // Profile the finding was judged under (unknown for profile-free rules).
     GameProfile profile = GameProfile::unknown;
+    // The finding in English.
     std::string message;
+    // The same sentence as a pattern with %1 to %9 and the texts that fill
+    // them, so that an interface can show it in another language:
+    // `fillPattern(messagePattern, messageArguments)` is `message`, after
+    // "Slot N: " (N being `slot`) when `slotPrefix` is set.
+    std::string_view messagePattern;
+    std::vector<std::string> messageArguments;
+    bool slotPrefix = false;
     // Where the rule comes from.
     std::string_view evidence;
     // Exact bytes concerned. For truncation: the bytes that are missing.
@@ -78,6 +86,13 @@ struct RuleInfo {
 };
 // Every rule the doctor can report, for documentation and filtering.
 [[nodiscard]] std::span<const RuleInfo> doctorRules();
+// Every pattern a finding's `messagePattern` can be, for translation
+// catalogues.
+[[nodiscard]] std::span<const std::string_view> doctorMessagePatterns();
+// The pattern with each %1 to %9 replaced by the argument of that number
+// (nothing when there is none).
+[[nodiscard]] std::string fillPattern(std::string_view pattern,
+                                      std::span<const std::string> arguments);
 
 [[nodiscard]] std::string_view severityName(Severity severity);
 [[nodiscard]] std::string_view confidenceName(Confidence confidence);

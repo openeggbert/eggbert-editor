@@ -12,4 +12,6 @@ Rules checked by the `translation` test: a translation keeps the placeholders of
 
 The names in the game catalogs (tile entries, objects, groups, border families) are plain English in `src/world`; `src/app/catalog_texts.cpp` lists them for the tools under the context `eggbert::Catalog`, and the interface shows them through `catalogText()`. When a catalog gains a name, add it to that list (the `translation` test fails until it is there).
 
+World Doctor's findings are composed in `src/world/doctor.cpp` from patterns (`%1` to `%9`) and arguments; `src/app/doctor_texts.cpp` lists the patterns under the context `eggbert::Doctor` and `findingText()` fills the translated pattern with the same arguments. When a rule gains a sentence, add its pattern to both lists (the `doctor` and `translation` tests fail until it is there).
+
 To add a language, add its catalogue here, list the file in `CMakeLists.txt` next to the Czech one, and add the language code to `availableLanguages()` and to the Preferences dialog.

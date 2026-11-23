@@ -67,6 +67,7 @@
 #include "app/encyclopedia_dialog.hpp"
 #include "app/installation_panel.hpp"
 #include "app/demo_viewer.hpp"
+#include "app/doctor_texts.hpp"
 #include "app/stamp_thumbnail.hpp"
 #include "app/svg_export.hpp"
 #include "app/text_world_editor.hpp"
@@ -2966,7 +2967,7 @@ bool MainWindow::locateFinding(const Finding &finding) {
         showInInspector(finding.range.offset,
                         std::min(finding.range.size, size - finding.range.offset));
     }
-    statusBar()->showMessage(QString::fromStdString(finding.message), 10000);
+    statusBar()->showMessage(findingText(finding), 10000);
     return true;
 }
 

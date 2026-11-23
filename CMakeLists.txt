@@ -104,6 +104,7 @@ qt_add_library(eggbert_app STATIC
     src/app/deploy_store.cpp
     src/app/catalog_translator.cpp
     src/app/catalog_texts.cpp
+    src/app/doctor_texts.cpp
     src/app/campaign_pack.cpp
     src/app/recovery_store.hpp
     src/app/smoke_test.cpp

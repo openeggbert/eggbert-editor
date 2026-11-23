@@ -5,6 +5,7 @@
 #include "fixture.hpp"
 
 #include <algorithm>
+#include <cstdio>
 #include <functional>
 #include <set>
 #include <string>
@@ -34,11 +35,31 @@ Bytes cleanWorld(const FixtureLayout &layout = fxRevision13, std::size_t surplus
     return bytes;
 }
 
+// Patterns seen in any audit of this test.
+std::set<std::string> &usedPatterns() {
+    static std::set<std::string> patterns;
+    return patterns;
+}
+
 DoctorReport audit(const Bytes &bytes, GameProfile profile) {
     const auto snapshot = bytes;
     const WorldView view(bytes);
     auto report = runDoctor(view, profile);
     CHECK(bytes == snapshot); // the doctor never mutates
+    // Every sentence is one of the listed patterns filled with its
+    // arguments (after "Slot N: " for the rules about one object), so an
+    // interface in another language can rebuild it exactly.
+    const auto listed = doctorMessagePatterns();
+    for (const auto &finding : report.findings) {
+        CHECK(std::ranges::find(listed, finding.messagePattern) != listed.end());
+        auto rebuilt = fillPattern(finding.messagePattern, finding.messageArguments);
+        if (finding.slotPrefix) {
+            CHECK(finding.slot.has_value());
+            rebuilt = "Slot " + std::to_string(finding.slot.value_or(0)) + ": " + rebuilt;
+        }
+        CHECK(rebuilt == finding.message);
+        usedPatterns().insert(std::string(finding.messagePattern));
+    }
     return report;
 }
 
@@ -466,6 +487,54 @@ int main() {
         CHECK_EQ(first.count(Severity::warning), std::size_t{3});
         CHECK(severityName(Severity::warning) == "warning");
         CHECK(!confidenceName(Confidence::estimate).empty());
+    }
+    // The reachability sentences (the estimate itself is tested in
+    // reachability_test): a treasure and a goal walled in by solid tiles.
+    {
+        auto bytes = cleanWorld();
+        for (std::size_t offset = 0; offset < 5; ++offset) {
+            for (const auto &[x, y] : {std::pair{60 + offset, std::size_t{60}},
+                                       std::pair{60 + offset, std::size_t{64}},
+                                       std::pair{std::size_t{60}, 60 + offset},
+                                       std::pair{std::size_t{64}, 60 + offset}}) {
+                put16(bytes, fxCellOffset(fxForegroundOffset, x, y), 30);
+            }
+        }
+        const auto walledIn = [&](std::size_t slot, int type, int x, int y) {
+            const auto at = fxSlotOffset(fxRevision13, slot);
+            put16(bytes, at, type);
+            for (const std::size_t field : {12u, 20u, 28u}) {
+                put32(bytes, at + field, x * 64 + 2);
+                put32(bytes, at + field + 4, y * 64 + 4);
+            }
+            put16(bytes, at + 42, 10);
+        };
+        walledIn(0, 5, 62, 62);
+        walledIn(1, 7, 62, 63);
+        const auto report = audit(bytes, sb1);
+        CHECK_EQ(report.countRule("REACH-CUT-OFF"), std::size_t{2});
+        const auto *finding = report.first("REACH-CUT-OFF");
+        CHECK(finding != nullptr && finding->message.starts_with("The treasure in slot 0 at ("));
+        CHECK(finding != nullptr && !finding->slotPrefix);
+    }
+
+    // Filling a pattern: each placeholder by number, in any order and more
+    // than once; a missing argument leaves nothing; other percent signs stay.
+    {
+        const std::vector<std::string> arguments{"a", "b"};
+        CHECK_EQ(fillPattern("%2 before %1, %1 again", arguments), std::string("b before a, a again"));
+        CHECK_EQ(fillPattern("100% of %1 and %3.", arguments), std::string("100% of a and ."));
+        CHECK_EQ(fillPattern("ends with %", arguments), std::string("ends with %"));
+        CHECK_EQ(fillPattern("", arguments), std::string());
+    }
+    // Every listed pattern is produced by some world of this test, so none
+    // is listed without being checked above.
+    for (const auto pattern : doctorMessagePatterns()) {
+        if (!usedPatterns().contains(std::string(pattern))) {
+            std::fprintf(stderr, "pattern never produced: %.*s\n",
+                         static_cast<int>(pattern.size()), pattern.data());
+            CHECK(!"a listed pattern is never produced in this test");
+        }
     }
     return test::finish("doctor");
 }
