@@ -2,6 +2,7 @@
 #pragma once
 
 #include <QMainWindow>
+#include <QPointer>
 
 #include <functional>
 #include <optional>
@@ -171,6 +172,7 @@ class MusicPlayer;
 class PalettePanel;
 class EncyclopediaDialog;
 class InstallationPanel;
+class TextWorldEditor;
 class StatisticsPanel;
 
 class MainWindow final : public QMainWindow {
@@ -299,6 +301,10 @@ public:
     // Asks for the game and a file, writes the world the games' editors
     // start with and opens it; returns the new tab or null.
     DocumentTab *createWorld();
+    // Opens a Mobile Eggbert text world in its own editing window (or
+    // raises the window that already has it). Null when it cannot be read.
+    TextWorldEditor *openTextWorld(const QString &path);
+    [[nodiscard]] std::vector<TextWorldEditor *> textWorldEditors() const;
     // Merges what another world changed since a common base into the tab
     // (which is "mine"), with every conflict decided by the user, as one
     // undo step. True when the tab changed.
@@ -396,6 +402,7 @@ private:
     ObjectsPanel *objects_ = nullptr;
     PalettePanel *palette_ = nullptr;
     EncyclopediaDialog *encyclopedia_ = nullptr;
+    std::vector<QPointer<TextWorldEditor>> textEditors_;
     QDockWidget *installationDock_ = nullptr;
     InstallationPanel *installation_ = nullptr;
     DeployStore deployStore_;

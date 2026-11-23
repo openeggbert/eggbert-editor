@@ -47,9 +47,9 @@ Verification on 2026-11-22, Ubuntu 24.04, GCC 13.3.0, CMake 3.28.3, Ninja, Qt 6.
 ```sh
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
 cmake --build build --parallel              # no warnings
-ctest --test-dir build --output-on-failure  # 68/68 passed (69 registered): layout, le_reader, world_probe, world_view, world_document, world_stats, offset_map, tile_tools, metadata, object_ops, hex_model, doctor, adaptive, animation, atlas_table, editor_groups, revision_convert, new_world, encyclopedia, expert_edit, custom_border, game_convert, installation, campaign, campaign_doors, reachability, stamp, text_world, merge, view_transform, probe_report, document_file, recovery_store, deploy_store, campaign_pack, cli, world_renderer, png_export, game_assets, main_window, docks, tools, metadata_ui, objects_ui, inspector, doctor_ui, adaptive_ui, workspace, artwork_ui, palette, music_player, animation_ui, interface_ui, recovery_ui, convert_ui, new_world_ui, encyclopedia_ui, experimental_ui, convert_game_ui, installation_ui, campaign_ui, stamps_ui, merge_ui, translation, cli_usage, smoke, version, install_smoke; sample_matrix skipped without EGGBERT_SAMPLE_DIRS
+ctest --test-dir build --output-on-failure  # 70/70 passed (71 registered): layout, le_reader, world_probe, world_view, world_document, world_stats, offset_map, tile_tools, metadata, object_ops, hex_model, doctor, adaptive, animation, atlas_table, editor_groups, revision_convert, new_world, encyclopedia, expert_edit, custom_border, game_convert, installation, campaign, campaign_doors, reachability, stamp, text_world, text_world_document, merge, view_transform, probe_report, document_file, recovery_store, deploy_store, campaign_pack, cli, world_renderer, png_export, game_assets, main_window, docks, tools, metadata_ui, objects_ui, inspector, doctor_ui, adaptive_ui, workspace, artwork_ui, palette, music_player, animation_ui, interface_ui, recovery_ui, convert_ui, new_world_ui, encyclopedia_ui, experimental_ui, convert_game_ui, installation_ui, campaign_ui, stamps_ui, merge_ui, text_world_editor, translation, cli_usage, smoke, version, install_smoke; sample_matrix skipped without EGGBERT_SAMPLE_DIRS
 cmake -S . -B build-asan -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DEGGBERT_SANITIZE=ON
-cmake --build build-asan --parallel && ctest --test-dir build-asan   # 68/68 passed under ASan/UBSan, sample_matrix skipped
+cmake --build build-asan --parallel && ctest --test-dir build-asan   # 70/70 passed under ASan/UBSan, sample_matrix skipped
 ```
 
 Commit `c8f7a77` (binary inspector) was pushed green in Release but with a use-after-free that the sanitizer run reported in `main_window` (the hex views kept a pointer to the document replaced by Revert/Reload); the next commit fixes it with `DocumentTab::documentReplaced` and a regression check in `inspector`. Always run the sanitizer suite to completion before committing.
@@ -92,7 +92,7 @@ Slices A–M are done as far as they could be verified here; of slice N the thre
 
 1. **A hosted CI run** (needs the owner: a pull request or a push to `main`/`develop`). It would exercise the Linux jobs on GitHub's runners and give the first real result for the `windows-untested` and `macos-untested` jobs.
 2. **The rest of the Czech catalogue** (292 of 838 texts are still English, and the catalog names of tiles and objects are not translatable yet) and a Czech guide.
-3. **Editing Mobile Eggbert text worlds in the window.** The codec (`src/world/text_world.hpp`) already changes single tokens losslessly; what is missing is a document tab that uses it. It needs its own design for tools, validation and rendering because none of the BLP catalogs may be assumed to apply.
+3. **More for Mobile Eggbert text worlds**: adding and removing object lines, selections and shapes, and names or pictures for its tiles and objects — the last only with evidence from that project, which was not gathered.
 4. **Stamps:** thumbnails and a ghost under the cursor before placing.
 5. **A reachability estimate with movement** (jumps, falls, lifts), if a bound can be cited from the sources.
 6. **Compressed ZIP packs** (a decompressor would be a new dependency or a sizeable piece of code).
@@ -112,7 +112,7 @@ The plan allows this slice "only with a verifiable design; otherwise documented 
 - Product surface, deliberately small: `eggbert-editor info FILE` and opening such a file in the window show the description (no tab, no editing). **No conversion to or from BLP**, in line with the plan's permanent non-goal; the BLP converters refuse such a file.
 - Tests: `text_world` (fixtures built in the test: byte-exact round trip for several endings, CR LF and stray bytes; every reader; each edit changing exactly one token; unknown fields and lines kept; refusals; every shape problem), `cli`, `interface_ui`.
 - Checked privately and read-only against that project's 78 worlds: all 78 round-trip byte for byte with no shape problem.
-- Not done: a tab that edits these worlds (see the list above).
+- **Editing window (added 2026-11-23 at the owner's request):** `src/world/text_world_document.hpp` (edits as single-token replacements, undo and redo restoring exact text, bounded history) and `src/app/text_world_editor.hpp` (a window per file: map with numbered colours, painting and picking in either block, header fields, object table, problems list, conflict-checked atomic Save, Save As, a question before closing with unsaved changes). Opening a text world now opens this window instead of a report. Tests: `text_world_document`, `text_world_editor`, `interface_ui`. Checked by eye once on one of that project's worlds (opened only, not saved; that repository is unchanged). Not done: adding or removing objects, selections and shapes, any names or pictures (see the list above).
 
 ### Slice L result (2026-11-23): Czech interface, accessibility, other platforms
 
@@ -275,7 +275,7 @@ Order and acceptance are in `plan.md`, **Promotion of the roadmap**. Tick a slic
 - [x] J Stamps, alignment, replace in all open worlds
 - [x] K Element encyclopedia and installation gallery (the Installation dock's world list)
 - [x] L Czech interface (546 of 838 texts), accessibility names, Windows/macOS configurations (untested)
-- [x] M Mobile Eggbert text worlds: lossless codec and description (no editing tab, no conversion)
+- [x] M Mobile Eggbert text worlds: lossless codec, description and an editing window (no conversion)
 - [ ] N Three-way merge (done: `merge` command) and playtest traces (not started: no verifiable design)
 
 ## Explicit non-goals

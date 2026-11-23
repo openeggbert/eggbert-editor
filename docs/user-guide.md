@@ -269,7 +269,16 @@ Exit codes: 0 success, 1 findings, differences, a refused loss or merge conflict
 
 Mobile Eggbert, the port of the phone game, stores its worlds as text files (`world011.txt`): one `DescFile:` line of `name=value` fields, a `Decor:` and a `BigDecor:` block with one comma-separated line per map column, and one `MoveObject:` line per object. They are a different kind of document from the BLP worlds of the Windows games.
 
-The editor recognises such a file and describes it — header values, occupied cells of each block, objects by type, and anything that does not have the expected shape, with its line number — when you open it (a report window; no tab is opened) or run `eggbert-editor info FILE`. It does not edit these files in the window and it never converts between them and BLP worlds, in either direction: the two formats belong to different games, and a conversion would have to invent what one of them cannot say.
+Opening such a file (File → Open World, a file on the command line, or a drop) does not create a tab: it opens a window of its own for that world.
+
+- The **map** shows `Decor` cells as coloured squares, with their number inside when the cells are large enough (the size is set in the tool row), `BigDecor` cells as dashed outlines, objects as circles with their type and the start as a diamond. No pictures, names or rules of the Windows games are applied here, because nothing establishes that they hold for this game.
+- Choose the block (**Decor** or **BigDecor**) and a tile number, then click or drag on the map to write it; -1 empties a cell. A right click picks the number under the pointer.
+- The **World** page edits `music`, `region`, `blupiDir` and `blupiPos`; the **Objects** page is a table of each object's numbers, edited in place. A field the file does not have is shown empty and cannot be typed into existence; an entry that is not a number is refused and the stored number shown again. No ranges are enforced: none are verified for this game.
+- The **Problems** page lists whatever does not have the expected shape, with its line number.
+- Every edit replaces exactly one token of one line; everything else — spacing, line ends, unknown fields and lines — is written back byte for byte. **Undo** and **Redo** (Ctrl+Z, Ctrl+Shift+Z) restore the exact earlier text.
+- **Save** (Ctrl+S) writes through a temporary file that replaces the original in one step. If the file was changed or removed on disk since it was opened, nothing is written and you are told; **Save As** keeps your version under another name. Closing the window, or the editor, with unsaved changes asks first.
+
+`eggbert-editor info FILE` describes such a file without a window. These worlds are never converted to or from BLP, in either direction: the two formats belong to different games, and a conversion would have to invent what one of them cannot say.
 
 ## What the editor does not do
 

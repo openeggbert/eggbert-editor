@@ -65,6 +65,7 @@
 #include "app/cli.hpp"
 #include "app/encyclopedia_dialog.hpp"
 #include "app/installation_panel.hpp"
+#include "app/text_world_editor.hpp"
 #include "app/tool_icons.hpp"
 #include "world/new_world.hpp"
 #include "world/campaign_doors.hpp"
@@ -2937,19 +2938,17 @@ DocumentTab *MainWindow::openPath(const QString &path) {
             return tabAt(index);
         }
     }
-    // A Mobile Eggbert text world is a different kind of document: it is
-    // described, not opened for editing, and never converted.
+    // A Mobile Eggbert text world is a different kind of document: it gets
+    // an editing window of its own and is never converted.
     {
         QFile file(path);
         if (file.size() <= 4 * 1024 * 1024 && file.open(QIODevice::ReadOnly)) {
             const auto bytes = file.readAll();
             const std::string_view text(bytes.constData(), static_cast<std::size_t>(bytes.size()));
             if (looksLikeTextWorld(text)) {
-                prompts.showReport(
-                    tr("Mobile Eggbert Text World"),
-                    QFileInfo(path).fileName() + QLatin1Char('\n') +
-                        QString::fromStdString(TextWorld::parse(text).describe()));
-                return nullptr;
+                file.close();
+                openTextWorld(path);
+                return nullptr; // not a BLP tab: it has a window of its own
             }
         }
     }
@@ -3271,6 +3270,39 @@ void MainWindow::setCurrentTab(DocumentTab *tab) {
     if (const auto index = tabs_->indexOf(tab); index >= 0) {
         tabs_->setCurrentIndex(index);
     }
+}
+
+TextWorldEditor *MainWindow::openTextWorld(const QString &path) {
+    const QFileInfo wanted(path);
+    for (auto *editor : textWorldEditors()) {
+        if (QFileInfo(editor->path()) == wanted) {
+            editor->show();
+            editor->raise();
+            editor->activateWindow();
+            return editor;
+        }
+    }
+    QString error;
+    auto *editor = TextWorldEditor::open(path, this, &error);
+    if (editor == nullptr) {
+        prompts.error(tr("Mobile Eggbert Text World"), error);
+        return nullptr;
+    }
+    textEditors_.emplace_back(editor);
+    editor->show();
+    statusBar()->showMessage(
+        tr("%1 is a Mobile Eggbert text world: opened in its own window").arg(path), 8000);
+    return editor;
+}
+
+std::vector<TextWorldEditor *> MainWindow::textWorldEditors() const {
+    std::vector<TextWorldEditor *> editors;
+    for (const auto &editor : textEditors_) {
+        if (editor != nullptr) {
+            editors.push_back(editor.data());
+        }
+    }
+    return editors;
 }
 
 bool MainWindow::mergeInto(DocumentTab *tab) {
@@ -4102,6 +4134,13 @@ bool MainWindow::closeTab(DocumentTab *tab) {
 void MainWindow::closeEvent(QCloseEvent *event) {
     while (tabCount() > 0) {
         if (!closeTab(tabAt(tabCount() - 1))) {
+            event->ignore();
+            return;
+        }
+    }
+    // Text-world windows ask about their own unsaved changes.
+    for (auto *editor : textWorldEditors()) {
+        if (!editor->close()) {
             event->ignore();
             return;
         }

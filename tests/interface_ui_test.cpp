@@ -231,14 +231,10 @@ int main(int argc, char **argv) {
     }
     CHECK(directoryDigest(first.root) == firstDigest);
     CHECK(directoryDigest(second.root) == secondDigest);
-    // A Mobile Eggbert text world is described in a report and opens no tab.
+    // A Mobile Eggbert text world opens in a window of its own, not in a tab.
     {
         MainWindow window;
-        QStringList reports;
         QStringList errors;
-        window.prompts.showReport = [&](const QString &title, const QString &text) {
-            reports << title + "\n" + text;
-        };
         window.prompts.error = [&](const QString &, const QString &text) { errors << text; };
         QTemporaryDir textDir;
         const auto textPath = textDir.filePath("world020.txt");
@@ -251,10 +247,10 @@ int main(int argc, char **argv) {
         CHECK(window.openPath(textPath) == nullptr);
         CHECK_EQ(window.tabCount(), 0);
         CHECK(errors.isEmpty());
-        CHECK_EQ(reports.size(), qsizetype{1});
-        CHECK(reports[0].startsWith("Mobile Eggbert Text World\nworld020.txt"));
-        CHECK(reports[0].contains("music 1; region 2"));
-        CHECK(reports[0].contains("problem(s):")); // this little file is incomplete
+        CHECK_EQ(window.textWorldEditors().size(), std::size_t{1});
+        // Opening it again raises the same window.
+        CHECK(window.openPath(textPath) == nullptr);
+        CHECK_EQ(window.textWorldEditors().size(), std::size_t{1});
         QFile again(textPath);
         CHECK(again.open(QIODevice::ReadOnly) && again.readAll() == content);
     }

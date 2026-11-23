@@ -1,0 +1,466 @@
+// SPDX-License-Identifier: GPL-3.0-only
+#include "app/text_world_editor.hpp"
+
+#include <QCloseEvent>
+#include <QComboBox>
+#include <QFile>
+#include <QFileDialog>
+#include <QFileInfo>
+#include <QFormLayout>
+#include <QHBoxLayout>
+#include <QHeaderView>
+#include <QLabel>
+#include <QListWidget>
+#include <QMessageBox>
+#include <QMouseEvent>
+#include <QPainter>
+#include <QPushButton>
+#include <QSaveFile>
+#include <QScrollArea>
+#include <QShortcut>
+#include <QSpinBox>
+#include <QTabWidget>
+#include <QTableWidget>
+#include <QVBoxLayout>
+
+namespace eggbert {
+
+namespace {
+
+constexpr qint64 largestFile = 4 * 1024 * 1024;
+
+struct ObjectColumn {
+    const char *field;
+    // 0 a single value, 1 the x of a point, 2 its y.
+    int part;
+    const char *title;
+};
+
+constexpr ObjectColumn objectColumns[] = {
+    {"type", 0, "type"},           {"stepAdvance", 0, "stepAdvance"},
+    {"stepRecede", 0, "stepRecede"}, {"timeStopStart", 0, "timeStopStart"},
+    {"timeStopEnd", 0, "timeStopEnd"}, {"posStart", 1, "posStart x"},
+    {"posStart", 2, "posStart y"}, {"posEnd", 1, "posEnd x"},
+    {"posEnd", 2, "posEnd y"},     {"channel", 0, "channel"},
+    {"icon", 0, "icon"},
+};
+
+QColor tileColor(long long value) {
+    return QColor::fromHsv(static_cast<int>((value * 47) % 360), 150, 200);
+}
+
+std::optional<std::string> readText(const QString &path) {
+    QFile file(path);
+    if (file.size() > largestFile || !file.open(QIODevice::ReadOnly)) {
+        return std::nullopt;
+    }
+    const auto bytes = file.readAll();
+    return std::string(bytes.constData(), static_cast<std::size_t>(bytes.size()));
+}
+
+} // namespace
+
+TextWorldCanvas::TextWorldCanvas(QWidget *parent) : QWidget(parent) {
+    setCellSize(cell_);
+    setMouseTracking(false);
+    setAccessibleName(tr("Map of the text world"));
+}
+
+void TextWorldCanvas::setWorld(const TextWorld *world) {
+    world_ = world;
+    update();
+}
+
+void TextWorldCanvas::setCellSize(int pixels) {
+    cell_ = std::clamp(pixels, 4, 48);
+    setFixedSize(static_cast<int>(layout::mapWidth) * cell_,
+                 static_cast<int>(layout::mapHeight) * cell_);
+    update();
+}
+
+void TextWorldCanvas::paintEvent(QPaintEvent *event) {
+    QPainter painter(this);
+    painter.fillRect(event->rect(), QColor(24, 26, 32));
+    if (world_ == nullptr) {
+        return;
+    }
+    const int first = std::max(0, event->rect().left() / cell_);
+    const int last = std::min(static_cast<int>(layout::mapWidth) - 1, event->rect().right() / cell_);
+    auto font = painter.font();
+    font.setPixelSize(std::max(6, cell_ / 2));
+    painter.setFont(font);
+    for (int x = first; x <= last; ++x) {
+        for (int y = 0; y < static_cast<int>(layout::mapHeight); ++y) {
+            const QRect box(x * cell_, y * cell_, cell_, cell_);
+            const auto back = world_->tile(SectionKind::bigDecor, static_cast<std::size_t>(x),
+                                           static_cast<std::size_t>(y));
+            const auto tile = world_->tile(SectionKind::foreground, static_cast<std::size_t>(x),
+                                           static_cast<std::size_t>(y));
+            if (tile && *tile != -1) {
+                painter.fillRect(box.adjusted(0, 0, -1, -1), tileColor(*tile));
+                if (cell_ >= 20) {
+                    painter.setPen(Qt::black);
+                    painter.drawText(box, Qt::AlignCenter, QString::number(*tile));
+                }
+            }
+            if (back && *back != -1) {
+                painter.setPen(QPen(tileColor(*back).lighter(140), 1, Qt::DashLine));
+                painter.drawRect(box.adjusted(1, 1, -2, -2));
+            }
+        }
+    }
+    painter.setRenderHint(QPainter::Antialiasing);
+    const auto mark = [&](Point position, const QString &label, const QColor &color, bool diamond) {
+        const QPointF centre((position.x + 32.0) * cell_ / 64.0, (position.y + 32.0) * cell_ / 64.0);
+        const double radius = std::max(3.0, cell_ * 0.45);
+        painter.setPen(QPen(Qt::white, 1));
+        painter.setBrush(color);
+        if (diamond) {
+            const QPointF points[] = {centre + QPointF(0, -radius), centre + QPointF(radius, 0),
+                                      centre + QPointF(0, radius), centre + QPointF(-radius, 0)};
+            painter.drawPolygon(points, 4);
+        } else {
+            painter.drawEllipse(centre, radius, radius);
+        }
+        if (cell_ >= 16) {
+            painter.setPen(Qt::black);
+            painter.drawText(QRectF(centre.x() - radius, centre.y() - radius, 2 * radius, 2 * radius),
+                             Qt::AlignCenter, label);
+        }
+    };
+    for (std::size_t index = 0; index < world_->objectCount(); ++index) {
+        const auto start = world_->objectPoint(index, "posStart");
+        const auto type = world_->objectValue(index, "type");
+        if (start) {
+            mark(*start, type ? QString::number(*type) : QStringLiteral("?"), QColor(255, 200, 60),
+                 false);
+        }
+    }
+    if (const auto start = world_->headerPoint("blupiPos")) {
+        mark(*start, QStringLiteral("S"), QColor(120, 220, 255), true);
+    }
+}
+
+void TextWorldCanvas::mousePressEvent(QMouseEvent *event) {
+    const auto position = event->position().toPoint();
+    const int x = position.x() / cell_;
+    const int y = position.y() / cell_;
+    if (x >= 0 && y >= 0 && x < static_cast<int>(layout::mapWidth) &&
+        y < static_cast<int>(layout::mapHeight)) {
+        emit cellClicked(x, y, event->button() == Qt::RightButton);
+    }
+}
+
+void TextWorldCanvas::mouseMoveEvent(QMouseEvent *event) {
+    // Dragging with the left button paints along the way.
+    if ((event->buttons() & Qt::LeftButton) != 0) {
+        const auto position = event->position().toPoint();
+        const int x = position.x() / cell_;
+        const int y = position.y() / cell_;
+        if (x >= 0 && y >= 0 && x < static_cast<int>(layout::mapWidth) &&
+            y < static_cast<int>(layout::mapHeight)) {
+            emit cellClicked(x, y, false);
+        }
+    }
+}
+
+TextWorldEditor *TextWorldEditor::open(const QString &path, QWidget *parent, QString *error) {
+    auto text = readText(path);
+    if (!text) {
+        if (error != nullptr) {
+            *error = tr("%1 cannot be read (or is larger than 4 MiB).").arg(path);
+        }
+        return nullptr;
+    }
+    return new TextWorldEditor(path, std::move(*text), parent);
+}
+
+TextWorldEditor::TextWorldEditor(QString path, std::string text, QWidget *parent)
+    : QWidget(parent, Qt::Window), path_(std::move(path)),
+      document_(std::make_unique<TextWorldDocument>(text)), disk_(std::move(text)) {
+    setAttribute(Qt::WA_DeleteOnClose);
+    setObjectName(QStringLiteral("textWorldEditor"));
+    showError = [this](const QString &message) {
+        QMessageBox::warning(this, tr("Mobile Eggbert Text World"), message);
+    };
+    confirmDiscard = [this] {
+        return QMessageBox::question(this, tr("Mobile Eggbert Text World"),
+                                     tr("%1 has unsaved changes. Close without saving?")
+                                         .arg(QFileInfo(path_).fileName())) == QMessageBox::Yes;
+    };
+    saveAsPath = [this](const QString &suggested) {
+        return QFileDialog::getSaveFileName(this, tr("Save Text World As"), suggested,
+                                            tr("Text worlds (*.txt);;All files (*)"));
+    };
+
+    auto *layout = new QVBoxLayout(this);
+    auto *bar = new QHBoxLayout;
+    save_ = new QPushButton(tr("Save"), this);
+    save_->setObjectName(QStringLiteral("textWorldSave"));
+    auto *saveAsButton = new QPushButton(tr("Save As..."), this);
+    undo_ = new QPushButton(tr("Undo"), this);
+    undo_->setObjectName(QStringLiteral("textWorldUndo"));
+    redo_ = new QPushButton(tr("Redo"), this);
+    redo_->setObjectName(QStringLiteral("textWorldRedo"));
+    layer_ = new QComboBox(this);
+    layer_->setObjectName(QStringLiteral("textWorldLayer"));
+    layer_->setAccessibleName(tr("Block the map paints into"));
+    layer_->addItem(QStringLiteral("Decor"), static_cast<int>(SectionKind::foreground));
+    layer_->addItem(QStringLiteral("BigDecor"), static_cast<int>(SectionKind::bigDecor));
+    value_ = new QSpinBox(this);
+    value_->setObjectName(QStringLiteral("textWorldValue"));
+    value_->setAccessibleName(tr("Tile number to paint (-1 empties the cell)"));
+    value_->setRange(static_cast<int>(TextWorldDocument::smallestTile),
+                     static_cast<int>(TextWorldDocument::largestTile));
+    value_->setPrefix(tr("Tile "));
+    auto *zoom = new QSpinBox(this);
+    zoom->setAccessibleName(tr("Cell size in pixels"));
+    zoom->setRange(4, 48);
+    zoom->setSuffix(tr(" px"));
+    for (auto *widget : {static_cast<QWidget *>(save_), static_cast<QWidget *>(saveAsButton),
+                         static_cast<QWidget *>(undo_), static_cast<QWidget *>(redo_),
+                         static_cast<QWidget *>(layer_), static_cast<QWidget *>(value_),
+                         static_cast<QWidget *>(zoom)}) {
+        bar->addWidget(widget);
+    }
+    bar->addStretch(1);
+    layout->addLayout(bar);
+    auto *hint = new QLabel(
+        tr("Click or drag on the map to write the tile number into the chosen block; right-click "
+           "picks a cell's number. Tiles are shown as numbered colours: no pictures or rules of "
+           "the Windows games are applied, and nothing is converted."),
+        this);
+    hint->setWordWrap(true);
+    layout->addWidget(hint);
+
+    auto *columns = new QHBoxLayout;
+    canvas_ = new TextWorldCanvas(this);
+    zoom->setValue(canvas_->cellSize());
+    auto *scroll = new QScrollArea(this);
+    scroll->setWidget(canvas_);
+    columns->addWidget(scroll, 3);
+
+    auto *tabs = new QTabWidget(this);
+    auto *worldPage = new QWidget(tabs);
+    auto *form = new QFormLayout(worldPage);
+    const auto spin = [&](const QString &name, const QString &label) {
+        auto *box = new QSpinBox(worldPage);
+        box->setObjectName(name);
+        box->setAccessibleName(label);
+        box->setRange(-1'000'000, 1'000'000);
+        box->setKeyboardTracking(false);
+        form->addRow(label, box);
+        return box;
+    };
+    music_ = spin(QStringLiteral("textWorldMusic"), QStringLiteral("music"));
+    region_ = spin(QStringLiteral("textWorldRegion"), QStringLiteral("region"));
+    direction_ = spin(QStringLiteral("textWorldDirection"), QStringLiteral("blupiDir"));
+    startX_ = spin(QStringLiteral("textWorldStartX"), QStringLiteral("blupiPos x"));
+    startY_ = spin(QStringLiteral("textWorldStartY"), QStringLiteral("blupiPos y"));
+    tabs->addTab(worldPage, tr("World"));
+    objects_ = new QTableWidget(tabs);
+    objects_->setObjectName(QStringLiteral("textWorldObjects"));
+    objects_->setAccessibleName(tr("Objects of the text world"));
+    objects_->setColumnCount(static_cast<int>(std::size(objectColumns)));
+    QStringList titles;
+    for (const auto &column : objectColumns) {
+        titles << QString::fromLatin1(column.title);
+    }
+    objects_->setHorizontalHeaderLabels(titles);
+    objects_->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
+    tabs->addTab(objects_, tr("Objects"));
+    problems_ = new QListWidget(tabs);
+    problems_->setObjectName(QStringLiteral("textWorldProblems"));
+    problems_->setAccessibleName(tr("Shape problems of the file"));
+    problems_->setWordWrap(true);
+    tabs->addTab(problems_, tr("Problems"));
+    columns->addWidget(tabs, 2);
+    layout->addLayout(columns, 1);
+    status_ = new QLabel(this);
+    status_->setObjectName(QStringLiteral("textWorldStatus"));
+    layout->addWidget(status_);
+
+    connect(save_, &QPushButton::clicked, this, [this] { save(); });
+    connect(saveAsButton, &QPushButton::clicked, this, [this] {
+        const auto target = saveAsPath(path_);
+        if (!target.isEmpty()) {
+            saveAs(target);
+        }
+    });
+    connect(undo_, &QPushButton::clicked, this, [this] {
+        if (document_->undo()) {
+            refresh();
+        }
+    });
+    connect(redo_, &QPushButton::clicked, this, [this] {
+        if (document_->redo()) {
+            refresh();
+        }
+    });
+    connect(zoom, &QSpinBox::valueChanged, canvas_, &TextWorldCanvas::setCellSize);
+    connect(canvas_, &TextWorldCanvas::cellClicked, this, [this](int x, int y, bool pick) {
+        if (pick) {
+            pickCell(static_cast<std::size_t>(x), static_cast<std::size_t>(y));
+        } else {
+            paintCell(static_cast<std::size_t>(x), static_cast<std::size_t>(y));
+        }
+    });
+    const auto header = [this](QSpinBox *box, const char *name) {
+        connect(box, &QSpinBox::valueChanged, this, [this, name](int value) {
+            if (!refreshing_ && document_->setHeaderValue(name, value)) {
+                refresh();
+            }
+        });
+    };
+    header(music_, "music");
+    header(region_, "region");
+    header(direction_, "blupiDir");
+    const auto startChanged = [this] {
+        if (!refreshing_ && document_->setHeaderPoint("blupiPos", {startX_->value(), startY_->value()})) {
+            refresh();
+        }
+    };
+    connect(startX_, &QSpinBox::valueChanged, this, startChanged);
+    connect(startY_, &QSpinBox::valueChanged, this, startChanged);
+    connect(objects_, &QTableWidget::cellChanged, this, [this](int row, int column) {
+        if (refreshing_) {
+            return;
+        }
+        const auto &what = objectColumns[column];
+        bool ok = false;
+        const auto value = objects_->item(row, column)->text().trimmed().toInt(&ok);
+        const auto index = static_cast<std::size_t>(row);
+        if (ok && what.part == 0) {
+            document_->setObjectValue(index, what.field, value);
+        } else if (ok) {
+            if (auto point = document_->world().objectPoint(index, what.field)) {
+                (what.part == 1 ? point->x : point->y) = value;
+                document_->setObjectPoint(index, what.field, *point);
+            }
+        }
+        refresh(); // also puts back the stored number after a rejected entry
+    });
+    new QShortcut(QKeySequence::Save, this, [this] { save(); });
+    new QShortcut(QKeySequence::Undo, this, [this] { undo_->click(); });
+    new QShortcut(QKeySequence::Redo, this, [this] { redo_->click(); });
+    resize(1200, 800);
+    refresh();
+}
+
+SectionKind TextWorldEditor::currentLayer() const {
+    return static_cast<SectionKind>(layer_->currentData().toInt());
+}
+
+bool TextWorldEditor::paintCell(std::size_t x, std::size_t y) {
+    if (!document_->setTile(currentLayer(), x, y, value_->value())) {
+        return false;
+    }
+    refresh();
+    return true;
+}
+
+void TextWorldEditor::pickCell(std::size_t x, std::size_t y) {
+    if (const auto stored = document_->world().tile(currentLayer(), x, y)) {
+        value_->setValue(static_cast<int>(*stored));
+    }
+}
+
+bool TextWorldEditor::write(const QString &path, bool checkDisk) {
+    if (checkDisk) {
+        // Something else changed or removed the file since it was read.
+        const auto now = readText(path);
+        if (!now || *now != disk_) {
+            showError(tr("%1 was changed or removed on disk since it was opened here. Nothing was "
+                         "written; use Save As to keep your version under another name.")
+                          .arg(path));
+            return false;
+        }
+    }
+    const auto text = document_->text();
+    QSaveFile file(path);
+    file.setDirectWriteFallback(false);
+    if (!file.open(QIODevice::WriteOnly) ||
+        file.write(text.data(), static_cast<qint64>(text.size())) !=
+            static_cast<qint64>(text.size()) ||
+        !file.commit()) {
+        showError(tr("%1 could not be written; the file is as it was.").arg(path));
+        return false;
+    }
+    path_ = path;
+    disk_ = text;
+    document_->markSaved();
+    refresh();
+    return true;
+}
+
+bool TextWorldEditor::save() {
+    return document_->isModified() && write(path_, true);
+}
+
+bool TextWorldEditor::saveAs(const QString &path) {
+    return write(path, QFileInfo(path) == QFileInfo(path_));
+}
+
+void TextWorldEditor::closeEvent(QCloseEvent *event) {
+    if (document_->isModified() && !confirmDiscard()) {
+        event->ignore();
+        return;
+    }
+    event->accept();
+}
+
+void TextWorldEditor::refresh() {
+    refreshing_ = true;
+    const auto &world = document_->world();
+    canvas_->setWorld(&world);
+    setWindowTitle(tr("%1%2 - Mobile Eggbert text world")
+                       .arg(QFileInfo(path_).fileName(),
+                            document_->isModified() ? QStringLiteral(" *") : QString()));
+    save_->setEnabled(document_->isModified());
+    undo_->setEnabled(document_->canUndo());
+    redo_->setEnabled(document_->canRedo());
+    undo_->setToolTip(QString::fromStdString(document_->undoLabel()));
+    const auto show = [&](QSpinBox *box, std::optional<long long> value) {
+        box->setEnabled(value.has_value());
+        box->setValue(value ? static_cast<int>(*value) : 0);
+    };
+    show(music_, world.headerValue("music"));
+    show(region_, world.headerValue("region"));
+    show(direction_, world.headerValue("blupiDir"));
+    const auto start = world.headerPoint("blupiPos");
+    show(startX_, start ? std::optional<long long>(start->x) : std::nullopt);
+    show(startY_, start ? std::optional<long long>(start->y) : std::nullopt);
+
+    objects_->setRowCount(static_cast<int>(world.objectCount()));
+    for (std::size_t index = 0; index < world.objectCount(); ++index) {
+        for (int column = 0; column < static_cast<int>(std::size(objectColumns)); ++column) {
+            const auto &what = objectColumns[column];
+            std::optional<long long> value;
+            if (what.part == 0) {
+                value = world.objectValue(index, what.field);
+            } else if (const auto point = world.objectPoint(index, what.field)) {
+                value = what.part == 1 ? point->x : point->y;
+            }
+            auto *item = new QTableWidgetItem(value ? QString::number(*value) : QString());
+            // A field the file does not have cannot be typed into existence.
+            item->setFlags(value ? item->flags() | Qt::ItemIsEditable
+                                 : item->flags() & ~Qt::ItemIsEditable);
+            objects_->setItem(static_cast<int>(index), column, item);
+        }
+    }
+    problems_->clear();
+    const auto found = world.problems();
+    for (const auto &problem : found) {
+        problems_->addItem(QString::fromStdString(problem));
+    }
+    if (found.empty()) {
+        problems_->addItem(tr("The file has the expected shape."));
+    }
+    status_->setText(tr("%1 object(s), %2 shape problem(s)%3")
+                         .arg(world.objectCount())
+                         .arg(found.size())
+                         .arg(document_->isModified() ? tr(" - unsaved changes") : QString()));
+    refreshing_ = false;
+}
+
+} // namespace eggbert
