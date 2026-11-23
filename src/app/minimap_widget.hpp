@@ -40,11 +40,17 @@ protected:
 private:
     void invalidate();
     void panTo(const QPointF &widgetPosition);
+    // Takes over the artwork and game the tab's map is drawn with.
+    void followCanvas();
 
     QPointer<DocumentTab> tab_;
     Mode mode_ = Mode::composite;
     QImage cache_;
     bool dirty_ = true;
+    // What the map is drawn with, so that the small map looks like it:
+    // the game's pictures while drawing with game artwork is on.
+    std::shared_ptr<const GameAssets> artwork_;
+    GameProfile profile_ = GameProfile::unknown;
 };
 
 } // namespace eggbert

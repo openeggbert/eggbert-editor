@@ -119,6 +119,7 @@ void WorldCanvas::setRenderOptions(const RenderOptions &options) {
     }
     options_ = options;
     update();
+    emit renderOptionsChanged();
 }
 
 void WorldCanvas::applyViewChange() {

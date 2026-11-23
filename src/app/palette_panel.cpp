@@ -141,6 +141,7 @@ PalettePanel::PalettePanel(QWidget *parent) : QWidget(parent) {
     hint_ = new QLabel(this);
     hint_->setObjectName(QStringLiteral("paletteHint"));
     hint_->setWordWrap(true);
+    hint_->setAlignment(Qt::AlignTop | Qt::AlignLeft);
     chooseDirectory_ = new QPushButton(tr("Choose Game Directory..."), this);
     chooseDirectory_->setObjectName(QStringLiteral("paletteChooseDirectory"));
     chooseDirectory_->setToolTip(tr("Select the directory of a game you have, to draw tiles and "
@@ -345,6 +346,15 @@ void PalettePanel::setCurrentPreset(const QString &id) {
 
 void PalettePanel::setCurrentBrush(const QString &id) {
     selectByData(brushes_, id);
+}
+
+void PalettePanel::setHasWorld(bool hasWorld) {
+    if (hasWorld_ == hasWorld) {
+        return;
+    }
+    hasWorld_ = hasWorld;
+    tabs_->setVisible(hasWorld_);
+    rebuild();
 }
 
 void PalettePanel::setEditable(bool editable) {
@@ -695,7 +705,11 @@ void PalettePanel::rebuild() {
     const auto *artwork = artwork_.get();
     const auto *info = profileInfo(profile_);
 
-    if (info == nullptr) {
+    if (!hasWorld_) {
+        hint_->setText(tr("Open a world to see its tiles, objects and border brushes here."));
+        hint_->show();
+        chooseDirectory_->hide();
+    } else if (info == nullptr) {
         hint_->setText(tr("Choose the game in the tool bar to see its objects, its editor's "
                           "groups and its border brushes. Tiles are shown as numbered swatches."));
         hint_->show();

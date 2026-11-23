@@ -7,6 +7,8 @@
 #include "app/game_assets.hpp"
 #include "app/installation_panel.hpp"
 #include "app/main_window.hpp"
+#include "app/minimap_widget.hpp"
+#include "app/palette_panel.hpp"
 #include "app/recovery_store.hpp"
 #include "app/text_world_editor.hpp"
 #include "app/world_canvas.hpp"
@@ -348,6 +350,33 @@ int main(int argc, char **argv) {
         CHECK(third.recoveryStore().autosaves().empty());
         CHECK(errors.isEmpty());
     }
+
+    // The small map is drawn like the map: with the port's pictures.
+    {
+        auto *minimap = window.findChild<MinimapWidget *>();
+        CHECK(minimap != nullptr);
+        CHECK(tab->drawRectangle({40, 40}, {59, 59}));
+        if (minimap != nullptr) {
+            minimap->resize(300, 300);
+            const auto picture = minimap->grab().toImage().convertToFormat(QImage::Format_ARGB32);
+            bool found = false;
+            for (int y = 0; y < picture.height() && !found; ++y) {
+                for (int x = 0; x < picture.width() && !found; ++x) {
+                    found = picture.pixelColor(x, y) == portColor(0, tab->tileId());
+                }
+            }
+            CHECK(found);
+        }
+        CHECK(tab->undo());
+    }
+    // Without a world the Palette says so instead of listing numbers.
+    {
+        MainWindow empty;
+        auto *hint = empty.palette()->findChild<QLabel *>("paletteHint");
+        CHECK(hint != nullptr && hint->text().contains("Open a world"));
+        CHECK(empty.palette()->tabs()->isHidden());
+    }
+    CHECK(!window.palette()->tabs()->isHidden());
 
     // The port's worlds folder in the Installation dock, deploying into it
     // and putting the replaced file back, and the playtest command.

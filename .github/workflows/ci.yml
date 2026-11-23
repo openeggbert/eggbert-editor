@@ -44,6 +44,16 @@ jobs:
       - name: Package
         run: cd build-ci && cpack -G "TGZ;DEB"
 
+      - name: Keep the packages with this run
+        uses: actions/upload-artifact@v4
+        with:
+          name: eggbert-editor-linux-development-build
+          path: |
+            build-ci/*.tar.gz
+            build-ci/*.deb
+          if-no-files-found: error
+          retention-days: 14
+
   sanitizers:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -72,6 +82,8 @@ jobs:
 
   # Windows and macOS: configure, build, test and package (a ZIP and a disk
   # image that carry Qt along). First green on hosted runners on 2026-11-23.
+  # Since the owner's decision of 2026-11-23 the packages are kept with each
+  # run for 14 days as development builds.
   windows:
     runs-on: windows-2022
     timeout-minutes: 40
@@ -98,6 +110,16 @@ jobs:
 
       - name: Package (ZIP with Qt alongside)
         run: cpack --config build-windows/CPackConfig.cmake -C Release -B build-windows/packages
+
+      # A development build to try, kept with the run for two weeks. Not a
+      # release: nothing is tagged or published.
+      - name: Keep the package with this run
+        uses: actions/upload-artifact@v4
+        with:
+          name: eggbert-editor-windows-development-build
+          path: build-windows/packages/*.zip
+          if-no-files-found: error
+          retention-days: 14
 
   macos:
     runs-on: macos-latest
@@ -132,3 +154,11 @@ jobs:
 
       - name: Package (disk image)
         run: cpack --config build-macos/CPackConfig.cmake -B build-macos/packages
+
+      - name: Keep the package with this run
+        uses: actions/upload-artifact@v4
+        with:
+          name: eggbert-editor-macos-development-build
+          path: build-macos/packages/*.dmg
+          if-no-files-found: error
+          retention-days: 14

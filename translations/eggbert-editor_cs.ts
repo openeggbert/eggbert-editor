@@ -2923,12 +2923,6 @@ Oficiálních světů: %2, uživatelských: %3, uložených her: %4, souborů hr
    <translation>Eggbert Editor</translation>
   </message>
   <message>
-   <source>Lossless editor for the worlds of Speedy Blupi / Speedy Eggbert 1 and 2.
-Open a world file, or drop one onto this window.</source>
-   <translation>Bezztrátový editor světů her Speedy Blupi / Speedy Eggbert 1 a 2.
-Otevřete soubor světa nebo jej přetáhněte do tohoto okna.</translation>
-  </message>
-  <message>
    <source>Open World...</source>
    <translation>Otevřít svět...</translation>
   </message>
@@ -4181,22 +4175,6 @@ Přesto je změnit?</translation>
    <translation>Plátno: šipky posouvají kurzor buňky (Shift: o deset buněk, Ctrl: posun pohledu); mezerník nebo Enter použije nástroj; Ctrl+kolečko mění zvětšení; prostřední tlačítko nebo Alt+tažení posouvá pohled.</translation>
   </message>
   <message>
-   <source>Eggbert Editor %1
-
-A lossless desktop editor for individual world files of Speedy Blupi / Speedy Eggbert and Speedy Blupi II / Speedy Eggbert 2.
-
-Licensed under the GNU General Public License version 3 only. It comes with no warranty. It contains no game artwork or game data.
-
-Built with Qt %2, running on Qt %3.</source>
-   <translation>Eggbert Editor %1
-
-Bezztrátový desktopový editor jednotlivých souborů světů her Speedy Blupi / Speedy Eggbert a Speedy Blupi II / Speedy Eggbert 2.
-
-Licencováno pouze pod GNU General Public License verze 3. Je poskytován bez záruky. Neobsahuje žádnou herní grafiku ani herní data.
-
-Sestaveno s Qt %2, běží na Qt %3.</translation>
-  </message>
-  <message>
    <source>Diagnostics Bundle</source>
    <translation>Diagnostický balíček</translation>
   </message>
@@ -4937,6 +4915,28 @@ Hra:</translation>
    <source>The pack is for another game: Mobile Eggbert worlds go into Mobile Eggbert's worlds folder, and worlds of the Windows games into theirs.</source>
    <translation>Balíček je pro jinou hru: světy Mobile Eggbert patří do složky worlds hry Mobile Eggbert a světy her pro Windows do jejich složek.</translation>
   </message>
+  <message>
+   <source>Lossless editor for the worlds of Speedy Blupi / Speedy Eggbert 1 and 2 and of Mobile Eggbert.
+Open a world file, or drop one onto this window.</source>
+   <translation>Bezztrátový editor světů her Speedy Blupi / Speedy Eggbert 1 a 2 a hry Mobile Eggbert.
+Otevřete soubor světa nebo jej přetáhněte do tohoto okna.</translation>
+  </message>
+  <message>
+   <source>Eggbert Editor %1
+
+A lossless desktop editor for individual world files of Speedy Blupi / Speedy Eggbert, Speedy Blupi II / Speedy Eggbert 2 and Mobile Eggbert.
+
+Licensed under the GNU General Public License version 3 only. It comes with no warranty. It contains no game artwork or game data.
+
+Built with Qt %2, running on Qt %3.</source>
+   <translation>Eggbert Editor %1
+
+Bezztrátový desktopový editor jednotlivých souborů světů her Speedy Blupi / Speedy Eggbert, Speedy Blupi II / Speedy Eggbert 2 a Mobile Eggbert.
+
+Licencováno pouze pod GNU General Public License verze 3. Je poskytován bez záruky. Neobsahuje žádnou herní grafiku ani herní data.
+
+Sestaveno s Qt %2, běží na Qt %3.</translation>
+  </message>
  </context>
  <context>
   <name>eggbert::MetadataDialog</name>
@@ -5438,6 +5438,10 @@ Maluje dlaždici %2 a přepočítá tvary okrajů kolem ní.</translation>
   <message>
    <source>Backdrop pictures</source>
    <translation>Obrázky pozadí</translation>
+  </message>
+  <message>
+   <source>Open a world to see its tiles, objects and border brushes here.</source>
+   <translation>Otevřete svět a uvidíte zde jeho dlaždice, objekty a štětce okrajů.</translation>
   </message>
  </context>
  <context>

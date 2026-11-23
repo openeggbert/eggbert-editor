@@ -174,7 +174,7 @@ A few seconds after an edit, the unsaved state of every modified world is copied
 
 ## Minimap and statistics
 
-The **Minimap** shows the whole world and outlines the part visible on the canvas; click or drag in it to move the canvas. It can show both layers or one.
+The **Minimap** shows the whole world and outlines the part visible on the canvas; click or drag in it to move the canvas. It can show both layers or one, and it is drawn like the canvas: with the game's pictures while **View → Draw with Game Artwork** is on, schematically otherwise.
 
 **World Statistics** lists file size and revision, occupied and empty cells and the values used in each layer, object slot usage and counts by stored type, channel and icon, the four starts, the bounds of used cells, and the byte ranges that differ from the saved file and from the file as opened. Double-click a row to find its cells, records or bytes on the canvas. These are stored facts; they are not interpreted for a game.
 

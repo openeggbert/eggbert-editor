@@ -64,6 +64,9 @@ public:
 
     // Greys the lists out for a document that cannot be edited.
     void setEditable(bool editable);
+    // Without a world there is nothing to choose for: the lists are hidden
+    // and a line says to open one.
+    void setHasWorld(bool hasWorld);
 
     // Group strips above the grids: the games' own editor groups plus
     // "all" (and, for tiles, "other") entries. Selecting a group only
@@ -119,6 +122,7 @@ private:
     SectionKind layer_ = SectionKind::foreground;
     std::shared_ptr<const GameAssets> artwork_;
     bool built_ = false;
+    bool hasWorld_ = true;
 
     QLabel *hint_ = nullptr;
     QPushButton *chooseDirectory_ = nullptr;

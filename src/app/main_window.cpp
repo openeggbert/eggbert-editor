@@ -183,7 +183,8 @@ MainWindow::MainWindow() {
         title->setFont(titleFont);
         column->addWidget(title);
         auto *subtitle = new QLabel(
-            tr("Lossless editor for the worlds of Speedy Blupi / Speedy Eggbert 1 and 2.\n"
+            tr("Lossless editor for the worlds of Speedy Blupi / Speedy Eggbert 1 and 2 and of "
+               "Mobile Eggbert.\n"
                "Open a world file, or drop one onto this window."),
             welcome_);
         subtitle->setWordWrap(true);
@@ -2742,7 +2743,8 @@ QString MainWindow::shortcutsText() const {
 
 QString MainWindow::aboutText() {
     return tr("Eggbert Editor %1\n\nA lossless desktop editor for individual world files of "
-              "Speedy Blupi / Speedy Eggbert and Speedy Blupi II / Speedy Eggbert 2.\n\n"
+              "Speedy Blupi / Speedy Eggbert, Speedy Blupi II / Speedy Eggbert 2 and Mobile "
+              "Eggbert.\n\n"
               "Licensed under the GNU General Public License version 3 only. It comes with no "
               "warranty. It contains no game artwork or game data.\n\nBuilt with Qt %2, "
               "running on Qt %3.")
@@ -4953,6 +4955,7 @@ void MainWindow::updateUi() {
     tileSpin_->setEnabled(writable);
     profileCombo_->setEnabled(hasTab && !textWorld);
     updating_ = false;
+    palette_->setHasWorld(hasTab);
     palette_->setContext(profile, hasTab ? tab->activeLayer() : SectionKind::foreground,
                          currentArtwork);
     if (encyclopedia_ != nullptr && encyclopedia_->isVisible() &&

@@ -103,10 +103,23 @@ Deliberate limits:
 4. **Mobile Eggbert text files with more than 200 object lines, a type-0 line among them, a missing block or a number too large** open in the plain text-world window, not as a tab. In such a file the game reads only part of what the text holds; the full editor shows exactly what the game reads and writes every value back, and it has no truthful way to do both for lines the game ignores. The plain window edits those files token by token and names the problem with its line. None of the port's 78 worlds is such a file.
 5. **English by design**: the Binary Inspector's structural names and arithmetic, citations, the diagnostics file and the command line.
 
-Waiting for the owner, not for more work here:
+Owner's decisions of 2026-11-23 (asked directly, both answered):
 
-- **Feedback on the interface.** Eleven representative screenshots were sent on 2026-11-23 at the owner's request ("send representative screenshots of the UI and I will send what to adjust"), and later three of Mobile Eggbert worlds in the editor. No adjustments have been named yet; when they are, they come first.
-- **Packages from CI as downloads.** The Windows ZIP and the macOS disk image are built and tested on every push but not kept. Keeping them as workflow artifacts would let the owner try them (nobody has started either by hand). It was proposed and deliberately not done without a yes, because of the instruction not to publish release artefacts.
+- **Packages from CI as downloads: yes.** Each run now keeps the Linux packages, the Windows ZIP and the macOS disk image as workflow artifacts for 14 days ("development build"). Nothing is tagged or released.
+- **Interface: "propose and make the adjustments yourself", and show the result in screenshots.** The review and what was changed are in **Interface review** just below.
+
+### Interface review (2026-11-23, at the owner's "propose and make the adjustments yourself")
+
+The current build was looked at again in fresh screenshots of every layout, menu and dialog, and these things were changed:
+
+- **The small map looks like the map.** With game artwork on, the Minimap was still a field of schematic colours. It is now drawn with the game's pictures on a plain ground (`MinimapWidget::followCanvas`, `WorldCanvas::renderOptionsChanged`); schematic when artwork is off or missing.
+- **Nothing to choose from when no world is open.** The Palette used to list every tile number as a grey swatch and ask for a game while no world was open (the game box is disabled then). It now shows one line, "Open a world to see its tiles, objects and border brushes here." (`PalettePanel::setHasWorld`).
+- **The welcome page and About name all three games**, Mobile Eggbert included.
+- Just before: dialog buttons and field menus in Czech, and the Installation dock's pictures drawn with game artwork (both below).
+
+Looked at and left as it is, with the reason: findings in the World Doctor table are cut at the dock's width, but the full text is the row's tooltip and is shown below the table on selection; World Metadata asks for region and music as numbers, and the Palette's World tab already offers them by picture and name.
+
+Test: `mobile_world_ui` (the minimap holds the port's picture colour after a rectangle is drawn; a window without a world shows the hint and hides the lists).
 
 ### After slice Q (2026-11-23): pictures of the Installation dock drawn with game artwork
 

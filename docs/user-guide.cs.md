@@ -174,7 +174,7 @@ Několik sekund po úpravě se neuložený stav každého změněného světa zk
 
 ## Minimapa a statistiky
 
-**Minimapa** zobrazuje celý svět a obrysem vyznačuje část viditelnou na plátně; kliknutím nebo tažením v ní plátno posunete. Může zobrazovat obě vrstvy nebo jednu.
+**Minimapa** zobrazuje celý svět a obrysem vyznačuje část viditelnou na plátně; kliknutím nebo tažením v ní plátno posunete. Může zobrazovat obě vrstvy nebo jednu a kreslí se stejně jako plátno: grafikou hry, je-li zapnuto **Zobrazení → Kreslit grafikou hry**, jinak schematicky.
 
 **Statistiky světa** uvádějí velikost souboru a revizi, obsazené a prázdné buňky a hodnoty použité v každé vrstvě, využití slotů objektů a počty podle uloženého typu, kanálu a ikony, čtyři starty, hranice použitých buněk a rozsahy bajtů, které se liší od uloženého souboru a od souboru při otevření. Dvojklikem na řádek najdete jeho buňky, záznamy nebo bajty na plátně. Jsou to uložená fakta; pro žádnou hru se neinterpretují.
 

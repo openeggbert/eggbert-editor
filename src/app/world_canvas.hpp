@@ -89,6 +89,9 @@ signals:
     void hoveredCellChanged();
     void cursorCellChanged();
     void viewChanged();
+    // The options the world is drawn with changed (artwork, visibility,
+    // animation frame).
+    void renderOptionsChanged();
     // One tool gesture: pressed, zero or more dragged (only when the cell
     // changes), then released. Keyboard activation sends pressed + released.
     void toolPressed(eggbert::CellPos cell);
