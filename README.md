@@ -1,6 +1,6 @@
 # Eggbert Editor
 
-A desktop editor for 2D worlds from the Windows games Speedy Blupi and Speedy Blupi II, also released as Speedy Eggbert and Speedy Eggbert 2. Its core is lossless editing of individual world files; this unreleased development version has also grown revision and game conversion, recovery, a command line and other items of the roadmap in `plan.md`. Mobile Eggbert text worlds are a separate kind of document with their own editing window; conversion between BLP and Mobile Eggbert worlds is intentionally unsupported in both directions.
+A desktop editor for 2D worlds from the Windows games Speedy Blupi and Speedy Blupi II, also released as Speedy Eggbert and Speedy Eggbert 2. It supports lossless editing of individual worlds, installation-wide editing, Mobile Eggbert text worlds, conversion between the two Windows games, recovery and command-line tools. Mobile Eggbert text worlds are a separate kind of document with their own editing window; conversion between BLP and Mobile Eggbert worlds is intentionally unsupported in both directions.
 
 What works today:
 
@@ -28,7 +28,7 @@ What works today:
 - **Campaign Builder**: the campaign of an installation as a tree of hubs and missions with the free numbers the game still has room for, new worlds created in them, their signs offered for placing, and checks of what a hub needs (a mission ending with the key, doors, barriers).
 - **Merge Changes**: a three-way merge of another copy's changes into the current world, by header value, cell and object record, with every conflict decided by you and the result applied as one undo step (also as the `merge` command).
 - **Experimental editing** (off by default): typed byte edits as undoable transactions with a second confirmation for preserved ranges, unverified music and region numbers, and border rules of your own for the Adaptive brush. The revision field and the file length never change.
-- **Export World SVG** (and the `export-svg` command): a scalable schematic drawing without any game artwork, with tiles, objects, paths and starts labelled by what they store; `export-batch` writes the PNG pictures of many worlds at once.
+- **Export World SVG** (and the `export-svg` command): a standalone picture with embedded game artwork. A separate schematic export labels tiles, objects, paths and starts; `export-batch` writes the PNG pictures of many worlds at once.
 - **Demo recordings** of the games (`demo200.blp`, `demo300.blp` and following) open in a read-only window with a timeline of the keys held, per-key totals and a button for the world they are replayed on; `info` describes them on the command line. They hold keys, not positions, so no path or heat map is drawn.
 - **Regression scenarios**: **Record Scenario** writes what is true of a world now (tiles, objects per type, header values, World Doctor findings) as editable expectations, and **Check Against Scenario** reports which no longer hold (also `scenario-record` and `scenario-check`).
 - **New World** (and the `new` command) writes the world the games' own editors start a mission with, for either game.
@@ -37,7 +37,7 @@ What works today:
 - **Convert for Other Game** (and the `convert-game` command) writes a copy of a world for the other game and lists every stored value that game does not know or shows differently; unknown values are kept or removed by your choice, never silently.
 - **Convert Revision** (and the `convert` command) writes a copy of a world in revision 1.0, 1.1, 1.2 or 1.3 to a new file; anything the target cannot store is listed and dropped only on request.
 
-Version 1.0.0 implements the whole fixed 1.0 scope.
+Download the first public release for Windows, Linux or macOS from [Eggbert Editor 0.1.0](https://github.com/openeggbert/eggbert-editor/releases/tag/v0.1.0).
 
 **Verification status.** The automated tests use only independent synthetic worlds and generated sprite sheets. In addition, on 2026-11-22 the editor was checked against original installations of Speedy Eggbert 1 and Speedy Eggbert 2 (kept outside the repository):
 

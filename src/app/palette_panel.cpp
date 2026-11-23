@@ -27,6 +27,7 @@
 #include "app/sprite_icons.hpp"
 #include "app/world_renderer.hpp"
 #include "world/adaptive.hpp"
+#include "world/animation.hpp"
 #include "world/editor_groups.hpp"
 #include "world/object_catalog.hpp"
 #include "world/profile.hpp"
@@ -183,13 +184,13 @@ PalettePanel::PalettePanel(QWidget *parent) : QWidget(parent) {
         worldNote_->setWordWrap(true);
         world->addWidget(worldNote_);
 
-        auto *sizeBox = new QGroupBox(tr("World size"), host);
-        auto *sizeRow = new QHBoxLayout(sizeBox);
+        sizeBox_ = new QGroupBox(tr("World size"), host);
+        auto *sizeRow = new QHBoxLayout(sizeBox_);
         sizeGroup_ = new QButtonGroup(this);
         sizeGroup_->setExclusive(true);
         const auto addSize = [&](bool horizontally, bool vertically, const QString &label,
                                  const QString &tip) {
-            auto *button = new QToolButton(sizeBox);
+            auto *button = new QToolButton(sizeBox_);
             button->setObjectName(QStringLiteral("paletteSize%1%2")
                                       .arg(horizontally ? 1 : 0)
                                       .arg(vertically ? 1 : 0));
@@ -207,7 +208,7 @@ PalettePanel::PalettePanel(QWidget *parent) : QWidget(parent) {
         addSize(true, false, tr("Wide"), tr("Scrolls horizontally: 100 cells wide, one screen high"));
         addSize(false, true, tr("Tall"), tr("Scrolls vertically: one screen wide, 100 cells high"));
         addSize(true, true, tr("Large"), tr("Scrolls both ways: 100 x 100 cells"));
-        world->addWidget(sizeBox);
+        world->addWidget(sizeBox_);
         connect(sizeGroup_, &QButtonGroup::idClicked, this, [this](int id) {
             emit worldSizeChosen((id & 1) != 0, (id & 2) != 0);
         });
@@ -227,16 +228,16 @@ PalettePanel::PalettePanel(QWidget *parent) : QWidget(parent) {
         connect(backdrops_, &QListWidget::itemClicked, this, onBackdrop);
         connect(backdrops_, &QListWidget::itemActivated, this, onBackdrop);
 
-        auto *musicBox = new QGroupBox(tr("Music"), host);
-        auto *musicLayout = new QVBoxLayout(musicBox);
-        music_ = new QListWidget(musicBox);
+        musicBox_ = new QGroupBox(tr("Music"), host);
+        auto *musicLayout = new QVBoxLayout(musicBox_);
+        music_ = new QListWidget(musicBox_);
         music_->setObjectName(QStringLiteral("paletteMusic"));
         music_->setAccessibleName(tr("Music"));
         musicLayout->addWidget(music_);
         auto *playRow = new QHBoxLayout;
-        play_ = new QPushButton(tr("Play"), musicBox);
+        play_ = new QPushButton(tr("Play"), musicBox_);
         play_->setObjectName(QStringLiteral("palettePlay"));
-        playWhenChosen_ = new QCheckBox(tr("Play when chosen"), musicBox);
+        playWhenChosen_ = new QCheckBox(tr("Play when chosen"), musicBox_);
         playWhenChosen_->setObjectName(QStringLiteral("palettePlayWhenChosen"));
         playWhenChosen_->setChecked(
             QSettings().value(QStringLiteral("music/play-when-chosen"), true).toBool());
@@ -246,11 +247,11 @@ PalettePanel::PalettePanel(QWidget *parent) : QWidget(parent) {
         playRow->addWidget(play_);
         playRow->addWidget(playWhenChosen_, 1);
         musicLayout->addLayout(playRow);
-        musicStatus_ = new QLabel(musicBox);
+        musicStatus_ = new QLabel(musicBox_);
         musicStatus_->setObjectName(QStringLiteral("paletteMusicStatus"));
         musicStatus_->setWordWrap(true);
         musicLayout->addWidget(musicStatus_);
-        world->addWidget(musicBox, 2);
+        world->addWidget(musicBox_, 2);
         const auto onMusic = [this](QListWidgetItem *item) {
             emit musicChosen(item->data(Qt::UserRole).toInt());
         };
@@ -390,6 +391,9 @@ void PalettePanel::setMusicStatus(const QString &text, int playingNumber, bool c
 }
 
 void PalettePanel::rebuildWorld() {
+    const bool mobile = profile_ == GameProfile::mobileEggbert;
+    sizeBox_->setVisible(!mobile);
+    musicBox_->setVisible(!mobile);
     const auto *info = profileInfo(profile_);
     const auto *artwork = artwork_.get();
     {
@@ -446,7 +450,7 @@ void PalettePanel::rebuildWorld() {
     {
         const QSignalBlocker blocker(music_);
         music_->clear();
-        if (info != nullptr && world_.available) {
+        if (!mobile && info != nullptr && world_.available) {
             for (int number = info->music.minimum; number <= info->music.maximum; ++number) {
                 auto *item = new QListWidgetItem(
                     MusicPlayer::trackLabel(number, artwork != nullptr ? artwork->musicFile(number)
@@ -566,17 +570,20 @@ void PalettePanel::rebuildTiles() {
     }
     if (!editorGroup) {
         auto values = allTileValues(info, layer);
-        if (tileGroup_ == QLatin1String(otherForegroundGroup)) {
-            std::set<int> grouped;
-            for (const auto &group : editorGroups(profile_)) {
-                for (const auto &entry : group.tiles) {
-                    if (entry.layer == SectionKind::foreground) {
-                        grouped.insert(entry.values.begin(), entry.values.end());
-                    }
+        std::set<int> grouped;
+        for (const auto &group : editorGroups(profile_)) {
+            for (const auto &entry : group.tiles) {
+                if (entry.layer == layer) {
+                    grouped.insert(entry.values.begin(), entry.values.end());
                 }
             }
-            std::erase_if(values, [&](int value) { return grouped.contains(value); });
         }
+        std::erase_if(values, [&](int value) {
+            if (grouped.contains(value)) {
+                return tileGroup_ == QLatin1String(otherForegroundGroup);
+            }
+            return isTileAnimationFrame(profile_, layer, static_cast<std::int16_t>(value));
+        });
         // With artwork, leave out numbers whose picture is missing or
         // blank (they can still be typed as a raw tile ID). If the artwork
         // has nothing for this layer at all, keep the numbered swatches.

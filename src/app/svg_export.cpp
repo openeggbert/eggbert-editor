@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "app/svg_export.hpp"
 
+#include <QBuffer>
+#include <QPainter>
+#include <QXmlStreamWriter>
 #include <QString>
 
 #include <algorithm>
@@ -25,6 +28,59 @@ QString number(double value) {
     return text;
 }
 
+// Keep the sprites at their original resolution even when the requested SVG
+// display size is small. Bands limit peak image memory on large worlds.
+QByteArray artworkSvg(const WorldView &world, const SvgExportOptions &options, int displaySize) {
+    RenderOptions render;
+    render.artwork = options.artwork;
+    render.showForeground = options.showForeground;
+    render.showBigDecor = options.showBigDecor;
+    render.showObjects = options.showObjects;
+    render.showStarts = options.showStarts;
+    render.showPaths = false;
+    render.showLabels = false;
+
+    constexpr int width = layout::worldPixelWidth;
+    constexpr int height = layout::worldPixelHeight;
+    constexpr int bandHeight = 512;
+    QByteArray svg;
+    QXmlStreamWriter xml(&svg);
+    xml.writeStartDocument();
+    xml.writeStartElement(QStringLiteral("svg"));
+    xml.writeDefaultNamespace(QStringLiteral("http://www.w3.org/2000/svg"));
+    xml.writeNamespace(QStringLiteral("http://www.w3.org/1999/xlink"), QStringLiteral("xlink"));
+    xml.writeAttribute(QStringLiteral("width"), QString::number(displaySize));
+    xml.writeAttribute(QStringLiteral("height"), QString::number(displaySize));
+    xml.writeAttribute(QStringLiteral("viewBox"), QStringLiteral("0 0 %1 %2").arg(width).arg(height));
+    xml.writeTextElement(QStringLiteral("title"), QStringLiteral("Eggbert Editor world export"));
+    for (int top = 0; top < height; top += bandHeight) {
+        QImage band(width, std::min(bandHeight, height - top), QImage::Format_RGB32);
+        if (band.isNull()) {
+            return {};
+        }
+        QPainter painter(&band);
+        // Use the transform and viewport of the whole map. Sprites whose
+        // anchor is outside this band can still overlap it.
+        painter.translate(0, -top);
+        ViewTransform transform;
+        transform.scale = 1.0;
+        renderWorld(painter, world, transform, QRectF(0, 0, width, height), render);
+        painter.end();
+        QBuffer png;
+        if (!png.open(QIODevice::WriteOnly) || !band.save(&png, "PNG")) {
+            return {};
+        }
+        xml.writeEmptyElement(QStringLiteral("image"));
+        xml.writeAttribute(QStringLiteral("y"), QString::number(top));
+        xml.writeAttribute(QStringLiteral("width"), QString::number(width));
+        xml.writeAttribute(QStringLiteral("height"), QString::number(band.height()));
+        xml.writeAttribute(QStringLiteral("xlink:href"), QStringLiteral("data:image/png;base64,") +
+                           QString::fromLatin1(png.data().toBase64()));
+    }
+    xml.writeEndDocument();
+    return svg;
+}
+
 } // namespace
 
 QByteArray renderWorldSvg(const WorldView &world, const SvgExportOptions &options) {
@@ -34,6 +90,9 @@ QByteArray renderWorldSvg(const WorldView &world, const SvgExportOptions &option
     }
     const int cell = std::clamp(options.cellSize, 1, 64);
     const int size = static_cast<int>(layout::mapWidth) * cell;
+    if (options.artwork) {
+        return options.artwork->usable() ? artworkSvg(world, options, size) : QByteArray{};
+    }
     const double scale = static_cast<double>(cell) / layout::cellPixels;
     QString svg;
     svg += QStringLiteral("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");

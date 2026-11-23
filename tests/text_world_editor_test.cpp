@@ -112,8 +112,8 @@ int main(int argc, char **argv) {
     CHECK_EQ(*editor->document().world().tile(SectionKind::foreground, 3, 4), -1);
 
     // Header fields.
-    editor->findChild<QSpinBox *>("textWorldMusic")->setValue(9);
-    CHECK_EQ(*editor->document().world().headerValue("music"), 9);
+    CHECK(editor->findChild<QSpinBox *>("textWorldMusic") == nullptr);
+    CHECK_EQ(*editor->document().world().headerValue("music"), 3);
     editor->findChild<QSpinBox *>("textWorldStartX")->setValue(130);
     CHECK(*editor->document().world().headerPoint("blupiPos") == (Point{130, 774}));
 

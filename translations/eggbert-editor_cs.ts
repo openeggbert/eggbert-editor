@@ -662,6 +662,10 @@
    <translation>Sýr (339)</translation>
   </message>
   <message>
+   <source>Floor switch</source>
+   <translation>Podlahový spínač</translation>
+  </message>
+  <message>
    <source>Circular saw</source>
    <translation>Kotoučová pila</translation>
   </message>
@@ -5006,8 +5010,20 @@ jinde: %5</translation>
    <translation>Scénáře (*.txt);;Všechny soubory (*)</translation>
   </message>
   <message>
-   <source>Export World S&amp;VG (Schematic)...</source>
-   <translation>Exportovat svět do S&amp;VG (schematicky)...</translation>
+   <source>Could not render this world.</source>
+   <translation>Tento svět se nepodařilo vykreslit.</translation>
+  </message>
+  <message>
+   <source>Select the world's game profile and its installation under View &gt; Game Artwork Directory.</source>
+   <translation>Vyberte herní profil světa a v nabídce Zobrazení → Adresář s grafikou hry zvolte jeho instalaci.</translation>
+  </message>
+  <message>
+   <source>Export World S&amp;VG...</source>
+   <translation>Exportovat svět do S&amp;VG...</translation>
+  </message>
+  <message>
+   <source>Export World SVG (Schematic)...</source>
+   <translation>Exportovat svět do SVG (schematicky)...</translation>
   </message>
   <message>
    <source>Export World SVG</source>
@@ -5018,8 +5034,8 @@ jinde: %5</translation>
    <translation>Tento soubor nemá úplnou vrstvu dlaždic, kterou by šlo nakreslit.</translation>
   </message>
   <message>
-   <source>Schematic SVG written to %1</source>
-   <translation>Schematické SVG zapsáno do %1</translation>
+   <source>SVG written to %1</source>
+   <translation>SVG zapsáno do %1</translation>
   </message>
   <message>
    <source>Record Sce&amp;nario...</source>

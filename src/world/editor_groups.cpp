@@ -305,7 +305,8 @@ constexpr std::int16_t sb2_bombs_traps_4_values[] = {126, 129, 132, 135};
 constexpr std::int16_t sb2_bombs_traps_5_values[] = {110, 114, 118, 122};
 constexpr std::int16_t sb2_bombs_traps_6_values[] = {373};
 constexpr std::int16_t sb2_bombs_traps_7_values[] = {404};
-constexpr std::int16_t sb2_bombs_traps_8_values[] = {378, 384};
+constexpr std::int16_t sb2_bombs_traps_8_values[] = {378};
+constexpr std::int16_t sb2_bombs_traps_switch[] = {384};
 constexpr std::int16_t sb2_bombs_traps_10_values[] = {304};
 constexpr std::string_view sb2_bombs_traps_10_brushes[] = {"lightning"};
 constexpr std::int16_t sb2_bombs_traps_11_values[] = {317};
@@ -322,6 +323,8 @@ constexpr TileEntry sb2_bombs_traps_tiles[] = {
      "games/sb2/src/decdesign.cpp:412"},
     {"Circular saw", SectionKind::foreground, sb2_bombs_traps_8_values, {},
      "games/sb2/src/decdesign.cpp:413-418; games/sb2/src/decblock.cpp:264"},
+    {"Floor switch", SectionKind::foreground, sb2_bombs_traps_switch, {},
+     "games/sb2/src/decblock.cpp:264 (second tile on the saw button)"},
     {"Lightning", SectionKind::foreground, sb2_bombs_traps_10_values, sb2_bombs_traps_10_brushes,
      "games/sb2/src/decdesign.cpp:439"},
     {"Crusher", SectionKind::foreground, sb2_bombs_traps_11_values, {},

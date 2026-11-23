@@ -394,9 +394,11 @@ int main(int argc, char **argv) {
     // export-svg: a well-formed schematic picture with one rectangle per
     // occupied cell, the same bytes every time, never game artwork.
     {
-        CHECK(isCommandLineCommand("export-svg") && !commandNeedsGraphics("export-svg"));
+        CHECK(isCommandLineCommand("export-svg") && commandNeedsGraphics("export-svg"));
         const auto svgPath = dir.filePath("a.svg");
-        const auto result = run({"export-svg", path, svgPath, "--scale", "10"});
+        CHECK_EQ(run({"export-svg", path, svgPath}).code, 2);
+        CHECK(!QFileInfo::exists(svgPath));
+        const auto result = run({"export-svg", "--schematic", path, svgPath, "--scale", "10"});
         CHECK_EQ(result.code, 0);
         CHECK(result.out.contains("schematic SVG"));
         const auto svg = readAll(svgPath);
@@ -435,7 +437,7 @@ int main(int argc, char **argv) {
         CHECK(!svg.contains("<image")); // no raster content at all
         // Layers can be left out.
         const auto bare = dir.filePath("bare.svg");
-        CHECK_EQ(run({"export-svg", path, bare, "--no-foreground", "--no-starts"}).code, 0);
+        CHECK_EQ(run({"export-svg", "--schematic", path, bare, "--no-foreground", "--no-starts"}).code, 0);
         CHECK(!readAll(bare).contains("data-tile") && !readAll(bare).contains("<polygon"));
         // An object is a circle that names its slot and type; when it moves,
         // the line of its path names the slot too.
@@ -452,26 +454,26 @@ int main(int argc, char **argv) {
             const auto movingPath = dir.filePath("moving.blp");
             writeAll(movingPath, moving);
             const auto movingSvg = dir.filePath("moving.svg");
-            CHECK_EQ(run({"export-svg", movingPath, movingSvg}).code, 0);
+            CHECK_EQ(run({"export-svg", "--schematic", movingPath, movingSvg}).code, 0);
             const auto picture = readAll(movingSvg);
             CHECK(picture.contains("data-slot=\"2\" data-type=\"1\""));
             CHECK_EQ(picture.count("data-path-of=\"2\""), qsizetype{1});
             CHECK_EQ(picture.count("<line"), qsizetype{1});
         }
-        CHECK_EQ(run({"export-svg", path}).code, 2);
-        CHECK_EQ(run({"export-svg", path, svgPath, "--scale", "0"}).code, 2);
+        CHECK_EQ(run({"export-svg", "--schematic", path}).code, 2);
+        CHECK_EQ(run({"export-svg", "--schematic", path, svgPath, "--scale", "0"}).code, 2);
         // A file cut short after its tile layers can still be drawn; one
         // without a complete tile layer cannot.
-        CHECK_EQ(run({"export-svg", brokenPath, dir.filePath("broken.svg")}).code, 0);
+        CHECK_EQ(run({"export-svg", "--schematic", brokenPath, dir.filePath("broken.svg")}).code, 0);
         auto stub = world;
         stub.resize(900);
         const auto stubPath = dir.filePath("stub.blp");
         writeAll(stubPath, stub);
-        const auto refusedSvg = run({"export-svg", stubPath, dir.filePath("stub.svg")});
+        const auto refusedSvg = run({"export-svg", "--schematic", stubPath, dir.filePath("stub.svg")});
         CHECK_EQ(refusedSvg.code, 2);
         CHECK(refusedSvg.err.contains("complete tile layer"));
         CHECK(!QFile::exists(dir.filePath("stub.svg")));
-        CHECK_EQ(run({"export-svg", path, dir.filePath("no/such/dir/x.svg")}).code, 2);
+        CHECK_EQ(run({"export-svg", "--schematic", path, dir.filePath("no/such/dir/x.svg")}).code, 2);
     }
     // export-batch: one picture per world, each equal to export-png's.
     {
@@ -695,6 +697,23 @@ int main(int argc, char **argv) {
         CHECK(!QFileInfo::exists(dir.filePath("wrong.png")));
         const auto svg = run({"export-svg", port.worldPath, dir.filePath("port.svg")});
         CHECK_EQ(svg.code, 0);
+        CHECK(svg.out.contains("artwork SVG"));
+        QXmlStreamReader xml(readAll(dir.filePath("port.svg")));
+        bool foundTile = false;
+        while (!xml.atEnd()) {
+            xml.readNext();
+            if (xml.isStartElement() && xml.name() == QLatin1String("image") &&
+                xml.attributes().value("y") == QLatin1String("0")) {
+                const auto url = xml.attributes().value("http://www.w3.org/1999/xlink", "href").toString();
+                const QString prefix = QStringLiteral("data:image/png;base64,");
+                CHECK(url.startsWith(prefix));
+                const auto image = QImage::fromData(QByteArray::fromBase64(url.mid(prefix.size()).toLatin1()), "PNG");
+                CHECK(!image.isNull());
+                CHECK(image.pixelColor(3 * 64 + 32, 4 * 64 + 32) == portColor(0, 40));
+                foundTile = true;
+            }
+        }
+        CHECK(foundTile && !xml.hasError());
         const auto scenarioPath = dir.filePath("port.scenario");
         CHECK_EQ(run({"scenario-record", port.worldPath, scenarioPath}).code, 0);
         CHECK_EQ(run({"scenario-check", port.worldPath, scenarioPath}).code, 0);

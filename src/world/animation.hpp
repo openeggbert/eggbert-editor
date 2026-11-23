@@ -42,6 +42,9 @@ struct TileFrame {
 [[nodiscard]] TileFrame tileFrame(GameProfile profile, SectionKind layer, std::int16_t stored,
                                   std::size_t x, std::size_t y, std::uint32_t tick);
 
+// Additional pictures drawn for an animated tile. The stored animation heads remain selectable.
+[[nodiscard]] bool isTileAnimationFrame(GameProfile profile, SectionKind layer, std::int16_t value);
+
 // The same tile as the games would draw it at tick 0 with animation off:
 // the stored number with its draw order flags.
 [[nodiscard]] TileFrame stillTileFrame(GameProfile profile, SectionKind layer,

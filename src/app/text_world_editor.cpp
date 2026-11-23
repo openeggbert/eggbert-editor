@@ -308,7 +308,6 @@ TextWorldEditor::TextWorldEditor(QString path, std::string text, QWidget *parent
         form->addRow(label, box);
         return box;
     };
-    music_ = spin(QStringLiteral("textWorldMusic"), QStringLiteral("music"));
     region_ = spin(QStringLiteral("textWorldRegion"), QStringLiteral("region"));
     direction_ = spin(QStringLiteral("textWorldDirection"), QStringLiteral("blupiDir"));
     startX_ = spin(QStringLiteral("textWorldStartX"), QStringLiteral("blupiPos x"));
@@ -454,7 +453,6 @@ TextWorldEditor::TextWorldEditor(QString path, std::string text, QWidget *parent
             }
         });
     };
-    header(music_, "music");
     header(region_, "region");
     header(direction_, "blupiDir");
     const auto startChanged = [this] {
@@ -641,7 +639,6 @@ void TextWorldEditor::refresh() {
         box->setEnabled(value.has_value());
         box->setValue(value ? static_cast<int>(*value) : 0);
     };
-    show(music_, world.headerValue("music"));
     show(region_, world.headerValue("region"));
     show(direction_, world.headerValue("blupiDir"));
     const auto start = world.headerPoint("blupiPos");

@@ -140,7 +140,7 @@ int main(int argc, char **argv) {
         CHECK(panel.hintVisible());
         CHECK(panel.hintText().contains("schematic"));
         CHECK(!panel.showsArtwork());
-        CHECK_EQ(panel.tileList()->count(), 1 + 246);
+        CHECK_EQ(panel.tileList()->count(), 1 + 212);
         CHECK_EQ(panel.objectList()->count(),
                  static_cast<int>(objectPresets(GameProfile::speedyBlupi1).size()));
         CHECK_EQ(panel.brushList()->count(),
@@ -162,7 +162,7 @@ int main(int argc, char **argv) {
         panel.setContext(GameProfile::speedyBlupi1, SectionKind::foreground, assets);
         CHECK(panel.showsArtwork());
         CHECK(!panel.hintVisible());
-        CHECK_EQ(panel.tileList()->count(), 1 + 245);
+        CHECK_EQ(panel.tileList()->count(), 1 + 211);
         CHECK(itemWith(panel.tileList(), 30) == nullptr);
         CHECK(iconPixel(itemWith(panel.tileList(), 9), 48, 2, 2) == spriteColor(0, 9));
         const auto *treasure = findObjectPreset(GameProfile::speedyBlupi1, "treasure");
@@ -235,7 +235,7 @@ int main(int argc, char **argv) {
                 }
             }
             CHECK(panel.showTileGroup(PalettePanel::otherForegroundGroup));
-            CHECK_EQ(panel.tileList()->count(), 1 + 246 - static_cast<int>(grouped.size()));
+            CHECK_EQ(panel.tileList()->count(), 1 + 212 - static_cast<int>(grouped.size()));
             CHECK(itemWith(panel.tileList(), 153) == nullptr);
         }
         // A layer change made elsewhere moves a plain group along, but
@@ -324,7 +324,19 @@ int main(int argc, char **argv) {
 
         // The second game has its own objects and brushes.
         panel.setContext(GameProfile::speedyBlupi2, SectionKind::foreground, nullptr);
-        CHECK_EQ(panel.tileList()->count(), 1 + 441);
+        CHECK_EQ(panel.tileList()->count(), 1 + 381);
+        for (const auto game : {GameProfile::speedyBlupi2, GameProfile::mobileEggbert}) {
+            panel.setContext(game, SectionKind::foreground, nullptr);
+            CHECK(itemWith(panel.tileList(), 378) && itemWith(panel.tileList(), 317));
+            CHECK(!itemWith(panel.tileList(), 379) && !itemWith(panel.tileList(), 323));
+            CHECK(itemWith(panel.tileList(), 410) && itemWith(panel.tileList(), 385));
+            CHECK(panel.showTileGroup("bombs-traps"));
+            CHECK(itemWith(panel.tileList(), 384)->toolTip().contains("Floor switch"));
+            CHECK(panel.showTileGroup(PalettePanel::allForegroundGroup));
+            CHECK(panel.musicList()->parentWidget()->isHidden() == (game == GameProfile::mobileEggbert));
+            CHECK(panel.sizeButton(true, true)->parentWidget()->isHidden() == (game == GameProfile::mobileEggbert));
+        }
+        panel.setContext(GameProfile::speedyBlupi2, SectionKind::foreground, nullptr);
         CHECK_EQ(panel.objectList()->count(),
                  static_cast<int>(objectPresets(GameProfile::speedyBlupi2).size()));
         CHECK(itemWith(panel.objectList(), "treasure") != nullptr);
@@ -433,7 +445,7 @@ int main(int argc, char **argv) {
         CHECK_EQ(palette->tileList()->count(), 1 + 54 + 1);
         window.action("layerActiveForeground")->trigger();
         QApplication::processEvents();
-        CHECK_EQ(palette->tileList()->count(), 1 + 246);
+        CHECK_EQ(palette->tileList()->count(), 1 + 212);
 
         // Loading artwork turns every chooser's pictures into sprites.
         CHECK(window.loadArtwork(game.root, GameProfile::speedyBlupi1));

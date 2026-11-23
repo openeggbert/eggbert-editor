@@ -127,7 +127,6 @@ private:
     std::optional<CellRect> selection_;
     std::optional<CellPos> dragStart_;
     std::optional<CellPos> dragLast_;
-    QSpinBox *music_ = nullptr;
     QSpinBox *region_ = nullptr;
     QSpinBox *direction_ = nullptr;
     QSpinBox *startX_ = nullptr;

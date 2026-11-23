@@ -2,6 +2,7 @@
 #include "world/animation.hpp"
 
 #include <array>
+#include <algorithm>
 #include <span>
 
 #include "world/object_animation_data.hpp"
@@ -74,6 +75,26 @@ TileFrame flags(GameProfile profile, SectionKind layer, std::int16_t stored) {
 }
 
 } // namespace
+
+bool isTileAnimationFrame(GameProfile profile, SectionKind layer, std::int16_t value) {
+    if (profile == GameProfile::unknown || value < 0 || tileFrame(profile, layer, value, 0, 0, 0).animated) {
+        return false;
+    }
+    const auto includes = [value](std::span<const std::int16_t> frames) {
+        return std::ranges::find(frames, value) != frames.end();
+    };
+    if (layer == SectionKind::bigDecor) {
+        return includes(marinePlant);
+    }
+    if (layer != SectionKind::foreground) {
+        return false;
+    }
+    return includes(spring) || includes(lavaFirst) || includes(waterSurface) || includes(waterBody) ||
+           (value >= 110 && value <= 137) ||
+           (tablesOf(profile) == GameProfile::speedyBlupi2 &&
+            (includes(saw) || includes(crusher) || includes(lightning) || includes(vanishing) ||
+             includes(drip) || includes(slimeTrap)));
+}
 
 TileFrame stillTileFrame(GameProfile profile, SectionKind layer, std::int16_t stored) {
     return flags(profile, layer, stored);

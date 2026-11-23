@@ -11,6 +11,7 @@ class QAbstractButton;
 class QButtonGroup;
 class QCheckBox;
 class QLabel;
+class QGroupBox;
 class QListWidget;
 class QPushButton;
 class QTabWidget;
@@ -140,6 +141,8 @@ private:
     QCheckBox *playWhenChosen_ = nullptr;
     QLabel *musicStatus_ = nullptr;
     QLabel *worldNote_ = nullptr;
+    QGroupBox *sizeBox_ = nullptr;
+    QGroupBox *musicBox_ = nullptr;
     QButtonGroup *sizeGroup_ = nullptr;
     WorldState world_;
     int playing_ = 0;

@@ -1435,36 +1435,47 @@ void MainWindow::createActions() {
     connect(addAction(fileMenu, QStringLiteral("filePlaytest"), tr("Pla&ytest"),
                       QKeySequence(Qt::Key_F5)),
             &QAction::triggered, this, [this] { playtest(); });
-    connect(addAction(fileMenu, QStringLiteral("fileExportSvg"),
-                      tr("Export World S&VG (Schematic)...")),
-            &QAction::triggered, this, [this] {
-                auto *tab = currentTab();
-                if (tab == nullptr) {
-                    return;
-                }
-                const auto svg = renderWorldSvg(tab->document().view(), SvgExportOptions{});
-                if (svg.isEmpty()) {
-                    prompts.error(tr("Export World SVG"),
-                                  tr("This file has no complete tile layer to draw."));
-                    return;
-                }
-                const auto path = prompts.saveTextPath(
-                    QFileInfo(tab->file().path()).completeBaseName() + QStringLiteral(".svg"));
-                if (path.isEmpty()) {
-                    return;
-                }
-                if (!destinationAvailable(path)) {
-                    return;
-                }
-                QSaveFile file(path);
-                file.setDirectWriteFallback(false);
-                if (!file.open(QIODevice::WriteOnly) || file.write(svg) != svg.size() ||
-                    !file.commit()) {
-                    prompts.error(tr("Export World SVG"), tr("%1 could not be written.").arg(path));
-                    return;
-                }
-                statusBar()->showMessage(tr("Schematic SVG written to %1").arg(path), 8000);
-            });
+    const auto exportSvg = [this](bool schematic) {
+        auto *tab = currentTab();
+        if (tab == nullptr) {
+            return;
+        }
+        SvgExportOptions options;
+        if (!schematic) {
+            options.artwork = artworkFor(tab->profile());
+            if (!options.artwork) {
+                prompts.error(tr("Export World SVG"),
+                              tr("Select the world's game profile and its installation under View > Game Artwork Directory."));
+                return;
+            }
+        }
+        const auto path = prompts.saveTextPath(
+            QFileInfo(tab->file().path()).completeBaseName() + QStringLiteral(".svg"));
+        if (path.isEmpty()) {
+            return;
+        }
+        if (!destinationAvailable(path)) {
+            return;
+        }
+        const auto svg = renderWorldSvg(tab->document().view(), options);
+        if (svg.isEmpty()) {
+            prompts.error(tr("Export World SVG"), tr("Could not render this world."));
+            return;
+        }
+        QSaveFile file(path);
+        file.setDirectWriteFallback(false);
+        if (!file.open(QIODevice::WriteOnly) || file.write(svg) != svg.size() ||
+            !file.commit()) {
+            prompts.error(tr("Export World SVG"), tr("%1 could not be written.").arg(path));
+            return;
+        }
+        statusBar()->showMessage(tr("SVG written to %1").arg(path), 8000);
+    };
+    connect(addAction(fileMenu, QStringLiteral("fileExportSvg"), tr("Export World S&VG...")),
+            &QAction::triggered, this, [exportSvg] { exportSvg(false); });
+    connect(addAction(fileMenu, QStringLiteral("fileExportSchematicSvg"),
+                      tr("Export World SVG (Schematic)...")),
+            &QAction::triggered, this, [exportSvg] { exportSvg(true); });
     connect(addAction(fileMenu, QStringLiteral("fileRecordScenario"), tr("Record Sce&nario...")),
             &QAction::triggered, this, [this] {
                 auto *tab = currentTab();
@@ -5091,6 +5102,7 @@ void MainWindow::updateUi() {
     enable("filePlaytest", installation_->playtestButton()->isEnabled());
     enable("editPlaytestCommand", installation_->playtestButton()->isEnabled());
     enable("fileExportSvg", hasTab);
+    enable("fileExportSchematicSvg", hasTab);
     enable("fileRecordScenario", hasTab);
     enable("fileCheckScenario", hasTab);
     enable("fileConvertRevision", hasTab && !textWorld);

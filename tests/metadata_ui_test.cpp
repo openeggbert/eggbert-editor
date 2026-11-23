@@ -65,6 +65,20 @@ int main(int argc, char **argv) {
         put32(bytes, 360 + 4 * index, index == 3 ? 9 : 2);
     }
 
+    {
+        const WorldView world(bytes);
+        MetadataDialog dialog(world, GameProfile::mobileEggbert);
+        dialog.setTextWorld(true);
+        dialog.setGame(nullptr, nullptr);
+        auto *music = dialog.findChild<QSpinBox *>("musicSpin");
+        auto *scroll = dialog.findChild<QCheckBox *>("scrollXCheck");
+        CHECK(music->isHidden() && dialog.musicList()->isHidden() && scroll->isHidden());
+        music->setValue(7);
+        scroll->setChecked(!scroll->isChecked());
+        const auto unchanged = readMetadata(world);
+        CHECK(dialog.metadata()->music == unchanged->music);
+        CHECK(dialog.metadata()->scrollsHorizontally == unchanged->scrollsHorizontally);
+    }
     // The dialog on its own.
     {
         const WorldView world(bytes);

@@ -379,6 +379,11 @@ int main(int argc, char **argv) {
             return svgPath;
         };
         action->trigger();
+        CHECK(!errors.isEmpty() && !QFileInfo::exists(svgPath));
+        errors.clear();
+        action = window.findChild<QAction *>("fileExportSchematicSvg");
+        CHECK(action != nullptr && action->isEnabled());
+        action->trigger();
         CHECK_EQ(suggested, QString("pic.svg"));
         CHECK(errors.isEmpty());
         QFile written(svgPath);
@@ -396,6 +401,13 @@ int main(int argc, char **argv) {
         window.prompts.saveTextPath = [](const QString &) { return QString(); };
         action->trigger();
         CHECK(!QFile::exists(other));
+        // The standard action reads native artwork for a recognised desktop installation.
+        CHECK(window.openPath(first.root + "/DATA/WORLD001.BLP") != nullptr);
+        window.prompts.saveTextPath = [&](const QString &) { return other; };
+        window.findChild<QAction *>("fileExportSvg")->trigger();
+        QFile image(other);
+        CHECK(image.open(QIODevice::ReadOnly));
+        CHECK(image.readAll().contains("data:image/png;base64,"));
     }
     // File -> Record Scenario and Check Against Scenario: the scenario of the
     // world as it is now in the tab, unsaved edits included.

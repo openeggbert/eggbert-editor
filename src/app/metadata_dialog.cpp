@@ -86,6 +86,10 @@ MetadataDialog::MetadataDialog(const WorldView &world, GameProfile profile, QWid
                                        .arg(info->music.maximum)
                                  : tr("Music (choose a game profile to edit)"),
                  music_);
+    if (profile_ == GameProfile::mobileEggbert) {
+        form->labelForField(music_)->hide();
+        music_->hide();
+    }
     // The same choice by ear: the list, and a way to listen.
     musicList_ = new QListWidget(worldPageWidget);
     musicList_->setObjectName(QStringLiteral("metadataMusicList"));
@@ -133,6 +137,8 @@ MetadataDialog::MetadataDialog(const WorldView &world, GameProfile profile, QWid
     scrollY_->setChecked(original_.scrollsVertically);
     form->addRow(scrollX_);
     form->addRow(scrollY_);
+    scrollX_->setVisible(profile_ != GameProfile::mobileEggbert);
+    scrollY_->setVisible(profile_ != GameProfile::mobileEggbert);
 
     constexpr int intMin = std::numeric_limits<int>::min();
     constexpr int intMax = std::numeric_limits<int>::max();
@@ -281,7 +287,7 @@ void MetadataDialog::fillLists() {
         const QSignalBlocker blocker(musicList_);
         musicList_->clear();
         for (int number = info != nullptr ? info->music.minimum : 0;
-             info != nullptr && number <= info->music.maximum; ++number) {
+             profile_ != GameProfile::mobileEggbert && info != nullptr && number <= info->music.maximum; ++number) {
             auto *item = new QListWidgetItem(
                 MusicPlayer::trackLabel(number, game_ != nullptr ? game_->musicFile(number)
                                                                  : QString()),
@@ -291,10 +297,11 @@ void MetadataDialog::fillLists() {
     }
     const bool lists = info != nullptr;
     backgrounds_->setVisible(lists);
-    musicList_->setVisible(lists);
-    play_->setVisible(lists);
-    stop_->setVisible(lists);
-    musicLine_->setVisible(lists);
+    const bool musicVisible = lists && profile_ != GameProfile::mobileEggbert;
+    musicList_->setVisible(musicVisible);
+    play_->setVisible(musicVisible);
+    stop_->setVisible(musicVisible);
+    musicLine_->setVisible(musicVisible);
     play_->setEnabled(static_cast<bool>(playMusic_));
     stop_->setEnabled(static_cast<bool>(stopMusic_));
     musicLine_->setText(musicStatus_ ? musicStatus_() : QString());
@@ -324,7 +331,7 @@ std::optional<Metadata> MetadataDialog::metadata() const {
     const auto *info = profileInfo(profile_);
     // A changed music or region must be a value the chosen game offers; an
     // unchanged stored value is kept whatever it is.
-    if (!experimental_ && music_->value() != original_.music &&
+    if (profile_ != GameProfile::mobileEggbert && !experimental_ && music_->value() != original_.music &&
         (info == nullptr || !info->music.contains(music_->value()))) {
         return std::nullopt;
     }
@@ -332,10 +339,12 @@ std::optional<Metadata> MetadataDialog::metadata() const {
         (info == nullptr || !info->region.contains(region_->value()))) {
         return std::nullopt;
     }
-    result.music = static_cast<std::int16_t>(music_->value());
+    if (profile_ != GameProfile::mobileEggbert) {
+        result.music = static_cast<std::int16_t>(music_->value());
+        result.scrollsHorizontally = scrollX_->isChecked();
+        result.scrollsVertically = scrollY_->isChecked();
+    }
     result.region = static_cast<std::int16_t>(region_->value());
-    result.scrollsHorizontally = scrollX_->isChecked();
-    result.scrollsVertically = scrollY_->isChecked();
     result.posDecor = {posX_->value(), posY_->value()};
     for (std::size_t index = 0; index < 4; ++index) {
         result.starts[index].position = {startX_[index]->value(), startY_[index]->value()};

@@ -249,6 +249,38 @@ int diff(const QStringList &arguments, QTextStream &out, QTextStream &err) {
     return equal ? exitOk : exitFound;
 }
 
+std::shared_ptr<const GameAssets> exportArtwork(const QString &directory, const DocumentFile &file,
+                                                GameProfile &profile, QTextStream &err) {
+    const auto found = detectGameProfile(directory).profile;
+    // The pictures of the port are laid out for its text worlds only,
+    // and those of the Windows games for theirs.
+    if (found != GameProfile::unknown &&
+        (found == GameProfile::mobileEggbert) != file.isTextWorld()) {
+        err << directory << ": "
+            << (file.isTextWorld()
+                    ? "a Mobile Eggbert text world is drawn with the pictures of Mobile "
+                      "Eggbert\n"
+                    : "the pictures of Mobile Eggbert are for its text worlds\n");
+        return nullptr;
+    }
+    if (profile == GameProfile::unknown) {
+        profile = found;
+    }
+    if (profile == GameProfile::unknown) {
+        err << directory << ": the game was not recognised; say --game 1 or --game 2\n";
+        return nullptr;
+    }
+    const auto assets = GameAssets::load(directory, profile);
+    if (!assets->usable()) {
+        err << directory << ": its tiles cannot be drawn\n";
+        for (const auto &line : assets->report()) {
+            err << "  " << line << "\n";
+        }
+        return nullptr;
+    }
+    return assets;
+}
+
 int exportPng(const QStringList &arguments, QTextStream &out, QTextStream &err) {
     const QStringList off{QStringLiteral("--no-foreground"), QStringLiteral("--no-bigdecor"),
                           QStringLiteral("--no-objects"),    QStringLiteral("--no-starts"),
@@ -318,34 +350,10 @@ int exportPng(const QStringList &arguments, QTextStream &out, QTextStream &err) 
     auto profile = *game;
     if (parsed.values.contains(QStringLiteral("--game-data"))) {
         const auto directory = parsed.values[QStringLiteral("--game-data")];
-        const auto found = detectGameProfile(directory).profile;
-        // The pictures of the port are laid out for its text worlds only,
-        // and those of the Windows games for theirs.
-        if (found != GameProfile::unknown &&
-            (found == GameProfile::mobileEggbert) != loaded.value()->isTextWorld()) {
-            err << directory << ": "
-                << (loaded.value()->isTextWorld()
-                        ? "a Mobile Eggbert text world is drawn with the pictures of Mobile "
-                          "Eggbert\n"
-                        : "the pictures of Mobile Eggbert are for its text worlds\n");
+        options.render.artwork = exportArtwork(directory, *loaded.value(), profile, err);
+        if (!options.render.artwork) {
             return exitUsage;
         }
-        if (profile == GameProfile::unknown) {
-            profile = found;
-        }
-        if (profile == GameProfile::unknown) {
-            err << directory << ": the game was not recognised; say --game 1 or --game 2\n";
-            return exitUsage;
-        }
-        const auto assets = GameAssets::load(directory, profile);
-        if (!assets->usable()) {
-            err << directory << ": its tiles cannot be drawn\n";
-            for (const auto &line : assets->report()) {
-                err << "  " << line << "\n";
-            }
-            return exitUsage;
-        }
-        options.render.artwork = assets;
     }
     options.render.profile = profile;
     const auto result =
@@ -658,8 +666,10 @@ int scenarioCheck(const QStringList &arguments, QTextStream &out, QTextStream &e
 
 int exportSvg(const QStringList &arguments, QTextStream &out, QTextStream &err) {
     const QStringList off{QStringLiteral("--no-foreground"), QStringLiteral("--no-bigdecor"),
-                          QStringLiteral("--no-objects"), QStringLiteral("--no-starts")};
-    const auto parsed = parse(arguments, {QStringLiteral("--scale")}, off);
+                          QStringLiteral("--no-objects"), QStringLiteral("--no-starts"),
+                          QStringLiteral("--schematic")};
+    const auto parsed = parse(arguments, {QStringLiteral("--scale"), QStringLiteral("--game"),
+                                          QStringLiteral("--game-data")}, off);
     if (!parsed.error.isEmpty() || parsed.positional.size() != 2) {
         return usageError(err, parsed.error.isEmpty()
                                    ? QStringLiteral("export-svg needs a world file and an output "
@@ -686,9 +696,49 @@ int exportSvg(const QStringList &arguments, QTextStream &out, QTextStream &err) 
         err << parsed.positional[0] << ": " << loaded.error().detail << "\n";
         return exitUsage;
     }
+    const auto &documentFile = *loaded.value();
+    if (!documentFile.document().view().foreground()) {
+        return usageError(err, QStringLiteral("The world has no complete tile layer."));
+    }
+    auto profile = gameOf(documentFile, parsed.values.value(QStringLiteral("--game")), err);
+    if (!profile) {
+        return exitUsage;
+    }
+    QString directory = parsed.values.value(QStringLiteral("--game-data"));
+    if (parsed.flags.contains(QStringLiteral("--schematic"))) {
+        if (!directory.isNull()) {
+            return usageError(err, QStringLiteral("Choose either --schematic or --game-data."));
+        }
+    } else {
+        if (directory.isNull()) {
+            auto folder = QFileInfo(documentFile.path()).dir();
+            if (documentFile.isTextWorld()) {
+                for (int level = 0; level < 3; ++level) {
+                    if (!GameAssets::mobileContentDirectory(folder.absolutePath()).isEmpty()) {
+                        directory = folder.absolutePath();
+                        break;
+                    }
+                    if (!folder.cdUp()) {
+                        break;
+                    }
+                }
+            } else if (folder.dirName().compare(QLatin1String("DATA"), Qt::CaseInsensitive) == 0 &&
+                       folder.cdUp()) {
+                directory = folder.absolutePath();
+            }
+        }
+        if (directory.isEmpty()) {
+            return usageError(err, QStringLiteral("Supply the installation with --game-data DIR "
+                                                  "or use --schematic for a diagram."));
+        }
+        options.artwork = exportArtwork(directory, documentFile, *profile, err);
+        if (!options.artwork) {
+            return exitUsage;
+        }
+    }
     const auto svg = renderWorldSvg(loaded.value()->document().view(), options);
     if (svg.isEmpty()) {
-        err << parsed.positional[0] << ": not a world with a complete tile layer\n";
+        err << parsed.positional[0] << ": could not render the SVG\n";
         return exitUsage;
     }
     QSaveFile file(parsed.positional[1]);
@@ -697,7 +747,7 @@ int exportSvg(const QStringList &arguments, QTextStream &out, QTextStream &err) 
         err << parsed.positional[1] << ": cannot be written\n";
         return exitUsage;
     }
-    out << parsed.positional[1] << ": schematic SVG, " << svg.size() << " bytes\n";
+    out << parsed.positional[1] << (options.artwork ? ": artwork SVG, " : ": schematic SVG, ") << svg.size() << " bytes\n";
     return exitOk;
 }
 
@@ -893,7 +943,8 @@ bool isCommandLineCommand(const QString &name) {
 }
 
 bool commandNeedsGraphics(const QString &name) {
-    return name == QLatin1String("export-png") || name == QLatin1String("export-batch");
+    return name == QLatin1String("export-png") || name == QLatin1String("export-batch") ||
+           name == QLatin1String("export-svg");
 }
 
 QString commandLineUsage() {
@@ -917,7 +968,8 @@ QString commandLineUsage() {
         "      when some could not be written\n"
         "  eggbert-editor export-svg FILE OUT.svg [--scale 1..64] [--no-foreground]\n"
         "      [--no-bigdecor] [--no-objects] [--no-starts]\n"
-        "      a scalable schematic picture (never with game artwork)\n"
+        "      [--game 1|2] [--game-data DIR | --schematic]\n"
+        "      embeds native-resolution game artwork or writes a labelled schematic\n"
         "  eggbert-editor convert FILE OUT --to 1.0|1.1|1.2|1.3 [--allow-loss]\n"
         "      a copy of the world in another revision; OUT must not exist; exit 1 when\n"
         "      the target cannot store everything and --allow-loss is not given\n"

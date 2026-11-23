@@ -38,6 +38,7 @@ constexpr const char *texts[] = {
     QT_TRANSLATE_NOOP("eggbert::Catalog", "Cheese (249)"),
     QT_TRANSLATE_NOOP("eggbert::Catalog", "Cheese (339)"),
     QT_TRANSLATE_NOOP("eggbert::Catalog", "Circular saw"),
+    QT_TRANSLATE_NOOP("eggbert::Catalog", "Floor switch"),
     QT_TRANSLATE_NOOP("eggbert::Catalog", "Coloured key 1"),
     QT_TRANSLATE_NOOP("eggbert::Catalog", "Coloured key 2"),
     QT_TRANSLATE_NOOP("eggbert::Catalog", "Coloured key 3"),

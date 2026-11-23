@@ -2,16 +2,13 @@
 #pragma once
 
 #include <QByteArray>
+#include <memory>
 
 #include "world/world_view.hpp"
 
 namespace eggbert {
 
-// A scalable picture of a world in the schematic style: one rectangle per
-// occupied cell in the colour the schematic view uses for its number, back
-// layer cells as outlines, objects as circles with their path, starts as
-// diamonds. It never contains game artwork. The same world and options give
-// the same bytes.
+class GameAssets;
 struct SvgExportOptions {
     // Size of a cell in SVG user units.
     int cellSize = 16;
@@ -19,6 +16,8 @@ struct SvgExportOptions {
     bool showBigDecor = true;
     bool showObjects = true;
     bool showStarts = true;
+    // Without artwork, export the labelled vector schematic.
+    std::shared_ptr<const GameAssets> artwork;
 
     friend bool operator==(const SvgExportOptions &, const SvgExportOptions &) = default;
 };
