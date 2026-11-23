@@ -213,6 +213,7 @@ The items are worked in this order, one bounded slice at a time; each slice is c
 | Order | Slice | Acceptance | Effort |
 | ---: | --- | --- | --- |
 | A | Interface: icon tool bar, welcome page, drag and drop, zoom control, per-file game memory; game recognised from the folder a world is opened from (read-only installation discovery) | UI tests: each control drives the same tested action; opening a world inside a generated game directory selects its profile and artwork without a prompt and never writes there | medium |
+| A2 | Interface: New World (the state the games' editors start a mission with), from the menu, the welcome page and the command line | the written bytes equal an independent field-by-field description; World Doctor reports no error or warning on them; no open file is replaced | small |
 | B | Autosave recovery and snapshots | a crashed session's unsaved bytes are offered on next start and are byte-exact; snapshots restore exact bytes; nothing is written next to the world file | medium |
 | C | Headless command line: `info`, `validate`, `export-png`, `diff`; PNG layers and crops | commands run without a display, exit codes documented, output byte-identical to the GUI's for the same input | medium |
 | D | Writing revisions 1.0/1.1 and upgrading them to 1.2/1.3, through converted copies (in place they stay read-only) | round trip per revision; an upgrade preserves every byte that has a place in the target and reports what has none | medium |

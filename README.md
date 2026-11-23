@@ -22,6 +22,7 @@ What works today:
 - **Save / Save As / Save All / Revert** with atomic replacement. Save refuses to overwrite a file that changed, shrank, grew or disappeared on disk since it was read and offers Reload (when the file still exists) or Save As instead. Only edited bytes change: unknown and reserved fields, inactive object slots, name padding and trailing data are preserved exactly.
 - **Recovery and snapshots**: unsaved changes are copied to a checksummed store in the user profile a few seconds after an edit and offered at the next start if the editor stopped unexpectedly (restored as one undo step, only onto an unchanged file); named snapshots of a world can be taken and restored the same way. Nothing is written beside a world file.
 - Revisions 1.0 and 1.1, truncated files and unknown content open **read-only** with the reason shown.
+- **New World** (and the `new` command) writes the world the games' own editors start a mission with, for either game.
 - **Convert Revision** (and the `convert` command) writes a copy of a world in revision 1.0, 1.1, 1.2 or 1.3 to a new file; anything the target cannot store is listed and dropped only on request.
 
 Version 1.0.0 implements the whole fixed 1.0 scope.
@@ -51,7 +52,7 @@ ctest --test-dir build --output-on-failure
 
 If CMake cannot find Qt, set `CMAKE_PREFIX_PATH` to your Qt kit directory when configuring. For a multi-configuration generator such as Visual Studio, build with `--config Release` and pass `-C Release` to CTest. On macOS, launch the generated application bundle. Only Linux is tested and packaged.
 
-`eggbert-editor world.blp ...` opens files given on the command line. Five commands work without a window and never change the world they read: `info FILE`, `validate FILE [--game 1|2]`, `diff FILE OTHER`, `export-png FILE OUT.png [--scale N] [--crop x,y,w,h] ...` and `convert FILE OUT --to 1.0|1.1|1.2|1.3 [--allow-loss]` (exit codes 0 success, 1 findings, differences or a refused loss, 2 usage or file error; see `--help`). `eggbert-editor --version` and `--help` work without a display. `eggbert-editor --smoke-test` runs an end-to-end self check that needs no game data; `--smoke-test --game-data DIR` additionally recognises the game in `DIR` (read only) and draws with its artwork.
+`eggbert-editor world.blp ...` opens files given on the command line. Six commands work without a window and never change a world they read: `info FILE`, `validate FILE [--game 1|2]`, `diff FILE OTHER`, `export-png FILE OUT.png [--scale N] [--crop x,y,w,h] ...`, `convert FILE OUT --to 1.0|1.1|1.2|1.3 [--allow-loss]` and `new OUT --game 1|2` (exit codes 0 success, 1 findings, differences or a refused loss, 2 usage or file error; see `--help`). `eggbert-editor --version` and `--help` work without a display. `eggbert-editor --smoke-test` runs an end-to-end self check that needs no game data; `--smoke-test --game-data DIR` additionally recognises the game in `DIR` (read only) and draws with its artwork.
 
 The tests need no game installation, no game assets and no network. Add `-DEGGBERT_SANITIZE=ON` to build with the address and undefined-behavior sanitizers.
 

@@ -14,6 +14,7 @@
 #include "app/probe_report.hpp"
 #include "world/doctor.hpp"
 #include "world/hex_model.hpp"
+#include "world/new_world.hpp"
 #include "world/offset_map.hpp"
 #include "world/revision_convert.hpp"
 
@@ -271,6 +272,43 @@ int exportPng(const QStringList &arguments, QTextStream &out, QTextStream &err) 
     return exitOk;
 }
 
+bool writeNewFile(const QString &path, const std::vector<std::byte> &bytes) {
+    QSaveFile file(path);
+    file.setDirectWriteFallback(false);
+    const auto size = static_cast<qint64>(bytes.size());
+    return file.open(QIODevice::WriteOnly) &&
+           file.write(reinterpret_cast<const char *>(bytes.data()), size) == size &&
+           file.commit();
+}
+
+int create(const QStringList &arguments, QTextStream &out, QTextStream &err) {
+    const auto parsed = parse(arguments, {QStringLiteral("--game")}, {});
+    auto game = GameProfile::unknown;
+    if (parsed.values.contains(QStringLiteral("--game"))) {
+        game = parseGame(parsed.values[QStringLiteral("--game")]).value_or(GameProfile::unknown);
+    }
+    if (!parsed.error.isEmpty() || parsed.positional.size() != 1 ||
+        game == GameProfile::unknown) {
+        return usageError(err, parsed.error.isEmpty()
+                                   ? QStringLiteral("new needs an output file and --game 1|2")
+                                   : parsed.error);
+    }
+    const auto &path = parsed.positional[0];
+    if (QFileInfo::exists(path)) {
+        err << path << ": already exists; new never overwrites a file\n";
+        return exitUsage;
+    }
+    const auto bytes = newWorld(game);
+    if (!writeNewFile(path, bytes)) {
+        err << path << ": cannot be written\n";
+        return exitUsage;
+    }
+    const auto &revision = *findRevision(newWorldRevision(game));
+    out << path << ": new world, revision " << revision.major << "." << revision.minor << ", "
+        << bytes.size() << " bytes\n";
+    return exitOk;
+}
+
 int convert(const QStringList &arguments, QTextStream &out, QTextStream &err) {
     const auto parsed = parse(arguments, {QStringLiteral("--to")}, {QStringLiteral("--allow-loss")});
     if (!parsed.error.isEmpty() || parsed.positional.size() != 2 ||
@@ -310,16 +348,12 @@ int convert(const QStringList &arguments, QTextStream &out, QTextStream &err) {
                     : "\n");
         return converted.error().error == ConversionError::wouldLoseData ? exitFound : exitUsage;
     }
-    QSaveFile file(parsed.positional[1]);
-    file.setDirectWriteFallback(false);
-    const auto size = static_cast<qint64>(converted->bytes.size());
-    if (!file.open(QIODevice::WriteOnly) ||
-        file.write(reinterpret_cast<const char *>(converted->bytes.data()), size) != size ||
-        !file.commit()) {
+    if (!writeNewFile(parsed.positional[1], converted->bytes)) {
         err << parsed.positional[1] << ": cannot be written\n";
         return exitUsage;
     }
-    out << parsed.positional[1] << ": revision " << wanted << ", " << size << " bytes\n";
+    out << parsed.positional[1] << ": revision " << wanted << ", " << converted->bytes.size()
+        << " bytes\n";
     for (const auto &note : converted->notes) {
         out << "  " << QString::fromStdString(note) << "\n";
     }
@@ -331,7 +365,7 @@ int convert(const QStringList &arguments, QTextStream &out, QTextStream &err) {
 bool isCommandLineCommand(const QString &name) {
     return name == QLatin1String("info") || name == QLatin1String("validate") ||
            name == QLatin1String("diff") || name == QLatin1String("export-png") ||
-           name == QLatin1String("convert");
+           name == QLatin1String("convert") || name == QLatin1String("new");
 }
 
 bool commandNeedsGraphics(const QString &name) {
@@ -355,6 +389,8 @@ QString commandLineUsage() {
         "  eggbert-editor convert FILE OUT --to 1.0|1.1|1.2|1.3 [--allow-loss]\n"
         "      a copy of the world in another revision; OUT must not exist; exit 1 when\n"
         "      the target cannot store everything and --allow-loss is not given\n"
+        "  eggbert-editor new OUT --game 1|2\n"
+        "      the world the game's own editor starts with; OUT must not exist\n"
         "Exit codes: 0 success, 1 findings, differences or refused loss, 2 usage or file\n"
         "error.\n");
 }
@@ -373,6 +409,8 @@ int runCommandLine(const QStringList &arguments, QTextStream &out, QTextStream &
         code = diff(rest, out, err);
     } else if (arguments[0] == QLatin1String("convert")) {
         code = convert(rest, out, err);
+    } else if (arguments[0] == QLatin1String("new")) {
+        code = create(rest, out, err);
     } else {
         code = exportPng(rest, out, err);
     }

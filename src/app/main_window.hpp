@@ -52,8 +52,9 @@ struct Prompts {
     // the copy was made; `detail` says so.
     std::function<RecoveryChoice(const RecoveryEntry &, bool canRestore, const QString &detail)>
         recover;
-    // The revision to convert a copy to and whether loss is accepted;
-    // `preview` computes the outcome for a choice.
+    // The game a new world is for; nullopt cancels.
+    std::function<std::optional<GameProfile>(GameProfile suggested)> newWorldGame;
+    // The revision to convert a copy to and whether loss is accepted.
     std::function<std::optional<std::pair<FormatRevision, bool>>(DocumentTab *)> convertRevision;
     std::function<std::optional<QString>(DocumentTab *)> snapshotName;
     std::function<std::optional<std::pair<RecoveryEntry, SnapshotAction>>(
@@ -200,6 +201,9 @@ public:
     // Offers the unsaved changes of earlier sessions; returns how many were
     // restored into tabs. Called once after start.
     int checkRecovery();
+    // Asks for the game and a file, writes the world the games' editors
+    // start with and opens it; returns the new tab or null.
+    DocumentTab *createWorld();
     // Writes a copy of the tab's world in another revision (never in place)
     // and opens it; returns the new tab or null.
     DocumentTab *convertRevisionOf(DocumentTab *tab);

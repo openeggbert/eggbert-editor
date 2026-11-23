@@ -6,7 +6,9 @@ It is an editor for one world at a time. It does not manage campaigns, does not 
 
 ## Opening a world
 
-**File → Open World** (Ctrl+O) opens one or more files, each in its own tab. Files named on the command line open too, and so do files dropped onto the window. While nothing is open, the window shows a welcome page with **Open World**, **Choose Game Directory** and the worlds you opened recently.
+**File → Open World** (Ctrl+O) opens one or more files, each in its own tab. Files named on the command line open too, and so do files dropped onto the window. While nothing is open, the window shows a welcome page with **Open World**, **New World**, **Choose Game Directory** and the worlds you opened recently.
+
+**File → New World** (Ctrl+N) asks for the game and for a file, and writes the world the game's own editor starts a new mission with: a full-size empty map with a three-tile platform, the four starts, one treasure and the goal, music 1 and backdrop 2. The file is written in the revision that game's stock worlds use (1.2 for the first game, 1.3 for the second) and opened with the game selected. A file that is open in the editor is not replaced.
 
 A world file carries no signature. The editor reads the revision field at the start of the file and selects a layout:
 
@@ -182,6 +184,7 @@ Besides opening files (`eggbert-editor world.blp ...`), the program has commands
 - `eggbert-editor diff FILE OTHER` lists the differing byte ranges with their structural names and old and new bytes; the exit code is 1 when the files differ.
 - `eggbert-editor export-png FILE OUT.png` writes the picture **File → Export World PNG** writes. Options: `--scale N` (pixels per cell, 1 to 64), `--crop x,y,width,height` (in cells), `--game 1|2`, `--game-data DIR` (draw with that game's artwork), `--no-foreground`, `--no-bigdecor`, `--no-objects`, `--no-starts`, `--no-paths`, `--no-backdrop`, `--grid`, `--labels`, `--transparent`.
 - `eggbert-editor convert FILE OUT --to 1.0|1.1|1.2|1.3 [--allow-loss]` writes a copy in another revision, as **File → Convert Revision** does. `OUT` must not exist. When the target cannot store everything, nothing is written and the exit code is 1 unless `--allow-loss` is given.
+- `eggbert-editor new OUT --game 1|2` writes the world **File → New World** writes. `OUT` must not exist.
 
 Exit codes: 0 success, 1 findings, differences or a refused loss, 2 wrong usage or a file that cannot be read or written. `eggbert-editor --help` lists everything.
 

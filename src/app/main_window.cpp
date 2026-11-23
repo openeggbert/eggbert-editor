@@ -59,6 +59,7 @@
 #include "app/palette_panel.hpp"
 #include "app/sprite_icons.hpp"
 #include "app/tool_icons.hpp"
+#include "world/new_world.hpp"
 #include "world/revision_convert.hpp"
 #include "app/png_export_dialog.hpp"
 #include "app/probe_report.hpp"
@@ -130,6 +131,13 @@ MainWindow::MainWindow() {
                 item->trigger();
             }
         });
+        auto *create = new QPushButton(tr("New World..."), welcome_);
+        create->setObjectName(QStringLiteral("welcomeNew"));
+        connect(create, &QPushButton::clicked, this, [this] {
+            if (auto *item = action(QStringLiteral("fileNew"))) {
+                item->trigger();
+            }
+        });
         auto *game = new QPushButton(tr("Choose Game Directory..."), welcome_);
         game->setObjectName(QStringLiteral("welcomeGame"));
         game->setToolTip(tr("Select the directory of a game you have, so worlds are drawn with "
@@ -140,6 +148,7 @@ MainWindow::MainWindow() {
             }
         });
         buttons->addWidget(open);
+        buttons->addWidget(create);
         buttons->addWidget(game);
         buttons->addStretch(1);
         column->addLayout(buttons);
@@ -318,6 +327,22 @@ void MainWindow::installDefaultPrompts() {
             return RecoveryChoice::saveCopy;
         }
         return box.clickedButton() == discard ? RecoveryChoice::discard : RecoveryChoice::keep;
+    };
+    prompts.newWorldGame = [this](GameProfile suggested) -> std::optional<GameProfile> {
+        const QStringList games{QString::fromUtf8(speedyBlupi1Info.name.data(),
+                                                  static_cast<qsizetype>(speedyBlupi1Info.name.size())),
+                                QString::fromUtf8(speedyBlupi2Info.name.data(),
+                                                  static_cast<qsizetype>(speedyBlupi2Info.name.size()))};
+        bool accepted = false;
+        const auto chosen = QInputDialog::getItem(
+            this, tr("New World"),
+            tr("The new world starts as the game's own editor starts one:\n"
+               "a small platform, one treasure and the goal.\n\nGame:"),
+            games, suggested == GameProfile::speedyBlupi1 ? 0 : 1, false, &accepted);
+        if (!accepted) {
+            return std::nullopt;
+        }
+        return chosen == games[0] ? GameProfile::speedyBlupi1 : GameProfile::speedyBlupi2;
     };
     prompts.convertRevision =
         [this](DocumentTab *tab) -> std::optional<std::pair<FormatRevision, bool>> {
@@ -665,6 +690,9 @@ void MainWindow::createActions() {
     auto *layerMenu = menuBar()->addMenu(tr("&Layer"));
     auto *objectMenu = menuBar()->addMenu(tr("&Object"));
     auto *helpMenu = menuBar()->addMenu(tr("&Help"));
+    connect(addAction(fileMenu, QStringLiteral("fileNew"), tr("&New World..."),
+                      QKeySequence::New),
+            &QAction::triggered, this, [this] { createWorld(); });
     auto *open = addAction(fileMenu, QStringLiteral("fileOpen"), tr("&Open World..."),
                            QKeySequence::Open);
     connect(open, &QAction::triggered, this, [this] {
@@ -2319,6 +2347,53 @@ int MainWindow::checkRecovery() {
     return restored;
 }
 
+DocumentTab *MainWindow::createWorld() {
+    auto suggestedGame = GameProfile::speedyBlupi2;
+    QString directory;
+    if (auto *tab = currentTab()) {
+        if (tab->profile() != GameProfile::unknown) {
+            suggestedGame = tab->profile();
+        }
+        directory = QFileInfo(tab->file().path()).absolutePath();
+    }
+    const auto game = prompts.newWorldGame(suggestedGame);
+    if (!game || *game == GameProfile::unknown) {
+        return nullptr;
+    }
+    const auto name = QStringLiteral("new-world.blp");
+    const auto path =
+        prompts.saveAsPath(directory.isEmpty() ? name : QDir(directory).filePath(name));
+    if (path.isEmpty()) {
+        return nullptr;
+    }
+    const auto key = samePathKey(path);
+    for (int index = 0; index < tabCount(); ++index) {
+        if (samePathKey(tabAt(index)->file().path()) == key) {
+            prompts.error(tr("New World"),
+                          tr("%1 is open in the editor. Choose another file.").arg(path));
+            return nullptr;
+        }
+    }
+    const auto bytes = newWorld(*game);
+    QSaveFile file(path);
+    file.setDirectWriteFallback(false);
+    const auto size = static_cast<qint64>(bytes.size());
+    if (!file.open(QIODevice::WriteOnly) ||
+        file.write(reinterpret_cast<const char *>(bytes.data()), size) != size ||
+        !file.commit()) {
+        prompts.error(tr("New World"), tr("%1 was not written.").arg(path));
+        return nullptr;
+    }
+    rememberProfile(path, *game);
+    auto *opened = openPath(path);
+    if (opened != nullptr) {
+        opened->setProfile(*game);
+        // The platform with the starts, the treasure and the goal.
+        opened->canvas()->fitCells(CellPos{0, 0}, CellPos{12, 8});
+    }
+    return opened;
+}
+
 DocumentTab *MainWindow::convertRevisionOf(DocumentTab *tab) {
     if (tab == nullptr) {
         return nullptr;
@@ -2361,8 +2436,11 @@ DocumentTab *MainWindow::convertRevisionOf(DocumentTab *tab) {
         return nullptr;
     }
     const auto profile = tab->profile();
+    if (profile != GameProfile::unknown) {
+        rememberProfile(path, profile);
+    }
     auto *opened = openPath(path);
-    if (opened != nullptr && opened->profile() == GameProfile::unknown) {
+    if (opened != nullptr && profile != GameProfile::unknown) {
         opened->setProfile(profile);
     }
     statusBar()->showMessage(tr("Converted copy written to %1").arg(path), 8000);

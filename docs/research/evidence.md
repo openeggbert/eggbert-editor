@@ -73,6 +73,15 @@ Eggbert Editor does not copy two side effects of the games' editors: placing an 
 
 Deliberate differences from the games' editors, so that an adaptive edit never removes unrelated content: Eggbert Editor does not delete objects standing on a cell that becomes solid, and it does not reproduce the source quirk by which a freshly written four-cell lightning beam also clears beam cells five to eight rows below the emitter. Every cell an adaptive stroke would change is previewed before the click.
 
+## New world
+
+| Observation | Where | How |
+| --- | --- | --- |
+| Both games' editors start a new mission from the same state: scroll position (0, 0), `dimDecor` (100, 100), music 1, region 2, empty title; both layers filled with `0xFFFF` except foreground (3, 4) = 40, (4, 4) = 38, (5, 4) = 39; every object type 0, then slot 0 a treasure (type 5, steps 1/1, waits 0/0, start = end = current = (258, 196), step 1, time 0, phase 0, channel 10, icon 0) and slot 1 the goal (type 7, the same fields with x = 322, icon 29); the four starts at (194, 198) facing right (2) | `src/decblock.cpp:863-921`; `games/sb2/src/decblock.cpp:1227-1288`; constants `src/def.h:699`, `:727`, `:732`, `:999`, `:1001` and the same names in `games/sb2/src/def.h` | read |
+| The writer zero-fills the header before setting the fields above and writes both layers and all 200 records | `src/decor.cpp:297-357` | read |
+
+`newWorld` writes that state with every byte the games do not set as zero (the games write whatever the unused fields of slots 2–199 held in memory). The revision is the one the game's stock worlds use: 1.2 for the first game (all 59 stock worlds of Speedy Eggbert 1; the reconstructed writer writes 1.3 except in its June 1998 demo build, and both readers accept either), 1.3 for the second.
+
 ## Drawing
 
 | Observation | Where | How |

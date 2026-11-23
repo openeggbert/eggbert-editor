@@ -5,6 +5,7 @@
 
 #include "app/cli.hpp"
 #include "app/png_export.hpp"
+#include "world/new_world.hpp"
 #include "world/revision_convert.hpp"
 #include "world/world_view.hpp"
 
@@ -12,6 +13,7 @@
 #include "fixture.hpp"
 
 #include <algorithm>
+#include <tuple>
 
 #include <QFile>
 #include <QGuiApplication>
@@ -233,6 +235,36 @@ int main(int argc, char **argv) {
         CHECK(!QFile::exists(unused));
         CHECK(readAll(oldPath) == QByteArray(reinterpret_cast<const char *>(oldWorld.data()),
                                               static_cast<qsizetype>(oldWorld.size())));
+    }
+    // new
+    {
+        CHECK(isCommandLineCommand("new") && !commandNeedsGraphics("new"));
+        CHECK(commandLineUsage().contains("new OUT --game"));
+        for (const auto &[flag, profile, revision] :
+             {std::tuple{"1", GameProfile::speedyBlupi1, "1.2"},
+              std::tuple{"2", GameProfile::speedyBlupi2, "1.3"}}) {
+            const auto created = dir.filePath(QStringLiteral("new%1.blp").arg(flag));
+            const auto result = run({"new", created, "--game", flag});
+            CHECK_EQ(result.code, 0);
+            CHECK(result.out.contains(QStringLiteral("revision %1, 50468 bytes").arg(revision)));
+            const auto expected = newWorld(profile);
+            const auto written = readAll(created);
+            CHECK_EQ(written.size(), static_cast<qsizetype>(expected.size()));
+            CHECK(std::equal(written.begin(), written.end(),
+                             reinterpret_cast<const char *>(expected.data())));
+            CHECK_EQ(run({"validate", created, "--game", flag}).code, 0);
+            // Never over an existing file.
+            const auto again = run({"new", created, "--game", flag});
+            CHECK_EQ(again.code, 2);
+            CHECK(again.err.contains("already exists"));
+            CHECK(readAll(created) == written);
+        }
+        const auto unused = dir.filePath("unused-new.blp");
+        CHECK_EQ(run({"new", unused}).code, 2);
+        CHECK_EQ(run({"new", unused, "--game", "3"}).code, 2);
+        CHECK_EQ(run({"new", "--game", "1"}).code, 2);
+        CHECK_EQ(run({"new", dir.filePath("no/such/dir/x.blp"), "--game", "1"}).code, 2);
+        CHECK(!QFile::exists(unused));
     }
     CHECK_EQ(run({}).code, 2);
     CHECK_EQ(run({"frobnicate"}).code, 2);

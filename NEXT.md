@@ -45,9 +45,9 @@ Verification on 2026-11-22, Ubuntu 24.04, GCC 13.3.0, CMake 3.28.3, Ninja, Qt 6.
 ```sh
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
 cmake --build build --parallel              # no warnings
-ctest --test-dir build --output-on-failure  # 45/45 passed (46 registered): layout, le_reader, world_probe, world_view, world_document, world_stats, offset_map, tile_tools, metadata, object_ops, hex_model, doctor, adaptive, animation, atlas_table, editor_groups, revision_convert, view_transform, probe_report, document_file, recovery_store, cli, world_renderer, png_export, game_assets, main_window, docks, tools, metadata_ui, objects_ui, inspector, doctor_ui, adaptive_ui, workspace, artwork_ui, palette, music_player, animation_ui, interface_ui, recovery_ui, convert_ui, cli_usage, smoke, version, install_smoke; sample_matrix skipped without EGGBERT_SAMPLE_DIRS
+ctest --test-dir build --output-on-failure  # 47/47 passed (48 registered): layout, le_reader, world_probe, world_view, world_document, world_stats, offset_map, tile_tools, metadata, object_ops, hex_model, doctor, adaptive, animation, atlas_table, editor_groups, revision_convert, new_world, view_transform, probe_report, document_file, recovery_store, cli, world_renderer, png_export, game_assets, main_window, docks, tools, metadata_ui, objects_ui, inspector, doctor_ui, adaptive_ui, workspace, artwork_ui, palette, music_player, animation_ui, interface_ui, recovery_ui, convert_ui, new_world_ui, cli_usage, smoke, version, install_smoke; sample_matrix skipped without EGGBERT_SAMPLE_DIRS
 cmake -S . -B build-asan -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DEGGBERT_SANITIZE=ON
-cmake --build build-asan --parallel && ctest --test-dir build-asan   # 45/45 passed under ASan/UBSan, sample_matrix skipped
+cmake --build build-asan --parallel && ctest --test-dir build-asan   # 47/47 passed under ASan/UBSan, sample_matrix skipped
 ```
 
 Commit `c8f7a77` (binary inspector) was pushed green in Release but with a use-after-free that the sanitizer run reported in `main_window` (the hex views kept a pointer to the document replaced by Revert/Reload); the next commit fixes it with `DocumentTab::documentReplaced` and a regression check in `inspector`. Always run the sanitizer suite to completion before committing.
@@ -90,6 +90,10 @@ See `plan.md`, **Promotion of the roadmap**. Design to implement:
 2. Headless `src/world/game_convert.hpp`: `planGameConversion(view, from, to)` returning a report (per kind: kept, translated, without counterpart — with cell or slot lists) and `convertGame(bytes, from, to, policy)` producing a new byte image; revision follows the target game (1.2 for the first, 1.3 for the second) through `convertRevision`. Never in place.
 3. UI: File → Convert to Other Game… with the report shown before anything is written; the result is a new file. CLI: `convert-game`.
 4. Tests: synthetic worlds per mapping class, refusal without acceptance, source untouched; with the opt-in samples, every stock world converts there and the report totals are stable.
+
+### Slice A2 result (2026-11-23): New World
+
+Added under the owner's instruction to work on the interface (an editor without a way to start a world was the largest gap seen in a review of the screens). `src/world/new_world.hpp` (Qt-free) builds the state both games' editors start a mission with (evidence: **New world** in `docs/research/evidence.md`, read in both sources): revision 1.2 for the first game, 1.3 for the second. **File → New World…** (Ctrl+N), the welcome page's **New World…** and `eggbert-editor new OUT --game 1|2` write it to a new file; the window opens it with the game selected and remembered. Tests: `new_world` (bytes equal an independent description built with the fixture helpers; nothing else set; Doctor: no error, no warning under either profile), `new_world_ui` (welcome button and menu, suggestions, edit and save afterwards, open file not replaced, cancel paths, unwritable destination), `cli` (both games, existing output kept, usage errors). Not covered: loading the file in a running game.
 
 ### Slice D result (2026-11-22)
 
@@ -147,6 +151,7 @@ Completed slices are ticked only when their tests are green and committed.
 Order and acceptance are in `plan.md`, **Promotion of the roadmap**. Tick a slice only when its tests are green and committed.
 
 - [x] A Interface: icon tool bar, welcome page, drag and drop, zoom control, per-file game memory, game recognised from the folder
+- [x] A2 New World (menu, welcome page, `new` command)
 - [x] B Autosave recovery and snapshots
 - [x] C Headless command line; PNG layers and crops
 - [x] D Revision conversion (1.0/1.1 written and upgraded through converted copies)
