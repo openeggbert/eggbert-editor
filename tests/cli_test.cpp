@@ -6,6 +6,7 @@
 #include "app/cli.hpp"
 #include "app/png_export.hpp"
 #include "world/game_convert.hpp"
+#include "world/merge.hpp"
 #include "world/new_world.hpp"
 #include "world/revision_convert.hpp"
 #include "world/world_view.hpp"
@@ -366,6 +367,61 @@ int main(int argc, char **argv) {
         const auto unused = dir.filePath("never.blp");
         CHECK_EQ(run({"convert", textPath, unused, "--to", "1.3"}).code, 2);
         CHECK_EQ(run({"convert-game", textPath, unused, "--from", "1", "--to", "2"}).code, 2);
+        CHECK(!QFile::exists(unused));
+    }
+    // merge
+    {
+        CHECK(isCommandLineCommand("merge") && !commandNeedsGraphics("merge"));
+        CHECK(commandLineUsage().contains("merge BASE MINE THEIRS OUT"));
+        const auto base = blankWorld(fxRevision13);
+        auto mine = base;
+        auto theirs = base;
+        put16(mine, fxCellOffset(fxForegroundOffset, 1, 1), 30);
+        put16(theirs, fxCellOffset(fxForegroundOffset, 2, 2), 31);
+        const auto basePath = dir.filePath("merge-base.blp");
+        const auto minePath = dir.filePath("merge-mine.blp");
+        const auto theirsPath = dir.filePath("merge-theirs.blp");
+        writeAll(basePath, base);
+        writeAll(minePath, mine);
+        writeAll(theirsPath, theirs);
+        const auto outPath = dir.filePath("merged.blp");
+        const auto clean = run({"merge", basePath, minePath, theirsPath, outPath});
+        CHECK_EQ(clean.code, 0);
+        CHECK(clean.out.contains("1 element(s) from mine, 1 from theirs, 0 changed alike, 0 "
+                                 "conflict(s)"));
+        const auto expected = mergeWorlds(base, mine, theirs, MergePreference::none);
+        CHECK(expected.has_value());
+        const auto written = readAll(outPath);
+        CHECK_EQ(written.size(), qsizetype{50'468});
+        CHECK(std::equal(written.begin(), written.end(),
+                         reinterpret_cast<const char *>(expected->bytes.data())));
+        // Never over an existing file.
+        CHECK_EQ(run({"merge", basePath, minePath, theirsPath, outPath}).code, 2);
+
+        // A conflict: listed, nothing written, unless a side is preferred.
+        put16(theirs, fxCellOffset(fxForegroundOffset, 1, 1), 44);
+        writeAll(theirsPath, theirs);
+        const auto conflictPath = dir.filePath("merged-conflict.blp");
+        const auto refused = run({"merge", basePath, minePath, theirsPath, conflictPath});
+        CHECK_EQ(refused.code, 1);
+        CHECK(refused.err.contains("conflict at offset 1070, 2 byte(s)"));
+        CHECK(refused.err.contains("mine 1e 00 | theirs 2c 00"));
+        CHECK(refused.err.contains("1 conflict(s); nothing was written"));
+        CHECK(!QFile::exists(conflictPath));
+        const auto preferred = run({"merge", basePath, minePath, theirsPath, conflictPath,
+                                    "--prefer", "theirs"});
+        CHECK_EQ(preferred.code, 0);
+        CHECK(preferred.out.contains("1 conflict(s) resolved for theirs"));
+        CHECK(readAll(conflictPath) ==
+              QByteArray(reinterpret_cast<const char *>(theirs.data()),
+                         static_cast<qsizetype>(theirs.size())));
+        // Usage and file errors.
+        const auto unused = dir.filePath("unused-merge.blp");
+        CHECK_EQ(run({"merge", basePath, minePath, theirsPath}).code, 2);
+        CHECK_EQ(run({"merge", basePath, minePath, theirsPath, unused, "--prefer", "both"}).code,
+                 2);
+        CHECK_EQ(run({"merge", basePath, minePath, dir.filePath("missing.blp"), unused}).code, 2);
+        CHECK_EQ(run({"merge", basePath, minePath, brokenPath, unused}).code, 2);
         CHECK(!QFile::exists(unused));
     }
     CHECK_EQ(run({}).code, 2);

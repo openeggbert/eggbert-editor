@@ -15,6 +15,7 @@
 #include "world/doctor.hpp"
 #include "world/game_convert.hpp"
 #include "world/hex_model.hpp"
+#include "world/merge.hpp"
 #include "world/new_world.hpp"
 #include "world/offset_map.hpp"
 #include "world/revision_convert.hpp"
@@ -489,13 +490,87 @@ int convertGameCommand(const QStringList &arguments, QTextStream &out, QTextStre
     return exitOk;
 }
 
+int merge(const QStringList &arguments, QTextStream &out, QTextStream &err) {
+    const auto parsed = parse(arguments, {QStringLiteral("--prefer")}, {});
+    auto preference = MergePreference::none;
+    const auto wanted = parsed.values.value(QStringLiteral("--prefer"));
+    if (wanted == QLatin1String("mine")) {
+        preference = MergePreference::mine;
+    } else if (wanted == QLatin1String("theirs")) {
+        preference = MergePreference::theirs;
+    } else if (!wanted.isEmpty()) {
+        return usageError(err, QStringLiteral("--prefer takes mine or theirs"));
+    }
+    if (!parsed.error.isEmpty() || parsed.positional.size() != 4) {
+        return usageError(err, parsed.error.isEmpty()
+                                   ? QStringLiteral("merge needs BASE, MINE, THEIRS and an "
+                                                    "output file")
+                                   : parsed.error);
+    }
+    std::optional<QByteArray> files[3];
+    for (int index = 0; index < 3; ++index) {
+        files[index] = readFile(parsed.positional[index]);
+        if (!files[index]) {
+            err << parsed.positional[index] << ": cannot be read\n";
+            return exitUsage;
+        }
+    }
+    const auto bytes = [](const QByteArray &file) {
+        return std::span<const std::byte>(reinterpret_cast<const std::byte *>(file.constData()),
+                                          static_cast<std::size_t>(file.size()));
+    };
+    const auto &target = parsed.positional[3];
+    if (QFileInfo::exists(target)) {
+        err << target << ": already exists; merge never overwrites a file\n";
+        return exitUsage;
+    }
+    const auto merged = mergeWorlds(bytes(*files[0]), bytes(*files[1]), bytes(*files[2]),
+                                    preference);
+    if (!merged) {
+        err << QString::fromStdString(merged.error()) << "\n";
+        return exitUsage;
+    }
+    const auto probe = probeWorld(bytes(*files[0]));
+    auto &list = merged->conflicts.empty() || preference != MergePreference::none ? out : err;
+    for (const auto &conflict : merged->conflicts) {
+        const auto shown = std::min<std::size_t>(conflict.range.size, 16);
+        const auto hex = [&](const QByteArray &file) {
+            return QString::fromStdString(
+                       formatHex(bytes(file).subspan(conflict.range.offset, shown))) +
+                   (shown < conflict.range.size ? QStringLiteral(" ...") : QString());
+        };
+        list << "conflict at offset " << conflict.range.offset << ", " << conflict.range.size
+             << " byte(s), " << QString::fromStdString(offsetLabel(probe, conflict.range.offset))
+             << ": base " << hex(*files[0]) << " | mine " << hex(*files[1]) << " | theirs "
+             << hex(*files[2]) << "\n";
+    }
+    if (!merged->conflicts.empty() && preference == MergePreference::none) {
+        err << merged->conflicts.size()
+            << " conflict(s); nothing was written. Use --prefer mine or --prefer theirs to "
+               "take one side for them.\n";
+        return exitFound;
+    }
+    if (!writeNewFile(target, merged->bytes)) {
+        err << target << ": cannot be written\n";
+        return exitUsage;
+    }
+    out << target << ": " << merged->fromMine << " element(s) from mine, " << merged->fromTheirs
+        << " from theirs, " << merged->agreed << " changed alike, " << merged->conflicts.size()
+        << " conflict(s)"
+        << (merged->conflicts.empty()
+                ? ""
+                : preference == MergePreference::mine ? " resolved for mine" : " resolved for theirs")
+        << "\n";
+    return exitOk;
+}
+
 } // namespace
 
 bool isCommandLineCommand(const QString &name) {
     return name == QLatin1String("info") || name == QLatin1String("validate") ||
            name == QLatin1String("diff") || name == QLatin1String("export-png") ||
            name == QLatin1String("convert") || name == QLatin1String("new") ||
-           name == QLatin1String("convert-game");
+           name == QLatin1String("convert-game") || name == QLatin1String("merge");
 }
 
 bool commandNeedsGraphics(const QString &name) {
@@ -524,6 +599,10 @@ QString commandLineUsage() {
         "      a copy for the other game, with every value that game does not know or\n"
         "      treats differently listed; exit 1 when such values exist and neither\n"
         "      keep nor remove was chosen\n"
+        "  eggbert-editor merge BASE MINE THEIRS OUT [--prefer mine|theirs]\n"
+        "      combines the changes two worlds made to a common base, element by\n"
+        "      element; exit 1 and nothing written when both changed the same element\n"
+        "      differently and no side is preferred\n"
         "  eggbert-editor new OUT --game 1|2\n"
         "      the world the game's own editor starts with; OUT must not exist\n"
         "Exit codes: 0 success, 1 findings, differences or refused loss, 2 usage or file\n"
@@ -548,6 +627,8 @@ int runCommandLine(const QStringList &arguments, QTextStream &out, QTextStream &
         code = create(rest, out, err);
     } else if (arguments[0] == QLatin1String("convert-game")) {
         code = convertGameCommand(rest, out, err);
+    } else if (arguments[0] == QLatin1String("merge")) {
+        code = merge(rest, out, err);
     } else {
         code = exportPng(rest, out, err);
     }

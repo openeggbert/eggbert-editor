@@ -254,9 +254,10 @@ Besides opening files (`eggbert-editor world.blp ...`), the program has commands
 - `eggbert-editor export-png FILE OUT.png` writes the picture **File → Export World PNG** writes. Options: `--scale N` (pixels per cell, 1 to 64), `--crop x,y,width,height` (in cells), `--game 1|2`, `--game-data DIR` (draw with that game's artwork), `--no-foreground`, `--no-bigdecor`, `--no-objects`, `--no-starts`, `--no-paths`, `--no-backdrop`, `--grid`, `--labels`, `--transparent`.
 - `eggbert-editor convert FILE OUT --to 1.0|1.1|1.2|1.3 [--allow-loss]` writes a copy in another revision, as **File → Convert Revision** does. `OUT` must not exist. When the target cannot store everything, nothing is written and the exit code is 1 unless `--allow-loss` is given.
 - `eggbert-editor convert-game FILE OUT --from 1|2 --to 2|1 [--unknown refuse|keep|remove]` writes a copy for the other game, as **File → Convert for Other Game** does, and prints the list. Without `--unknown keep` or `--unknown remove`, a world with values unknown to the target game is not converted: the list goes to the error output and the exit code is 1.
+- `eggbert-editor merge BASE MINE THEIRS OUT [--prefer mine|theirs]` combines what two worlds changed starting from the same base. The three files must be complete worlds of one revision and the same length. The merge goes element by element — one header value, one cell, one whole object record, or one byte elsewhere: an element changed on one side takes that side's bytes, one changed alike on both takes them, and one changed differently on both is a conflict. With conflicts and no `--prefer`, they are listed (offset, name, the three versions), nothing is written and the exit code is 1; with `--prefer`, that side's whole element is taken for each conflict. `OUT` must not exist. There is no merge in the window yet.
 - `eggbert-editor new OUT --game 1|2` writes the world **File → New World** writes. `OUT` must not exist.
 
-Exit codes: 0 success, 1 findings, differences or a refused loss, 2 wrong usage or a file that cannot be read or written. `eggbert-editor --help` lists everything.
+Exit codes: 0 success, 1 findings, differences, a refused loss or merge conflicts, 2 wrong usage or a file that cannot be read or written. `eggbert-editor --help` lists everything.
 
 ## Mobile Eggbert text worlds
 

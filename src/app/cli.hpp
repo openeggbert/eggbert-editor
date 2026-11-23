@@ -7,8 +7,9 @@
 namespace eggbert {
 
 // Headless commands: `info`, `validate`, `diff`, `export-png`, `convert`,
-// `convert-game` and `new`. They never change a world file they read
-// (export-png, the two converters and new write only their output file).
+// `convert-game`, `merge` and `new`. They never change a world file they
+// read (export-png, the converters, merge and new write only their output
+// file).
 //
 // Exit codes: 0 success (validate: no error finding; diff: files equal),
 // 1 the command ran and found something (validate: errors; diff: files
