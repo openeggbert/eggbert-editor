@@ -95,9 +95,10 @@ QByteArray renderWorldSvg(const WorldView &world, const SvgExportOptions &option
             if (record.posStart != record.posEnd) {
                 const auto end = centre(record.posEnd);
                 svg += QStringLiteral("<line x1=\"%1\" y1=\"%2\" x2=\"%3\" y2=\"%4\" stroke=\"%5\" "
-                                      "stroke-dasharray=\"3 2\"/>\n")
+                                      "stroke-dasharray=\"3 2\" data-path-of=\"%6\"/>\n")
                            .arg(number(start.x()), number(start.y()), number(end.x()),
-                                number(end.y()), color);
+                                number(end.y()), color)
+                           .arg(slot);
             }
             svg += QStringLiteral("<circle cx=\"%1\" cy=\"%2\" r=\"%3\" fill=\"%4\" "
                                   "data-slot=\"%5\" data-type=\"%6\"/>\n")

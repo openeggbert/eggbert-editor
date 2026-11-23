@@ -8,12 +8,16 @@
 
 #include "app/catalog_texts.hpp"
 #include "app/catalog_translator.hpp"
+#include "app/cli.hpp"
+#include "app/conversion_texts.hpp"
 #include "app/doctor_texts.hpp"
 #include "app/main_window.hpp"
 
 #include "world/adaptive.hpp"
 #include "world/doctor.hpp"
 #include "world/editor_groups.hpp"
+#include "world/game_convert.hpp"
+#include "world/installation.hpp"
 #include "world/object_catalog.hpp"
 
 #include "check.hpp"
@@ -145,6 +149,11 @@ int main(int argc, char **argv) {
                 CHECK(covered(objectTypeInfo(profile, static_cast<std::int16_t>(type)).name));
             }
         }
+        // The roles of the official world numbers are shown the same way.
+        for (const auto role : {WorldRole::start, WorldRole::hub, WorldRole::mission,
+                                WorldRole::finale, WorldRole::multiplayer, WorldRole::demo}) {
+            CHECK(!worldRoleName(role).empty() && covered(worldRoleName(role)));
+        }
         // Untranslated, a name is shown as it is.
         CHECK_EQ(catalogText("Treasure chest"), QString("Treasure chest"));
         CHECK_EQ(catalogText("no such name"), QString("no such name"));
@@ -226,6 +235,35 @@ int main(int argc, char **argv) {
         CHECK_EQ(confidenceText(Confidence::estimate), QString("estimate"));
     }
 
+    // The notes of a conversion between the games: every sentence is marked,
+    // and without a catalogue a line equals the command line's.
+    eggbert::test::Bytes modern = eggbert::test::blankWorld(eggbert::test::fxRevision13);
+    eggbert::test::put16(
+        modern, eggbert::test::fxCellOffset(eggbert::test::fxForegroundOffset, 2, 1), 50);
+    eggbert::test::put16(
+        modern, eggbert::test::fxCellOffset(eggbert::test::fxForegroundOffset, 4, 1), 300);
+    const WorldView modernView(modern);
+    const auto notes = reviewGameConversion(modernView, GameProfile::speedyBlupi2,
+                                            GameProfile::speedyBlupi1);
+    CHECK_EQ(notes.size(), std::size_t{2});
+    {
+        QSet<QString> marked;
+        for (const auto *text : conversionTexts()) {
+            marked.insert(QString::fromUtf8(text));
+        }
+        for (const auto pattern : gameConversionPatterns()) {
+            CHECK(marked.contains(
+                QString::fromUtf8(pattern.data(), static_cast<qsizetype>(pattern.size()))));
+        }
+        CHECK_EQ(marked.size(), static_cast<qsizetype>(gameConversionPatterns().size()));
+        for (const auto &note : notes) {
+            CHECK_EQ(conversionNoteLine(note), describeGameNote(note));
+        }
+        CHECK(conversionNoteLine(notes[0]).startsWith("[unknown] foreground tile 300 (1 place(s), "
+                                                      "first at cell 4,1): The first game has"));
+        CHECK(conversionNoteLine(notes[1]).endsWith("draws its own block 50 here."));
+    }
+
     // English window first: the reference texts.
     QStringList englishMenus;
     {
@@ -240,6 +278,16 @@ int main(int argc, char **argv) {
     // With the catalogue installed the window is Czech where translated and
     // English elsewhere.
     QCoreApplication::installTranslator(&czech);
+    CHECK(catalogText("group hub") != QString("group hub"));
+    CHECK(catalogText("first world") != QString("first world"));
+    for (const auto &note : notes) {
+        CHECK(conversionNoteLine(note) != describeGameNote(note));
+        CHECK(!conversionNoteLine(note).contains("%"));
+    }
+    if (notes.size() == 2) {
+        CHECK(conversionNoteLine(notes[1]).contains(" 50 "));
+        CHECK(conversionNoteLine(notes[0]).contains("4,1"));
+    }
     // The same findings in Czech: the numbers in their places, the object's
     // catalog name translated, and the slot in front.
     if (music != nullptr && channel != nullptr) {

@@ -785,6 +785,117 @@
    <source>Treasure trail</source>
    <translation>Stopa pokladu</translation>
   </message>
+  <message>
+   <source>first world</source>
+   <translation>první svět</translation>
+  </message>
+  <message>
+   <source>group hub</source>
+   <translation>rozcestník skupiny</translation>
+  </message>
+  <message>
+   <source>mission</source>
+   <translation>mise</translation>
+  </message>
+  <message>
+   <source>final world</source>
+   <translation>závěrečný svět</translation>
+  </message>
+  <message>
+   <source>network game</source>
+   <translation>síťová hra</translation>
+  </message>
+  <message>
+   <source>demo</source>
+   <translation>demo</translation>
+  </message>
+ </context>
+ <context>
+  <name>eggbert::Conversion</name>
+  <message>
+   <source>The first game has no such tile: it draws nothing there and nothing is solid.</source>
+   <translation>První hra takovou dlaždici nemá: nic tam nevykreslí a nic není pevné.</translation>
+  </message>
+  <message>
+   <source>The second game shows tile 215 for this number; the first game draws its own block %1 here.</source>
+   <translation>Druhá hra pro toto číslo zobrazuje dlaždici 215; první hra zde kreslí svůj vlastní blok %1.</translation>
+  </message>
+  <message>
+   <source>The second game has no picture for this block: when it loads the world it shows tile 215 instead.</source>
+   <translation>Druhá hra pro tento blok nemá obrázek: při načtení světa místo něj zobrazí dlaždici 215.</translation>
+  </message>
+  <message>
+   <source>The first game has no such back-layer picture and draws nothing.</source>
+   <translation>První hra takový obrázek zadní vrstvy nemá a nic nevykreslí.</translation>
+  </message>
+  <message>
+   <source>The first game's code never refers to this object type.</source>
+   <translation>Kód první hry se na tento typ objektu nikde neodkazuje.</translation>
+  </message>
+  <message>
+   <source>The second game's code never refers to this object type.</source>
+   <translation>Kód druhé hry se na tento typ objektu nikde neodkazuje.</translation>
+  </message>
+  <message>
+   <source>This lift or crate uses a tile picture the first game does not have and would be invisible.</source>
+   <translation>Tento výtah nebo bedna používá obrázek dlaždice, který první hra nemá, a byl by neviditelný.</translation>
+  </message>
+  <message>
+   <source>This lift or crate uses a picture number the second game has no picture for; the first game draws its block there.</source>
+   <translation>Tento výtah nebo bedna používá číslo obrázku, pro které druhá hra obrázek nemá; první hra tam kreslí svůj blok.</translation>
+  </message>
+  <message>
+   <source>This lift or crate uses a block picture the second game does not have (its loader replaces such tiles only in the tile layer).</source>
+   <translation>Tento výtah nebo bedna používá obrázek bloku, který druhá hra nemá (její načítání takové dlaždice nahrazuje jen ve vrstvě dlaždic).</translation>
+  </message>
+  <message>
+   <source>The first game's editor offers backdrops 0 to 23 only.</source>
+   <translation>Editor první hry nabízí jen pozadí 0 až 23.</translation>
+  </message>
+  <message>
+   <source>This backdrop number is a different picture in the other game.</source>
+   <translation>Toto číslo pozadí je v druhé hře jiný obrázek.</translation>
+  </message>
+  <message>
+   <source>foreground tile</source>
+   <translation>dlaždice popředí</translation>
+  </message>
+  <message>
+   <source>bigDecor tile</source>
+   <translation>dlaždice bigDecor</translation>
+  </message>
+  <message>
+   <source>object type</source>
+   <translation>typ objektu</translation>
+  </message>
+  <message>
+   <source>object picture</source>
+   <translation>obrázek objektu</translation>
+  </message>
+  <message>
+   <source>region</source>
+   <translation>region</translation>
+  </message>
+  <message>
+   <source>, first at cell %1,%2</source>
+   <translation>, poprvé v buňce %1,%2</translation>
+  </message>
+  <message>
+   <source>, first in slot %1</source>
+   <translation>, poprvé ve slotu %1</translation>
+  </message>
+  <message>
+   <source>[%1] %2 %3 (%4 place(s)%5): %6</source>
+   <translation>[%1] %2 %3 (počet míst: %4%5): %6</translation>
+  </message>
+  <message>
+   <source>unknown</source>
+   <translation>neznámé</translation>
+  </message>
+  <message>
+   <source>differs</source>
+   <translation>liší se</translation>
+  </message>
  </context>
  <context>
   <name>eggbert::DemoTimeline</name>

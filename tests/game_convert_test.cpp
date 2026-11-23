@@ -5,12 +5,16 @@
 // every value that cannot be carried is listed.
 #include "world/game_convert.hpp"
 
+#include "world/doctor.hpp"
 #include "world/world_probe.hpp"
 
 #include "check.hpp"
 #include "fixture.hpp"
 
 #include <algorithm>
+#include <cstdio>
+#include <set>
+#include <string>
 
 using namespace eggbert;
 using namespace eggbert::test;
@@ -237,6 +241,54 @@ int main() {
         const WorldView view(world, probeWorld(world));
         CHECK(reviewGameConversion(view, first, first).empty());
         CHECK(reviewGameConversion(view, GameProfile::unknown, second).empty());
+    }
+    // Every note carries its sentence as a listed pattern that rebuilds to
+    // the text, and every listed pattern is produced by these two worlds:
+    // one with everything the first game lacks or shows differently, one
+    // with what the second game does.
+    {
+        std::set<std::string> produced;
+        const auto listed = gameConversionPatterns();
+        const auto review = [&](const Bytes &bytes, GameProfile from, GameProfile to) {
+            const WorldView view(bytes, probeWorld(bytes));
+            const auto notes = reviewGameConversion(view, from, to);
+            for (const auto &note : notes) {
+                CHECK(!note.textPattern.empty());
+                CHECK(std::ranges::find(listed, note.textPattern) != listed.end());
+                const std::string filler[] = {std::to_string(note.value)};
+                CHECK(fillPattern(note.textPattern, filler) == note.text);
+                produced.insert(std::string(note.textPattern));
+            }
+            return notes.size();
+        };
+        const auto object = [](Bytes &bytes, std::size_t slot, int type, int channel, int icon) {
+            const auto at = fxSlotOffset(fxRevision13, slot);
+            put16(bytes, at, type);
+            put16(bytes, at + 42, channel);
+            put16(bytes, at + 44, icon);
+        };
+        auto modern = blankWorld(fxRevision13);
+        put16(modern, fxCellOffset(fxForegroundOffset, 1, 1), 300);          // no such tile
+        put16(modern, fxCellOffset(fxForegroundOffset, 2, 1), 50);           // shown as 215
+        put16(modern, fxCellOffset(fxRevision13.bigDecorOffset, 3, 1), 60);  // no back picture
+        put16(modern, 224, 26);                                              // a second-game backdrop
+        object(modern, 0, 40, 10, 0);                                        // a second-game type
+        object(modern, 1, 1, 1, 300);                                        // a lift with a new tile
+        object(modern, 2, 12, 1, 50);                                        // a crate drawn as 215
+        CHECK(review(modern, second, first) >= 7);
+        auto classic = blankWorld(fxRevision13);
+        put16(classic, fxCellOffset(fxForegroundOffset, 2, 1), 50);
+        put16(classic, 224, 4); // a backdrop that is another picture there
+        object(classic, 0, 58, 10, 0);
+        object(classic, 1, 12, 1, 50);
+        CHECK(review(classic, first, second) >= 3);
+        for (const auto pattern : listed) {
+            if (!produced.contains(std::string(pattern))) {
+                std::fprintf(stderr, "conversion sentence never produced: %.*s\n",
+                             static_cast<int>(pattern.size()), pattern.data());
+                CHECK(!"a listed conversion sentence is never produced in this test");
+            }
+        }
     }
     return test::finish("game_convert");
 }

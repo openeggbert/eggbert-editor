@@ -221,6 +221,21 @@ int main(int argc, char **argv) {
     a->canvas()->setCursorCell({40, 50});
     CHECK(a->canvas()->previewCells() ==
           (std::vector<CellPos>{{40, 50}, {41, 50}, {40, 51}, {41, 51}}));
+    // The outline is where the pointer or the cursor moved last, so with the
+    // pointer resting over the map the arrow keys still move it — and Enter
+    // places the stamp where the outline is.
+    {
+        const auto &transform = a->canvas()->transform();
+        const QPoint resting(static_cast<int>(transform.toScreenX(20 * 64 + 32)),
+                             static_cast<int>(transform.toScreenY(30 * 64 + 32)));
+        QTest::mouseMove(a->canvas(), resting);
+        CHECK(a->canvas()->hoveredCell() == std::optional(CellPos{20, 30}));
+        CHECK(a->canvas()->previewCells().front() == (CellPos{20, 30}));
+        QTest::keyClick(a->canvas(), Qt::Key_Right);
+        CHECK(a->canvas()->cursorCell() == (CellPos{41, 50}));
+        CHECK(a->canvas()->previewCells().front() == (CellPos{41, 50}));
+        a->canvas()->setCursorCell({40, 50});
+    }
     // Esc gives it up; so does choosing a tool.
     QTest::keyClick(a->canvas(), Qt::Key_Escape);
     CHECK(a->pendingStamp() == nullptr);
@@ -231,6 +246,11 @@ int main(int argc, char **argv) {
     a->setTool(Tool::pencil);
     CHECK(a->pendingStamp() == nullptr);
     a->setTool(Tool::browse);
+    // Even the tool that is already chosen.
+    CHECK(window.placeStamp(a));
+    a->setTool(Tool::browse);
+    CHECK(a->pendingStamp() == nullptr);
+    CHECK(a->canvas()->previewCells().empty());
     // Too close to the edge for its objects: refused, and it stays armed.
     CHECK(window.placeStamp(a));
     a->canvas()->setCursorCell({99, 99});

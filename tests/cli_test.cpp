@@ -418,6 +418,27 @@ int main(int argc, char **argv) {
         const auto bare = dir.filePath("bare.svg");
         CHECK_EQ(run({"export-svg", path, bare, "--no-foreground", "--no-starts"}).code, 0);
         CHECK(!readAll(bare).contains("data-tile") && !readAll(bare).contains("<polygon"));
+        // An object is a circle that names its slot and type; when it moves,
+        // the line of its path names the slot too.
+        {
+            auto moving = world;
+            const auto slot = fxSlotOffset(fxRevision13, 2);
+            put16(moving, slot, 1); // a lift
+            for (const std::size_t field : {12u, 28u}) {
+                put32(moving, slot + field, 640);
+                put32(moving, slot + field + 4, 640);
+            }
+            put32(moving, slot + 20, 1280);
+            put32(moving, slot + 24, 640);
+            const auto movingPath = dir.filePath("moving.blp");
+            writeAll(movingPath, moving);
+            const auto movingSvg = dir.filePath("moving.svg");
+            CHECK_EQ(run({"export-svg", movingPath, movingSvg}).code, 0);
+            const auto picture = readAll(movingSvg);
+            CHECK(picture.contains("data-slot=\"2\" data-type=\"1\""));
+            CHECK_EQ(picture.count("data-path-of=\"2\""), qsizetype{1});
+            CHECK_EQ(picture.count("<line"), qsizetype{1});
+        }
         CHECK_EQ(run({"export-svg", path}).code, 2);
         CHECK_EQ(run({"export-svg", path, svgPath, "--scale", "0"}).code, 2);
         // A file cut short after its tile layers can still be drawn; one
@@ -449,6 +470,19 @@ int main(int argc, char **argv) {
         const auto mixed = run({"export-batch", outDir, path, dir.filePath("missing.blp")});
         CHECK_EQ(mixed.code, 1);
         CHECK(mixed.out.contains("1 of 2 picture(s) written"));
+        // A wrong option is a usage error, reported once, and nothing is written.
+        {
+            const auto emptyDir = dir.filePath("no-pictures");
+            CHECK(QDir().mkpath(emptyDir));
+            for (const auto &bad : {QStringList{"--scale", "100"}, QStringList{"--frobnicate"},
+                                    QStringList{"--scale"}}) {
+                const auto wrong = run(QStringList{"export-batch", emptyDir, path, otherPath} + bad);
+                CHECK_EQ(wrong.code, 2);
+                CHECK_EQ(wrong.err.count("eggbert-editor: "), qsizetype{1});
+                CHECK(!wrong.out.contains("picture(s) written"));
+            }
+            CHECK(QDir(emptyDir).entryList(QDir::Files).isEmpty());
+        }
         // Two inputs with the same name, a missing directory, too few arguments.
         const auto twinDir = dir.filePath("twin");
         CHECK(QDir().mkpath(twinDir));

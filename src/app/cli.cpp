@@ -76,7 +76,12 @@ Parsed parse(const QStringList &arguments, const QStringList &valueOptions,
     return parsed;
 }
 
+// Set by usageError: export-batch tells a wrong option (exit 2, once) from
+// a world that cannot be drawn (the batch goes on, exit 1).
+bool usageErrorReported = false;
+
 int usageError(QTextStream &err, const QString &message) {
+    usageErrorReported = true;
     err << "eggbert-editor: " << message << "\n" << commandLineUsage();
     return exitUsage;
 }
@@ -680,7 +685,12 @@ int exportBatch(const QStringList &arguments, QTextStream &out, QTextStream &err
     for (const auto &path : positional) {
         const auto target =
             directory.filePath(QFileInfo(path).completeBaseName() + QStringLiteral(".png"));
+        usageErrorReported = false;
         if (exportPng(QStringList{path, target} + options, out, err) != exitOk) {
+            if (usageErrorReported) {
+                // The options are the same for every world: nothing to go on with.
+                return exitUsage;
+            }
             ++failed;
         }
     }
@@ -782,8 +792,9 @@ QString commandLineUsage() {
     return QStringLiteral(
         "Commands (read-only; no window is opened):\n"
         "  eggbert-editor info FILE [--events]\n"
-        "      structural report and decoded summary of a world file; for a demo\n"
-        "      recording of the games its keys, with --events every key change\n"
+        "      structural report and decoded summary of a world file; a Mobile\n"
+        "      Eggbert text world is described instead, and so is a demo recording of\n"
+        "      the games (its keys, with --events every recorded event)\n"
         "  eggbert-editor validate FILE [--game 1|2]\n"
         "      World Doctor findings; exit 1 when there are errors\n"
         "  eggbert-editor diff FILE OTHER\n"
@@ -819,7 +830,8 @@ QString commandLineUsage() {
         "  eggbert-editor scenario-check FILE SCENARIO.txt [--game 1|2]\n"
         "      checks a world against recorded expectations; exit 1 when some fail\n"
         "Exit codes: 0 success, 1 findings, differences, refused loss, merge\n"
-        "conflicts or failed expectations, 2 usage or file error.\n");
+        "conflicts, pictures that could not be written or failed expectations,\n"
+        "2 usage or file error.\n");
 }
 
 int runCommandLine(const QStringList &arguments, QTextStream &out, QTextStream &err) {

@@ -165,6 +165,13 @@ constexpr const char *texts[] = {
     QT_TRANSLATE_NOOP("eggbert::Catalog", "Splash"),
     QT_TRANSLATE_NOOP("eggbert::Catalog", "Tentacle"),
     QT_TRANSLATE_NOOP("eggbert::Catalog", "Treasure trail"),
+    // What an official world number is used for (src/world/installation.cpp).
+    QT_TRANSLATE_NOOP("eggbert::Catalog", "first world"),
+    QT_TRANSLATE_NOOP("eggbert::Catalog", "group hub"),
+    QT_TRANSLATE_NOOP("eggbert::Catalog", "mission"),
+    QT_TRANSLATE_NOOP("eggbert::Catalog", "final world"),
+    QT_TRANSLATE_NOOP("eggbert::Catalog", "network game"),
+    QT_TRANSLATE_NOOP("eggbert::Catalog", "demo"),
 };
 
 } // namespace

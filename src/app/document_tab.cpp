@@ -94,13 +94,13 @@ DocumentTab::DocumentTab(std::unique_ptr<DocumentFile> file, QWidget *parent)
 
     connect(canvas_, &WorldCanvas::cursorCellChanged, this, [this] {
         if (pendingStamp_) {
-            showStampGhost();
+            showStampGhost(canvas_->cursorCell());
         }
     });
     // Hovering with the adaptive brush shows every cell a click would change.
     connect(canvas_, &WorldCanvas::hoveredCellChanged, this, [this] {
         if (pendingStamp_) {
-            showStampGhost();
+            showStampGhost(canvas_->hoveredCell().value_or(canvas_->cursorCell()));
             return;
         }
         if (tool_ != Tool::adaptive || gestureStart_) {
@@ -143,10 +143,11 @@ void DocumentTab::setProfile(GameProfile profile) {
 }
 
 void DocumentTab::setTool(Tool tool) {
+    // Choosing a tool, even the current one, gives an armed stamp up.
+    cancelStampPlacement();
     if (tool_ == tool) {
         return;
     }
-    cancelStampPlacement();
     tool_ = tool;
     canvas_->setToolActive(tool != Tool::browse);
     emit toolStateChanged();
@@ -1053,7 +1054,8 @@ bool DocumentTab::beginStampPlacement(Stamp stamp) {
     }
     pendingStamp_ = std::move(stamp);
     canvas_->setToolActive(true);
-    showStampGhost();
+    // Under the pointer when it is over the map, else at the keyboard cursor.
+    showStampGhost(canvas_->hoveredCell().value_or(canvas_->cursorCell()));
     emit statusMessage(tr("Stamp \"%1\": click where its top-left corner goes, or move the "
                           "cursor there and press Enter. Esc gives up.")
                            .arg(QString::fromStdString(pendingStamp_->name)));
@@ -1074,8 +1076,8 @@ void DocumentTab::endStampPlacement() {
     canvas_->setPreviewCells({});
 }
 
-void DocumentTab::showStampGhost() {
-    const auto at = canvas_->hoveredCell().value_or(canvas_->cursorCell());
+void DocumentTab::showStampGhost(CellPos at) {
+    stampGhostAt_ = at;
     canvas_->setPreviewCells(stampFootprint(*pendingStamp_, at));
 }
 
@@ -1172,6 +1174,7 @@ void DocumentTab::onToolPressed(CellPos cell) {
     if (pendingStamp_) {
         // A refused placement (an object outside the world, say) keeps the
         // stamp armed so another place can be tried.
+        stampGhostAt_ = cell;
         if (placeStampAt(*pendingStamp_, cell)) {
             endStampPlacement();
         }
@@ -1340,7 +1343,7 @@ void DocumentTab::onToolReleased() {
     document().endMerge();
     canvas_->setPreviewCells({});
     if (pendingStamp_) {
-        showStampGhost(); // still armed after a refused placement
+        showStampGhost(stampGhostAt_); // still armed after a refused placement
     }
     if (!start || !last) {
         return;

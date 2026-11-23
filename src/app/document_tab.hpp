@@ -272,7 +272,7 @@ private:
     bool commit(EditBuilder &builder, std::size_t cellsChanged, const QString &label,
                 std::uint64_t mergeKey = 0);
     void onToolPressed(CellPos cell);
-    void showStampGhost();
+    void showStampGhost(CellPos at);
     void endStampPlacement();
     void onToolDragged(CellPos cell);
     void onToolReleased();
@@ -303,6 +303,9 @@ private:
     enum class Grab { none, body, end };
     Grab grab_ = Grab::none;
     std::optional<Stamp> pendingStamp_;
+    // Where the armed stamp's outline is shown: the cell the pointer or the
+    // keyboard cursor moved to last.
+    CellPos stampGhostAt_{0, 0};
     QLabel *banner_ = nullptr;
     WorldCanvas *canvas_ = nullptr;
 };

@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <map>
 
+#include "world/doctor.hpp"
 #include "world/new_world.hpp"
 #include "world/world_document.hpp"
 #include "world/world_probe.hpp"
@@ -13,6 +14,27 @@ namespace eggbert {
 namespace {
 
 constexpr std::string_view recon = "blupi_recon e05e22b ";
+
+// The sentences of the notes as patterns; %1 is the stored value. A note
+// finds its pattern here by its text, so a sentence used below without an
+// entry here leaves the note without one (a test produces every sentence
+// and fails then).
+constexpr std::string_view sentences[] = {
+    "The first game has no such tile: it draws nothing there and nothing is solid.",
+    "The second game shows tile 215 for this number; the first game draws its own block %1 here.",
+    "The second game has no picture for this block: when it loads the world it shows tile 215 "
+    "instead.",
+    "The first game has no such back-layer picture and draws nothing.",
+    "The first game's code never refers to this object type.",
+    "The second game's code never refers to this object type.",
+    "This lift or crate uses a tile picture the first game does not have and would be invisible.",
+    "This lift or crate uses a picture number the second game has no picture for; the first game "
+    "draws its block there.",
+    "This lift or crate uses a block picture the second game does not have (its loader replaces "
+    "such tiles only in the tile layer).",
+    "The first game's editor offers backdrops 0 to 23 only.",
+    "This backdrop number is a different picture in the other game.",
+};
 
 bool between(int value, int low, int high) {
     return value >= low && value <= high;
@@ -79,6 +101,13 @@ private:
             position->second.item = item;
             position->second.kind = kind;
             position->second.value = value;
+            const std::string filler[] = {std::to_string(value)};
+            for (const auto sentence : sentences) {
+                if (fillPattern(sentence, filler) == text) {
+                    position->second.textPattern = sentence;
+                    break;
+                }
+            }
             position->second.text = std::move(text);
             position->second.provenance = std::string(recon) + std::string(provenance);
         }
@@ -93,6 +122,10 @@ bool knownPair(GameProfile from, GameProfile to) {
 }
 
 } // namespace
+
+std::span<const std::string_view> gameConversionPatterns() {
+    return sentences;
+}
 
 std::vector<GameConversionNote> reviewGameConversion(const WorldView &world, GameProfile from,
                                                      GameProfile to) {

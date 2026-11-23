@@ -66,6 +66,7 @@
 #include "app/catalog_texts.hpp"
 #include "app/encyclopedia_dialog.hpp"
 #include "app/installation_panel.hpp"
+#include "app/conversion_texts.hpp"
 #include "app/demo_viewer.hpp"
 #include "app/doctor_texts.hpp"
 #include "app/stamp_thumbnail.hpp"
@@ -894,7 +895,7 @@ void MainWindow::installDefaultPrompts() {
         list->setAccessibleName(tr("What the other game does not know or shows differently"));
         list->setWordWrap(true);
         for (const auto &note : notes) {
-            auto *item = new QListWidgetItem(describeGameNote(note), list);
+            auto *item = new QListWidgetItem(conversionNoteLine(note), list);
             item->setToolTip(QString::fromStdString(note.provenance));
         }
         if (notes.empty()) {
@@ -3876,8 +3877,7 @@ QString MainWindow::campaignOverview() const {
         if (entry.slot.user) {
             role = tr("player %1, world %2").arg(entry.slot.gamer).arg(entry.slot.number);
         } else {
-            const auto name = worldRoleName(officialWorldRole(campaign.game, entry.slot.number));
-            role = QString::fromUtf8(name.data(), static_cast<qsizetype>(name.size()));
+            role = catalogText(worldRoleName(officialWorldRole(campaign.game, entry.slot.number)));
         }
         const bool indent = !entry.slot.user &&
                             officialWorldRole(campaign.game, entry.slot.number) ==

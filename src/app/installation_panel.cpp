@@ -12,6 +12,7 @@
 
 #include <algorithm>
 
+#include "app/catalog_texts.hpp"
 #include "app/demo_viewer.hpp"
 #include "app/metadata_dialog.hpp"
 #include "app/png_export.hpp"
@@ -26,10 +27,6 @@ namespace {
 
 constexpr int thumbnailSize = 64;
 constexpr qint64 largestWorldRead = 1024 * 1024;
-
-QString text(std::string_view value) {
-    return QString::fromUtf8(value.data(), static_cast<qsizetype>(value.size()));
-}
 
 } // namespace
 
@@ -222,7 +219,7 @@ void InstallationPanel::refresh() {
         if (entry.name.kind == DataFileKind::officialWorld) {
             const auto role = worldRoleName(officialWorldRole(profile_, entry.name.number));
             if (!role.empty()) {
-                label += QStringLiteral(" - ") + text(role);
+                label += QStringLiteral(" - ") + catalogText(role);
             }
         } else if (entry.name.number == scratchWorldNumber) {
             label += QStringLiteral(" - ") + tr("the game's play-test copy");

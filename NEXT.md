@@ -42,7 +42,7 @@ Implemented and covered by asset-free tests:
 - Build: `eggbert_world` (no Qt) and `eggbert_app` (Qt Widgets, everything except `main`); `-Wall -Wextra -Wpedantic`; optional `-DEGGBERT_SANITIZE=ON`.
 - Tests: `tests/fixture.hpp` builds synthetic worlds from literal offsets and includes no production header.
 
-Verification on 2026-11-22, Ubuntu 24.04, GCC 13.3.0, CMake 3.28.3, Ninja, Qt 6.4.2, no game data present:
+Verification (last repeated on 2026-11-23 for the newest commit), Ubuntu 24.04, GCC 13.3.0, CMake 3.28.3, Ninja, Qt 6.4.2, no game data present:
 
 ```sh
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
@@ -51,6 +51,8 @@ ctest --test-dir build --output-on-failure  # 74/74 passed (75 registered): layo
 cmake -S . -B build-asan -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DEGGBERT_SANITIZE=ON
 cmake --build build-asan --parallel && ctest --test-dir build-asan   # 74/74 passed under ASan/UBSan, sample_matrix skipped
 ```
+
+On 2026-11-23 the same steps (configure, build with no warnings, CTest, `cpack`, then the sanitizer build and CTest) were also run for commit `6a9b9d1` inside the clean Ubuntu 24.04 system used for the CI rehearsal: every step exited 0 in both jobs. With the two original installations present, `sample_matrix` (155 worlds) and `--smoke-test --game-data` for both games passed on the same day.
 
 Commit `c8f7a77` (binary inspector) was pushed green in Release but with a use-after-free that the sanitizer run reported in `main_window` (the hex views kept a pointer to the document replaced by Revert/Reload); the next commit fixes it with `DocumentTab::documentReplaced` and a regression check in `inspector`. Always run the sanitizer suite to completion before committing.
 
@@ -91,14 +93,24 @@ Verified and reported observations are recorded with citations in `docs/research
 Slices A–P are done as far as they could be verified here. Every bullet of `plan.md`, **Post-1.0 roadmap**, now has a slice; the one part without an implementation is the heat map of slice N (see slice P for why). What remains open, in the order it would be worth doing:
 
 1. **A hosted CI run** (needs the owner: a pull request or a push to `main`/`develop`). It would exercise the Linux jobs on GitHub's runners and give the first real result for the `windows-untested` and `macos-untested` jobs.
-2. **Czech for the other texts the core composes** (conversion notes, report details, encyclopedia facts, scenario lines) — World Doctor's findings are done and show the way: patterns with arguments — and a Czech guide.
+2. **Czech for the other texts the core composes** (report details, Campaign Overview findings, stamp refusal reasons, text-world problems, encyclopedia facts, scenario lines) — World Doctor's findings and the conversion notes are done and show the way: patterns with arguments — and a Czech guide.
 3. **More for Mobile Eggbert text worlds**: selections and shapes on the map, and names or pictures for its tiles and objects — the last only with evidence from that project, which was not gathered.
 4. **A reachability estimate with movement** (jumps, falls, lifts), if a bound can be cited from the sources.
 5. Evidence gaps listed under **Original-data evidence**: other editions, original 1.0/1.1 worlds, behaviour in the running games, the 25 eggs stored four pixels higher than the catalog writes.
 
+### Third audit of the guide against the code (2026-11-23)
+
+An independent read-only pass compared the sections written since the last audit with the sources and reported ten mismatches; all were checked and settled:
+
+- **Fixed in the code:** the outline of an armed stamp stayed under a resting pointer while the arrow keys moved the cursor, although Enter places at the cursor (it now follows whichever moved last, and starts under the pointer when that is over the map); choosing the tool that was already chosen did not give the stamp up; `export-batch` reported a wrong option once per world and exited 1 (now once, exit 2, nothing written); the SVG's path lines carried no label (`data-path-of`); world role names in the Installation dock and the Campaign Overview were not translated.
+- **Fixed in the text:** Space places a stamp too; the exact conditions under which a file counts as a demo recording; which keys move the timeline; the usage text's `info` line and exit-code summary; that a re-zipped pack must have its files at the top level; and the list of what stays English.
+- Tests added with each code fix (`stamps_ui`, `cli`, `translation`).
+
 ### World Doctor in Czech (2026-11-23)
 
 An item from the open list. Every sentence of World Doctor is now a pattern with arguments in the core (`Finding::messagePattern`, `messageArguments`, `slotPrefix`; `doctorMessagePatterns()`, `fillPattern`), from which the English `message` is built exactly as before: the `validate` output for all 155 original worlds under both games and without a game (4,456 lines) is byte-identical before and after (private comparison). `src/app/doctor_texts.hpp`: `findingText()` fills the translated pattern with the same arguments — catalog names among them translated — and `confidenceText()`; the Diagnostics panel, its detail line and the status bar use them. The diagnostics text file and the command line stay English by design. Tests: `doctor` (every finding of every fixture is a listed pattern and rebuilds to its message; every listed pattern is produced, for which a walled-in treasure and goal were added), `translation` (every pattern is marked for the tools; English equals the core's text; Czech has numbers and names in place). 40 Czech texts added.
+
+The notes of **Convert for Other Game** followed the same way: each note carries its sentence as one of `gameConversionPatterns()` (`GameConversionNote::textPattern`, found by its text, so the English is untouched), `src/app/conversion_texts.hpp` builds the dialog's line in the interface's language, and the command line keeps `describeGameNote`. Tests: `game_convert` (every note has a listed pattern that rebuilds to its text; every sentence is produced), `translation` (all marked; without a catalogue the line equals the command line's). 21 Czech texts added.
 
 ### Mobile Eggbert text worlds: object lines (2026-11-23)
 
@@ -156,7 +168,7 @@ The plan allows this slice "only with a verifiable design; otherwise documented 
 ### Slice L result (2026-11-23): Czech interface, accessibility, other platforms
 
 - `src/app/catalog_translator.hpp`: a `QTranslator` that reads `.ts` catalogues from the program's resources at run time (no Linguist tools in the build); unfinished or empty translations fall back to English; Czech plural forms. Language preference in **Edit → Preferences** (system, English, Čeština), applied at start.
-- `translations/eggbert-editor_cs.ts`: 1,136 messages extracted with `lupdate` (command in `translations/README.md`), **all translated** (completed 2026-11-23 at the owner's request). The catalog names (tile entries, objects, groups, border families, run-time object types) are listed for the tools in `src/app/catalog_texts.cpp` and shown through `catalogText()`; the `translation` test fails when a catalog name is missing there or the catalogue has unfinished entries. Still English: other texts composed in the Qt-free core (conversion notes, report details, the encyclopedia's facts, scenario lines) and the documents; World Doctor's findings are translated since 2026-11-23 (see **World Doctor in Czech**).
+- `translations/eggbert-editor_cs.ts`: 1,163 messages extracted with `lupdate` (command in `translations/README.md`), **all translated** (completed 2026-11-23 at the owner's request). The catalog names (tile entries, objects, groups, border families, run-time object types) are listed for the tools in `src/app/catalog_texts.cpp` and shown through `catalogText()`; the `translation` test fails when a catalog name is missing there or the catalogue has unfinished entries. Still English: other texts composed in the Qt-free core (report details, the encyclopedia's facts, scenario lines) and the documents; World Doctor's findings and the conversion notes are translated since 2026-11-23 (see **World Doctor in Czech**).
 - Accessibility: 28 controls that had no name for a screen reader (the Palette's picture lists, the Objects panel's fields, the inspector's choosers, the trees) now have accessible names; a test walks the main window and fails on any focusable control without one.
 - `CMakePresets.json` (`linux`, `linux-sanitizers`, `windows-msvc`, `macos`) and two CI jobs, `windows-untested` and `macos-untested`, allowed to fail. **Neither platform has been built or run**: there is no Windows or macOS machine here and no hosted run (the owner asked for no pull request). No package for them is claimed. Since 2026-11-23 the build also *describes* packages for them — on Windows a ZIP and on macOS a disk image, with Qt gathered by Qt's deployment script (`qt_generate_deploy_app_script`), and a `cpack` step in each of the two CI jobs. These lines were written from Qt's and CMake's documentation and have **never run**; the Linux configuration is unchanged (`CPACK_GENERATOR` is still `TGZ;DEB` there, checked).
 - Tests: `translation` (language choice, plural forms, a catalogue from text including damaged input, the shipped catalogue's placeholders, accelerators and ellipses, the main window's menus in Czech with English fallback, the accessibility walk).
@@ -313,7 +325,7 @@ Order and acceptance are in `plan.md`, **Promotion of the roadmap**. Tick a slic
 - [x] I Experimental editing: typed byte edits, unverified music/region numbers, custom border rules
 - [x] J Stamps, alignment, replace in all open worlds
 - [x] K Element encyclopedia and installation gallery (the Installation dock's world list)
-- [x] L Czech interface (all 1,136 interface texts and catalog names), accessibility names, Windows/macOS configurations (untested)
+- [x] L Czech interface (all 1,163 interface texts and catalog names), accessibility names, Windows/macOS configurations (untested)
 - [x] M Mobile Eggbert text worlds: lossless codec, description and an editing window (no conversion)
 - [x] O SVG export, PNG batches, campaign graph listing, world regression scenarios
 - [x] N Three-way merge (command and window); playtest traces as slice P; heat maps not built (recordings hold no positions)

@@ -7,6 +7,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "world/layout.hpp"
@@ -39,9 +40,17 @@ struct GameConversionNote {
     // First place it occurs: a cell for tiles, a slot for objects.
     std::optional<CellPos> firstCell;
     std::optional<std::size_t> firstSlot;
+    // What the target game does with the value, in English.
     std::string text;
+    // The same sentence as a pattern (%1 stands for `value`), so that an
+    // interface can show it in another language; one of
+    // `gameConversionPatterns()`.
+    std::string_view textPattern;
     std::string provenance;
 };
+
+// Every pattern a note's `textPattern` can be, for translation catalogues.
+[[nodiscard]] std::span<const std::string_view> gameConversionPatterns();
 
 // What to do with values the target game does not know.
 enum class UnknownPolicy {
