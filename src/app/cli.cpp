@@ -21,6 +21,7 @@
 #include "world/merge.hpp"
 #include "world/new_world.hpp"
 #include "world/offset_map.hpp"
+#include "world/demo_recording.hpp"
 #include "world/revision_convert.hpp"
 #include "world/scenario.hpp"
 #include "world/text_world.hpp"
@@ -83,7 +84,7 @@ int usageError(QTextStream &err, const QString &message) {
 std::optional<QByteArray> readFile(const QString &path);
 
 int info(const QStringList &arguments, QTextStream &out, QTextStream &err) {
-    const auto parsed = parse(arguments, {}, {});
+    const auto parsed = parse(arguments, {}, {QStringLiteral("--events")});
     if (!parsed.error.isEmpty() || parsed.positional.size() != 1) {
         return usageError(err, parsed.error.isEmpty() ? QStringLiteral("info needs one file")
                                                       : parsed.error);
@@ -100,6 +101,26 @@ int info(const QStringList &arguments, QTextStream &out, QTextStream &err) {
                                                      static_cast<std::size_t>(bytes->size())))
                        .describe());
         return exitOk;
+    }
+    // So is a demo recording of the games, which starts with the same four
+    // bytes as a revision 1.0 world.
+    if (const auto bytes = readFile(parsed.positional[0]); bytes) {
+        const std::span<const std::byte> raw(
+            reinterpret_cast<const std::byte *>(bytes->constData()),
+            static_cast<std::size_t>(bytes->size()));
+        if (looksLikeDemoRecording(raw)) {
+            const auto recording = *DemoRecording::parse(raw);
+            out << QFileInfo(parsed.positional[0]).fileName() << "\n"
+                << bytes->size() << " bytes\n"
+                << QString::fromStdString(recording.describe());
+            if (parsed.flags.contains(QStringLiteral("--events"))) {
+                for (const auto &event : recording.events) {
+                    out << "step " << event.time << ": "
+                        << QString::fromStdString(demoInputName(event.input)) << "\n";
+                }
+            }
+            return exitOk;
+        }
     }
     auto loaded = DocumentFile::load(parsed.positional[0]);
     if (!loaded) {
@@ -760,8 +781,9 @@ bool commandNeedsGraphics(const QString &name) {
 QString commandLineUsage() {
     return QStringLiteral(
         "Commands (read-only; no window is opened):\n"
-        "  eggbert-editor info FILE\n"
-        "      structural report and decoded summary of a world file\n"
+        "  eggbert-editor info FILE [--events]\n"
+        "      structural report and decoded summary of a world file; for a demo\n"
+        "      recording of the games its keys, with --events every key change\n"
         "  eggbert-editor validate FILE [--game 1|2]\n"
         "      World Doctor findings; exit 1 when there are errors\n"
         "  eggbert-editor diff FILE OTHER\n"

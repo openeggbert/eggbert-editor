@@ -4,7 +4,7 @@
 
 Version 1.0.0. Every part of the fixed 1.0 scope in `plan.md` is implemented and covered by asset-free tests. On 2026-11-22 the project owner first accepted the release gate without original game data and then supplied Speedy Eggbert 1 and Speedy Eggbert 2; the editor was verified against both (see **Original-data evidence** below). One defect was found and fixed that way (an ambiguous sprite-table search in the first game's executable).
 
-Since then the owner promoted the whole roadmap (see `plan.md`, **Promotion of the roadmap**) with the instruction not to publish a release: the version number is 1.0.0 but **nothing is tagged or released**, and the tree is an unreleased development version. Of the promoted slices A–N, thirteen are done as far as they could be verified in this environment and N is half done (three-way merge on the command line; playtest traces not started, with the reason); each has a result section below stating what was built, how it was tested and what is not covered. The checklist near the end of this file is the summary.
+Since then the owner promoted the whole roadmap (see `plan.md`, **Promotion of the roadmap**) with the instruction not to publish a release: the version number is 1.0.0 but **nothing is tagged or released**, and the tree is an unreleased development version. The promoted slices A–N and the two added later (O: the rest of the roadmap list; P: demo recordings as playtest traces) are done as far as they could be verified in this environment; what could not be built — heat maps of where a player went — is stated with its reason in slice P's entry. Each slice has a result section below stating what was built, how it was tested and what is not covered. The checklist near the end of this file is the summary.
 
 Implemented and covered by asset-free tests:
 
@@ -47,9 +47,9 @@ Verification on 2026-11-22, Ubuntu 24.04, GCC 13.3.0, CMake 3.28.3, Ninja, Qt 6.
 ```sh
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
 cmake --build build --parallel              # no warnings
-ctest --test-dir build --output-on-failure  # 71/71 passed (72 registered): layout, le_reader, world_probe, world_view, world_document, world_stats, offset_map, tile_tools, metadata, object_ops, hex_model, doctor, adaptive, animation, atlas_table, editor_groups, revision_convert, new_world, encyclopedia, expert_edit, custom_border, game_convert, installation, campaign, campaign_doors, reachability, stamp, text_world, text_world_document, merge, scenario, view_transform, probe_report, document_file, recovery_store, deploy_store, campaign_pack, cli, world_renderer, png_export, game_assets, main_window, docks, tools, metadata_ui, objects_ui, inspector, doctor_ui, adaptive_ui, workspace, artwork_ui, palette, music_player, animation_ui, interface_ui, recovery_ui, convert_ui, new_world_ui, encyclopedia_ui, experimental_ui, convert_game_ui, installation_ui, campaign_ui, stamps_ui, merge_ui, text_world_editor, translation, cli_usage, smoke, version, install_smoke; sample_matrix skipped without EGGBERT_SAMPLE_DIRS
+ctest --test-dir build --output-on-failure  # 73/73 passed (74 registered): layout, le_reader, world_probe, world_view, world_document, world_stats, offset_map, tile_tools, metadata, object_ops, hex_model, doctor, adaptive, animation, atlas_table, editor_groups, revision_convert, new_world, encyclopedia, expert_edit, custom_border, game_convert, installation, campaign, campaign_doors, reachability, stamp, text_world, text_world_document, merge, scenario, demo_recording, view_transform, probe_report, document_file, recovery_store, deploy_store, campaign_pack, cli, world_renderer, png_export, game_assets, main_window, docks, tools, metadata_ui, objects_ui, inspector, doctor_ui, adaptive_ui, workspace, artwork_ui, palette, music_player, animation_ui, interface_ui, recovery_ui, convert_ui, new_world_ui, encyclopedia_ui, experimental_ui, convert_game_ui, installation_ui, campaign_ui, stamps_ui, merge_ui, text_world_editor, demo_viewer, translation, cli_usage, smoke, version, install_smoke; sample_matrix skipped without EGGBERT_SAMPLE_DIRS
 cmake -S . -B build-asan -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DEGGBERT_SANITIZE=ON
-cmake --build build-asan --parallel && ctest --test-dir build-asan   # 71/71 passed under ASan/UBSan, sample_matrix skipped
+cmake --build build-asan --parallel && ctest --test-dir build-asan   # 73/73 passed under ASan/UBSan, sample_matrix skipped
 ```
 
 Commit `c8f7a77` (binary inspector) was pushed green in Release but with a use-after-free that the sanitizer run reported in `main_window` (the hex views kept a pointer to the document replaced by Revert/Reload); the next commit fixes it with `DocumentTab::documentReplaced` and a regression check in `inspector`. Always run the sanitizer suite to completion before committing.
@@ -88,7 +88,7 @@ Verified and reported observations are recorded with citations in `docs/research
 
 ## Next task: none of the promoted roadmap remains except what is listed as open below
 
-Slices A–M are done as far as they could be verified here; of slice N the three-way merge is done and playtest traces were examined and not started (see its entry). What remains open, in the order it would be worth doing:
+Slices A–P are done as far as they could be verified here. Every bullet of `plan.md`, **Post-1.0 roadmap**, now has a slice; the one part without an implementation is the heat map of slice N (see slice P for why). What remains open, in the order it would be worth doing:
 
 1. **A hosted CI run** (needs the owner: a pull request or a push to `main`/`develop`). It would exercise the Linux jobs on GitHub's runners and give the first real result for the `windows-untested` and `macos-untested` jobs.
 2. **Czech for the texts the core composes** (World Doctor findings, conversion notes, report details, encyclopedia facts) — it needs those messages restructured into translatable templates — and a Czech guide.
@@ -97,6 +97,16 @@ Slices A–M are done as far as they could be verified here; of slice N the thre
 5. **A reachability estimate with movement** (jumps, falls, lifts), if a bound can be cited from the sources.
 6. **Compressed ZIP packs** (a decompressor would be a new dependency or a sizeable piece of code).
 7. Evidence gaps listed under **Original-data evidence**: other editions, original 1.0/1.1 worlds, behaviour in the running games, the 25 eggs stored four pixels higher than the catalog writes.
+
+### Slice P result (2026-11-23): demo recordings as playtest traces
+
+Slice N left playtest traces unstarted for want of a verifiable design. The part that can be verified is reading the recordings the games themselves write, and it turned out to fix a defect: a recording starts with the same four bytes as a revision 1.0 world, so the editor used to open `demo200.blp` as a "truncated world" with a nonsense header.
+
+- **Evidence.** `docs/research/evidence.md`, **Demo recordings**: the 204-byte header, the four-byte events (step and key set), the 10,000-event buffer, the six key bits, how playback ends, which world a recording belongs to and the 50 ms step — cited for both games. All 17 recordings of the two installations (7 and 10) fit the layout exactly (private survey; nothing copied).
+- **Reader.** `src/world/demo_recording.hpp` (Qt-free): `DemoRecording::parse` refuses, with the reason, whatever the games would not have written; `write` is byte-exact; `inputAt`, `held`, `heldSteps`, `presses`, `describe`. `looksLikeDemoRecording` never claims a complete revision 1.0 world. Test: `demo_recording`.
+- **Command line.** `info` describes a recording (events, steps, presses and held steps per key) and lists every event with `--events`. Test: `cli`.
+- **Window.** Opening a recording makes no tab: `DemoViewer` (read-only) shows a timeline with one row per key, a cursor moved by pointer or keyboard that names step, approximate time and keys, a per-key table, and **Open World NNN** for the world the games replay it on (found beside it, any letter case). Truncated and complete worlds still open as worlds. Test: `demo_viewer` (geometry, cursor, keyboard, painted bars, table, world lookup, refusals). Looked at with an original recording (private screenshot, not kept).
+- **Not built, and why.** A heat map or path needs positions; recordings hold keys only, and deriving positions means re-running the games' movement code, which the editor does not contain and whose result could not be checked here. Recordings are not editable: nothing calls for it and playback depends on the games' random seed and physics. Seconds assume the default 50 ms step and are labelled "about". The Installation dock still only counts recordings.
 
 ### Slice O result (2026-11-23): the rest of the roadmap list
 
@@ -113,7 +123,7 @@ The owner's goal "do the post-1.0 backlog too" was checked against every bullet 
 The plan allows this slice "only with a verifiable design; otherwise documented as not started".
 
 - **Three-way merge — done, headless and on the command line.** `src/world/merge.hpp` (Qt-free): `mergeWorlds(base, mine, theirs, preference)` for three complete worlds of one revision and length, element by element (a header value, a cell, a whole object record, or a single byte elsewhere); an element changed differently on both sides is a conflict and keeps the base unless a side is preferred. `eggbert-editor merge BASE MINE THEIRS OUT [--prefer mine|theirs]` lists conflicts with offset, structural name and the three versions, writes nothing and exits 1 when there are conflicts and no preference, and never writes over an existing file. Tests: `merge` (disjoint changes combined and symmetric, equal changes, the three kinds of conflict with both preferences, refusals, old revisions), `cli`. **File → Merge Changes…** (added 2026-11-23 at the owner's request) does the same in the window: base and other copy are chosen, the tab is "mine", every conflict is ticked or left by the user (`resolveMerge`), the result is one undo step, and bytes in preserved ranges are never taken from the other file. Test: `merge_ui`.
-- **Playtest traces and heatmaps — not started.** They need positions recorded while a game runs. The games write demo recordings (`demo%.3d.blp`: a 204-byte header and 4-byte time/input records, per the notes used for slice F), but those hold inputs, not positions; turning inputs into positions means re-running the game's physics, which the editor does not have and which could not be checked here without running a game. No verifiable design exists, so nothing was built.
+- **Playtest traces and heatmaps — not started in this slice; the verifiable part followed as slice P.** They need positions recorded while a game runs. The games write demo recordings (`demo%.3d.blp`: a 204-byte header and 4-byte time/input records, per the notes used for slice F), but those hold inputs, not positions; turning inputs into positions means re-running the game's physics, which the editor does not have and which could not be checked here without running a game. No verifiable design exists, so nothing was built.
 
 ### Slice M result (2026-11-23): Mobile Eggbert text worlds
 
@@ -127,7 +137,7 @@ The plan allows this slice "only with a verifiable design; otherwise documented 
 ### Slice L result (2026-11-23): Czech interface, accessibility, other platforms
 
 - `src/app/catalog_translator.hpp`: a `QTranslator` that reads `.ts` catalogues from the program's resources at run time (no Linguist tools in the build); unfinished or empty translations fall back to English; Czech plural forms. Language preference in **Edit → Preferences** (system, English, Čeština), applied at start.
-- `translations/eggbert-editor_cs.ts`: 1,049 messages extracted with `lupdate` (command in `translations/README.md`), **all translated** (completed 2026-11-23 at the owner's request). The catalog names (tile entries, objects, groups, border families, run-time object types) are listed for the tools in `src/app/catalog_texts.cpp` and shown through `catalogText()`; the `translation` test fails when a catalog name is missing there or the catalogue has unfinished entries. Still English: texts composed in the Qt-free core (World Doctor findings, conversion notes, report details, the encyclopedia's facts) and the documents.
+- `translations/eggbert-editor_cs.ts`: 1,078 messages extracted with `lupdate` (command in `translations/README.md`), **all translated** (completed 2026-11-23 at the owner's request). The catalog names (tile entries, objects, groups, border families, run-time object types) are listed for the tools in `src/app/catalog_texts.cpp` and shown through `catalogText()`; the `translation` test fails when a catalog name is missing there or the catalogue has unfinished entries. Still English: texts composed in the Qt-free core (World Doctor findings, conversion notes, report details, the encyclopedia's facts) and the documents.
 - Accessibility: 28 controls that had no name for a screen reader (the Palette's picture lists, the Objects panel's fields, the inspector's choosers, the trees) now have accessible names; a test walks the main window and fails on any focusable control without one.
 - `CMakePresets.json` (`linux`, `linux-sanitizers`, `windows-msvc`, `macos`) and two CI jobs, `windows-untested` and `macos-untested`, allowed to fail. **Neither platform has been built or run**: there is no Windows or macOS machine here and no hosted run (the owner asked for no pull request). No package for them is claimed.
 - Tests: `translation` (language choice, plural forms, a catalogue from text including damaged input, the shipped catalogue's placeholders, accelerators and ellipses, the main window's menus in Czech with English fallback, the accessibility walk).
@@ -284,10 +294,11 @@ Order and acceptance are in `plan.md`, **Promotion of the roadmap**. Tick a slic
 - [x] I Experimental editing: typed byte edits, unverified music/region numbers, custom border rules
 - [x] J Stamps, alignment, replace in all open worlds
 - [x] K Element encyclopedia and installation gallery (the Installation dock's world list)
-- [x] L Czech interface (all 1,049 interface texts and catalog names), accessibility names, Windows/macOS configurations (untested)
+- [x] L Czech interface (all 1,078 interface texts and catalog names), accessibility names, Windows/macOS configurations (untested)
 - [x] M Mobile Eggbert text worlds: lossless codec, description and an editing window (no conversion)
 - [x] O SVG export, PNG batches, campaign graph listing, world regression scenarios
-- [ ] N Three-way merge (done: `merge` command) and playtest traces (not started: no verifiable design)
+- [x] N Three-way merge (command and window); playtest traces as slice P; heat maps not built (recordings hold no positions)
+- [x] P Demo recordings: reader, `info`, read-only timeline window
 
 ## Explicit non-goals
 

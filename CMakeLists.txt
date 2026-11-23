@@ -56,6 +56,7 @@ add_library(eggbert_world STATIC
     src/world/text_world_document.cpp
     src/world/merge.cpp
     src/world/scenario.cpp
+    src/world/demo_recording.cpp
     src/world/campaign_doors.cpp
     src/world/reachability.cpp
     src/world/new_world.cpp
@@ -124,6 +125,7 @@ qt_add_library(eggbert_app STATIC
     src/app/palette_panel.hpp
     src/app/png_export.cpp
     src/app/svg_export.cpp
+    src/app/demo_viewer.cpp
     src/app/png_export.hpp
     src/app/png_export_dialog.cpp
     src/app/png_export_dialog.hpp
@@ -199,14 +201,14 @@ include(CPack)
 include(CTest)
 if(BUILD_TESTING)
     # Headless core tests: no Qt, no game assets.
-    foreach(name layout le_reader world_probe world_view world_document world_stats offset_map tile_tools metadata object_ops hex_model doctor adaptive animation atlas_table editor_groups revision_convert new_world encyclopedia expert_edit custom_border game_convert installation campaign campaign_doors reachability stamp text_world text_world_document merge scenario view_transform)
+    foreach(name layout le_reader world_probe world_view world_document world_stats offset_map tile_tools metadata object_ops hex_model doctor adaptive animation atlas_table editor_groups revision_convert new_world encyclopedia expert_edit custom_border game_convert installation campaign campaign_doors reachability stamp text_world text_world_document merge scenario demo_recording view_transform)
         add_executable(${name}-test tests/${name}_test.cpp)
         target_link_libraries(${name}-test PRIVATE eggbert_world)
         add_test(NAME ${name} COMMAND ${name}-test)
     endforeach()
 
     # Application tests run without a display.
-    foreach(name probe_report document_file recovery_store deploy_store campaign_pack cli world_renderer png_export game_assets main_window docks tools metadata_ui objects_ui inspector doctor_ui adaptive_ui workspace artwork_ui palette music_player animation_ui interface_ui recovery_ui convert_ui new_world_ui encyclopedia_ui experimental_ui convert_game_ui installation_ui campaign_ui stamps_ui merge_ui text_world_editor translation)
+    foreach(name probe_report document_file recovery_store deploy_store campaign_pack cli world_renderer png_export game_assets main_window docks tools metadata_ui objects_ui inspector doctor_ui adaptive_ui workspace artwork_ui palette music_player animation_ui interface_ui recovery_ui convert_ui new_world_ui encyclopedia_ui experimental_ui convert_game_ui installation_ui campaign_ui stamps_ui merge_ui text_world_editor demo_viewer translation)
         add_executable(${name}-test tests/${name}_test.cpp)
         target_link_libraries(${name}-test PRIVATE eggbert_app Qt6::Test)
         add_test(NAME ${name} COMMAND ${name}-test)

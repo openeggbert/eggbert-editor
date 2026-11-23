@@ -132,6 +132,25 @@ Basis of World Doctor's `REACH-CUT-OFF` (`src/world/reachability.cpp`), which is
 
 The estimate connects cells that hold no block, horizontally and vertically, starting from the four starts, and reports a treasure (type 5) or goal (type 7) whose cell is not connected. It does not model jumping, falling, vehicles or lifts, so it can only say "cut off", never "reachable"; and the games can change the map while playing (explosions, pushed crates, key doors), which is why it is labelled an estimate and reported as a note. It is not made for a second-game world with teleporters or key doors. Reviewed on the original worlds (2026-11-23, private): without that exception ten second-game worlds are reported, each of which contains teleporters; with it the estimate is made for all 59 worlds of the first game and 72 of 96 of the second and reports nothing.
 
+## Demo recordings
+
+Basis of `src/world/demo_recording.hpp` and the recording window. Identical in both games.
+
+| Observation | Where | How |
+| --- | --- | --- |
+| A recording is a `DemoHeader` (two shorts, major and minor revision, and `short reserve[100]`: 204 bytes) followed by `DemoEvent` records of two shorts, `time` and `input` | `src/event.h:34-47`; `games/sb2/src/event.h:34-47` | read |
+| The games write the header zeroed with revision 1.0, then the events recorded | `src/event.cpp:3697-3701`; `games/sb2/src/event.cpp:4346-4350` | read |
+| The buffer holds 10,000 events: recording stops when it is full and playback reads no more | `src/def.h:33`; `src/event.cpp:3734`, `:3834`; `games/sb2/src/def.h:31`; `games/sb2/src/event.cpp:4383`, `:4482` | read |
+| `input` is the set of keys held: left 1, right 2, up 4, down 8, jump 16, fire 32 | `src/def.h:741-747`; `games/sb2/src/def.h:739-745` | read |
+| An event is written for each key press or release message the game handles, with the step counter of that moment; the counter advances once per game step. Consecutive events with unchanged keys occur in the original recordings | `src/event.cpp:4548-4549`, `:3827-3838`, `:3824`; `src/blupi.cpp:215-220` | read; measured (repeats) |
+| Playback applies each event once its time is not after the step counter, and moves on to the next recording when the last event has been applied — so the last event's time is the length | `src/event.cpp:3799-3822`; `games/sb2/src/event.cpp:4447-4470` | read |
+| Recording `demoNNN.blp` is replayed on official world NNN; the first is 200 (first game) or 300 (second) | `src/event.cpp:3723-3742`; `games/sb2/src/event.cpp:4372-4391` | read |
+| The games record while a world numbered 200–219 (first game) or 300–319 (second) is played | `src/event.cpp:2094-2103`; `games/sb2/src/event.cpp:2715-2717` | read |
+| One game step per timer tick at normal speed; the timer's default interval is 50 ms and a configuration line can change it | `src/blupi.cpp:60`, `:162-164`, `:215-220`; `games/sb2/src/blupi.cpp:63`, `:168-170` | read |
+| All 17 recordings of the two installations checked (7 and 10 files) have revision 1.0, a zero reserved header, whole events, times that never run backwards and keys within the six | local survey, 2026-11-23 | measured |
+
+The files hold no positions. Turning keys into a path would mean re-running the games' movement code, which the editor does not contain; nothing of the kind is shown. The duration in seconds assumes the default 50 ms step and is labelled "about".
+
 ## Mobile Eggbert text worlds
 
 Basis of `src/world/text_world.cpp`. Source: `mobile-eggbert` at `dd0a592d878c7b678934945fb0e8ef8f76b63800`, read only; nothing was copied from it and its world files are not used as fixtures.

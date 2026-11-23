@@ -20,7 +20,7 @@ A world file carries no signature. The editor reads the revision field at the st
 
 A matching revision and size mean the file is *consistent* with a world; they are not proof. A file that is too short opens with the complete parts visible and is read-only; extra bytes after the layout are kept and never modified; an unknown revision opens for hex inspection only. A yellow banner states why a document is read-only. **File → Document Properties** shows the full structural report.
 
-Not every `.blp` file is a world. In a game's `DATA` folder the worlds are the `world*.blp` files; `demo*.blp` (recordings), `info*.blp`, `time.blp` and `bench.blp` are other data. Because nothing marks a world, the editor cannot tell: such a file opens as a very short, read-only "world" or for hex inspection only, and is never modified. The games' picture files in `IMAGE08` also end in `.blp`; they are bitmaps.
+Not every `.blp` file is a world. In a game's `DATA` folder the worlds are the `world*.blp` files; `demo*.blp` (recordings), `info*.blp`, `time.blp` and `bench.blp` are other data. A recording is recognised by its content and opens in a window of its own (see **Demo recordings**). For the others nothing marks what they are, so the editor cannot tell: such a file opens as a very short, read-only "world" or for hex inspection only, and is never modified. The games' picture files in `IMAGE08` also end in `.blp`; they are bitmaps.
 
 ### Choosing the game
 
@@ -270,7 +270,7 @@ Every control of the main window that can take the keyboard focus has a name for
 
 Besides opening files (`eggbert-editor world.blp ...`), the program has commands that open no window and never change the world file they read:
 
-- `eggbert-editor info FILE` prints the structural report and the decoded summary.
+- `eggbert-editor info FILE [--events]` prints the structural report and the decoded summary. For a Mobile Eggbert text world or a demo recording it describes that file instead; `--events` adds every event of a recording.
 - `eggbert-editor validate FILE [--game 1|2]` prints the World Doctor findings, one per line with rule, byte range and message; the exit code is 1 when there are errors.
 - `eggbert-editor diff FILE OTHER` lists the differing byte ranges with their structural names and old and new bytes; the exit code is 1 when the files differ.
 - `eggbert-editor export-png FILE OUT.png` writes the picture **File → Export World PNG** writes. Options: `--scale N` (pixels per cell, 1 to 64), `--crop x,y,width,height` (in cells), `--game 1|2`, `--game-data DIR` (draw with that game's artwork), `--no-foreground`, `--no-bigdecor`, `--no-objects`, `--no-starts`, `--no-paths`, `--no-backdrop`, `--grid`, `--labels`, `--transparent`.
@@ -284,6 +284,18 @@ Besides opening files (`eggbert-editor world.blp ...`), the program has commands
 - `eggbert-editor scenario-check FILE SCENARIO.txt [--game 1|2]` checks a world against a scenario and prints each expectation that fails; the exit code is 1 when some fail and 2 when the file is not a scenario.
 
 Exit codes: 0 success, 1 findings, differences, a refused loss, merge conflicts, pictures that could not be written or failed expectations, 2 wrong usage or a file that cannot be read or written. `eggbert-editor --help` lists everything.
+
+## Demo recordings
+
+The games ship recordings of someone playing (`demo200.blp` and following in the first game, `demo300.blp` and following in the second) and replay them from the title screen. Opening one — by File → Open World, on the command line or by dropping it — does not make a tab: a read-only window shows what it holds.
+
+- A **timeline** with one row per key (Left, Right, Up, Down, Jump, Fire) and a bar for every stretch the key is held. Move the pointer over it, or give it the keyboard focus and use the arrow keys (Page Up/Down for larger steps, Home/End), and the line below names the step, the approximate time and the keys held there.
+- A **table** with how often each key was pressed and for how long it was held.
+- The **world** it belongs to: the games replay `demoNNN.blp` on `worldNNN.blp` of the same folder, and **Open World NNN** opens that file when it is there.
+
+A recording stores the keys, not where the player was, so no path through the world and no heat map can be drawn from it: that would need the games' movement rules, which the editor does not have. Times are in game steps; seconds are given as "about", for the games' normal pace of 50 ms a step. The file is recognised by its content (a 204-byte header carrying revision 1.0 and nothing else, then four-byte events in time order); a complete world of revision 1.0 is always treated as a world. Recordings cannot be edited or written.
+
+`eggbert-editor info demo200.blp` prints the same numbers, and with `--events` every recorded event.
 
 ## Mobile Eggbert text worlds
 

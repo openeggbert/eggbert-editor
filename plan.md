@@ -228,6 +228,7 @@ The items are worked in this order, one bounded slice at a time; each slice is c
 | M | Mobile Eggbert text worlds as a separate document profile | token-preserving round trip on synthetic text fixtures; no conversion to or from BLP | large |
 | N | Three-way merge, playtest traces and heatmaps | only with a verifiable design; otherwise documented as not started | large |
 | O | Rest of the roadmap list that slices A–N did not name: SVG export, PNG batches, the campaign graph as a listing, world regression scenarios | the SVG is well-formed, deterministic and free of game artwork; a batch picture equals the single export; a recorded scenario holds for its world and fails, naming line and numbers, after a change | small |
+| P | Playtest traces from the games' own demo recordings (the verifiable part of slice N): a reader, a description and a read-only timeline window | the layout is cited for both games and checked against original recordings; parse and write are byte-exact on synthetic fixtures; a recording is never opened as a damaged world, and a world never as a recording | small |
 
 
 

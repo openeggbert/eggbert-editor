@@ -787,6 +787,120 @@
   </message>
  </context>
  <context>
+  <name>eggbert::DemoTimeline</name>
+  <message>
+   <source>Timeline of the keys held</source>
+   <translation>Časová osa držených kláves</translation>
+  </message>
+  <message>
+   <source>One row per key; the arrow keys move the step whose keys are named below.</source>
+   <translation>Jeden řádek pro každou klávesu; šipky posouvají krok, jehož klávesy jsou vypsány níže.</translation>
+  </message>
+ </context>
+ <context>
+  <name>eggbert::DemoViewer</name>
+  <message>
+   <source>Left</source>
+   <translation>Vlevo</translation>
+  </message>
+  <message>
+   <source>Right</source>
+   <translation>Vpravo</translation>
+  </message>
+  <message>
+   <source>Up</source>
+   <translation>Nahoru</translation>
+  </message>
+  <message>
+   <source>Down</source>
+   <translation>Dolů</translation>
+  </message>
+  <message>
+   <source>Jump</source>
+   <translation>Skok</translation>
+  </message>
+  <message>
+   <source>Fire</source>
+   <translation>Akce</translation>
+  </message>
+  <message>
+   <source>no key</source>
+   <translation>žádná klávesa</translation>
+  </message>
+  <message>
+   <source>about %1 s</source>
+   <translation>asi %1 s</translation>
+  </message>
+  <message>
+   <source>%1 could not be read.</source>
+   <translation>%1 nelze přečíst.</translation>
+  </message>
+  <message>
+   <source>%1 is not a demo recording. %2</source>
+   <translation>%1 není herní záznam. %2</translation>
+  </message>
+  <message>
+   <source>Demo Recording - %1</source>
+   <translation>Herní záznam - %1</translation>
+  </message>
+  <message>
+   <source>%1 recorded event(s) over %2 game step(s), %3 at the games' normal speed. The file is only read, never changed.</source>
+   <translation>Zaznamenaných událostí: %1, herních kroků: %2, tedy %3 při běžné rychlosti her. Soubor se jen čte, nikdy se nemění.</translation>
+  </message>
+  <message>
+   <source>The games replay it on world %1; no file for that world is in this folder.</source>
+   <translation>Hry jej přehrávají na světě %1; soubor toho světa v této složce není.</translation>
+  </message>
+  <message>
+   <source>The games replay it on world %1.</source>
+   <translation>Hry jej přehrávají na světě %1.</translation>
+  </message>
+  <message>
+   <source>&amp;Open World %1</source>
+   <translation>&amp;Otevřít svět %1</translation>
+  </message>
+  <message>
+   <source>The file name is not one the games use (demo and three digits), so the world it belongs to is not known.</source>
+   <translation>Název souboru není takový, jaký používají hry (demo a tři číslice), takže není známo, ke kterému světu patří.</translation>
+  </message>
+  <message>
+   <source>&amp;Open World</source>
+   <translation>&amp;Otevřít svět</translation>
+  </message>
+  <message>
+   <source>Keys of the recording</source>
+   <translation>Klávesy záznamu</translation>
+  </message>
+  <message>
+   <source>Key</source>
+   <translation>Klávesa</translation>
+  </message>
+  <message>
+   <source>Pressed</source>
+   <translation>Stisknuto</translation>
+  </message>
+  <message>
+   <source>Held</source>
+   <translation>Drženo</translation>
+  </message>
+  <message>
+   <source>%1 time(s)</source>
+   <translation>%1×</translation>
+  </message>
+  <message>
+   <source>%1 step(s), %2</source>
+   <translation>kroků: %1, %2</translation>
+  </message>
+  <message>
+   <source>A recording holds the keys the player held, not where the player was: a path through the world cannot be drawn from it.</source>
+   <translation>Záznam obsahuje klávesy, které hráč držel, ne místa, kde byl: cestu světem z něj nakreslit nelze.</translation>
+  </message>
+  <message>
+   <source>Step %1 (%2): %3</source>
+   <translation>Krok %1 (%2): %3</translation>
+  </message>
+ </context>
+ <context>
   <name>eggbert::DiagnosticsPanel</name>
   <message>
    <source>Error</source>
@@ -3523,6 +3637,14 @@ jinde: %5</translation>
   <message>
    <source>World %1 -&gt; %2</source>
    <translation>Svět %1 -&gt; %2</translation>
+  </message>
+  <message>
+   <source>Demo Recording</source>
+   <translation>Herní záznam</translation>
+  </message>
+  <message>
+   <source>%1 is a demo recording of the games: shown in its own window</source>
+   <translation>%1 je herní záznam: zobrazen ve vlastním okně</translation>
   </message>
  </context>
  <context>

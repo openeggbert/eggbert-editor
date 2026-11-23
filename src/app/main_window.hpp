@@ -175,6 +175,7 @@ class PalettePanel;
 class EncyclopediaDialog;
 class InstallationPanel;
 class TextWorldEditor;
+class DemoViewer;
 class StatisticsPanel;
 
 class MainWindow final : public QMainWindow {
@@ -307,6 +308,10 @@ public:
     // raises the window that already has it). Null when it cannot be read.
     TextWorldEditor *openTextWorld(const QString &path);
     [[nodiscard]] std::vector<TextWorldEditor *> textWorldEditors() const;
+    // A demo recording of the games is neither a world nor editable: it
+    // opens in a read-only window of its own. Null when it cannot be read.
+    DemoViewer *openDemoRecording(const QString &path);
+    [[nodiscard]] std::vector<DemoViewer *> demoViewers() const;
     // Merges what another world changed since a common base into the tab
     // (which is "mine"), with every conflict decided by the user, as one
     // undo step. True when the tab changed.
@@ -405,6 +410,7 @@ private:
     PalettePanel *palette_ = nullptr;
     EncyclopediaDialog *encyclopedia_ = nullptr;
     std::vector<QPointer<TextWorldEditor>> textEditors_;
+    std::vector<QPointer<DemoViewer>> demoViewers_;
     QDockWidget *installationDock_ = nullptr;
     InstallationPanel *installation_ = nullptr;
     DeployStore deployStore_;

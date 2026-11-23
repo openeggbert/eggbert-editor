@@ -66,12 +66,14 @@
 #include "app/catalog_texts.hpp"
 #include "app/encyclopedia_dialog.hpp"
 #include "app/installation_panel.hpp"
+#include "app/demo_viewer.hpp"
 #include "app/svg_export.hpp"
 #include "app/text_world_editor.hpp"
 #include "app/tool_icons.hpp"
 #include "world/new_world.hpp"
 #include "world/campaign_doors.hpp"
 #include "world/hex_model.hpp"
+#include "world/demo_recording.hpp"
 #include "world/revision_convert.hpp"
 #include "world/scenario.hpp"
 #include "world/text_world.hpp"
@@ -3049,6 +3051,20 @@ DocumentTab *MainWindow::openPath(const QString &path) {
             }
         }
     }
+    // A demo recording starts with the same four bytes as a revision 1.0
+    // world; it is shown as what it is instead of as a damaged world.
+    {
+        QFile file(path);
+        if (file.size() <= 1024 * 1024 && file.open(QIODevice::ReadOnly)) {
+            const auto bytes = file.readAll();
+            if (looksLikeDemoRecording({reinterpret_cast<const std::byte *>(bytes.constData()),
+                                        static_cast<std::size_t>(bytes.size())})) {
+                file.close();
+                openDemoRecording(path);
+                return nullptr; // not a world: it has a window of its own
+            }
+        }
+    }
     auto loaded = DocumentFile::load(path);
     if (!loaded) {
         prompts.error(tr("Open World"),
@@ -3390,6 +3406,40 @@ TextWorldEditor *MainWindow::openTextWorld(const QString &path) {
     statusBar()->showMessage(
         tr("%1 is a Mobile Eggbert text world: opened in its own window").arg(path), 8000);
     return editor;
+}
+
+DemoViewer *MainWindow::openDemoRecording(const QString &path) {
+    const QFileInfo wanted(path);
+    for (auto *viewer : demoViewers()) {
+        if (QFileInfo(viewer->path()) == wanted) {
+            viewer->show();
+            viewer->raise();
+            viewer->activateWindow();
+            return viewer;
+        }
+    }
+    QString error;
+    auto *viewer = DemoViewer::open(path, this, &error);
+    if (viewer == nullptr) {
+        prompts.error(tr("Demo Recording"), error);
+        return nullptr;
+    }
+    viewer->openWorldFile = [this](const QString &world) { openPath(world); };
+    demoViewers_.emplace_back(viewer);
+    viewer->show();
+    statusBar()->showMessage(
+        tr("%1 is a demo recording of the games: shown in its own window").arg(path), 8000);
+    return viewer;
+}
+
+std::vector<DemoViewer *> MainWindow::demoViewers() const {
+    std::vector<DemoViewer *> viewers;
+    for (const auto &viewer : demoViewers_) {
+        if (viewer != nullptr) {
+            viewers.push_back(viewer.data());
+        }
+    }
+    return viewers;
 }
 
 std::vector<TextWorldEditor *> MainWindow::textWorldEditors() const {

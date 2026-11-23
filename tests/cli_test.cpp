@@ -512,6 +512,34 @@ int main(int argc, char **argv) {
         CHECK_EQ(run({"merge", basePath, minePath, brokenPath, unused}).code, 2);
         CHECK(!QFile::exists(unused));
     }
+    // info on a demo recording of the games: described as what it is, not
+    // as a damaged revision 1.0 world.
+    {
+        Bytes demo(204, std::byte{0});
+        demo[0] = std::byte{1};
+        for (const int value : {10, 2, 20, 18, 26, 2, 300, 0}) {
+            demo.push_back(static_cast<std::byte>(value & 0xff));
+            demo.push_back(static_cast<std::byte>((value >> 8) & 0xff));
+        }
+        const auto demoPath = dir.filePath("demo200.blp");
+        writeAll(demoPath, demo);
+        const auto described = run({"info", demoPath});
+        CHECK_EQ(described.code, 0);
+        CHECK(described.out.startsWith("demo200.blp\n220 bytes\n"));
+        CHECK(described.out.contains("Demo recording, revision 1.0: 4 event(s) over 300 game "
+                                     "step(s)."));
+        CHECK(described.out.contains("Right: pressed 1 time(s), held for 290 step(s)"));
+        CHECK(!described.out.contains("truncated"));
+        CHECK(!described.out.contains("step 20: "));
+        const auto listed = run({"info", demoPath, "--events"});
+        CHECK_EQ(listed.code, 0);
+        CHECK(listed.out.contains("step 10: Right\nstep 20: Right+Jump\nstep 26: Right\n"
+                                  "step 300: none\n"));
+        CHECK(commandLineUsage().contains("info FILE [--events]"));
+        // A world ignores the option; a truncated world is still a world.
+        CHECK_EQ(run({"info", path, "--events"}).code, 0);
+        CHECK(run({"info", brokenPath}).out.contains("truncated"));
+    }
     // scenario-record and scenario-check
     {
         CHECK(isCommandLineCommand("scenario-record") && isCommandLineCommand("scenario-check"));
