@@ -40,6 +40,8 @@ Version 1.0.0 implements the whole fixed 1.0 scope.
 - All 9,550 stored objects are of a type the object catalog offers for that game. 9,409 of them store exactly the durations, waits, path, in-cell offset and channel a catalog preset writes; 116 (two enemy types in the second game) differ only in the channel, which the games' editors let the designer cycle; 25 eggs sit four pixels higher in their cell than the released editors place them, which the evidence at hand does not explain. Every stored music, region, tile and bigDecor number lies inside the profile ranges; more than 99.6 % of border tiles have exactly the form the adaptive brushes compute.
 - Game artwork: all four sprite tables are located in each executable, and every tile, bigDecor picture, object and start stored in the stock worlds is drawn from the sheets. Rendered scenes were inspected by eye and against the reconstructed draw code; they were not compared pixel by pixel with a running game.
 
+- Later features were checked against the same installations (2026-11-23): all 155 worlds convert for the other game and are byte-identical after converting back with unknown values kept; by the games' door rule every door of the official worlds leads to a world that exists and every hub and mission has a door leading to it; the reachability estimate reports nothing on the 131 worlds it applies to. The 78 worlds of the Mobile Eggbert project are read and written back byte for byte by the text-world reader.
+
 Not checked: other editions (Speedy Blupi I/II, demo and localized releases), worlds of revision 1.0/1.1 from an original source (the stock worlds contain none; those layouts are covered by synthetic files only), and behaviour inside the running games. Details and numbers are in `docs/research/evidence.md`.
 
 The format notes, compatibility matrix and implementation milestones are in [plan.md](plan.md). A fresh implementation session should also read [AGENTS.md](AGENTS.md) and continue from [NEXT.md](NEXT.md).
@@ -59,7 +61,7 @@ ctest --test-dir build --output-on-failure
 
 If CMake cannot find Qt, set `CMAKE_PREFIX_PATH` to your Qt kit directory when configuring. For a multi-configuration generator such as Visual Studio, build with `--config Release` and pass `-C Release` to CTest. On macOS, launch the generated application bundle. Only Linux is tested and packaged. `CMakePresets.json` (CMake 3.25 or newer) has the presets `linux`, `linux-sanitizers`, `windows-msvc` and `macos`, and the CI workflow has jobs for Windows and macOS; those two have never been built or run by the project and are marked untested.
 
-The interface is available in English and Czech (**Edit → Preferences → Language**); the Czech catalogue in `translations/` covers a little over half of the texts and the rest falls back to English. Catalogues are read at run time, so building needs no Qt Linguist tools.
+The interface is available in English and Czech (**Edit → Preferences → Language**); the Czech catalogue in `translations/` covers about two thirds of the texts and the rest falls back to English. Catalogues are read at run time, so building needs no Qt Linguist tools.
 
 `eggbert-editor world.blp ...` opens files given on the command line. Eight commands work without a window and never change a world they read: `info FILE`, `validate FILE [--game 1|2]`, `diff FILE OTHER`, `export-png FILE OUT.png [--scale N] [--crop x,y,w,h] ...`, `convert FILE OUT --to 1.0|1.1|1.2|1.3 [--allow-loss]`, `convert-game FILE OUT --from 1|2 --to 2|1 [--unknown refuse|keep|remove]`, `merge BASE MINE THEIRS OUT [--prefer mine|theirs]` (a three-way merge by header value, cell and object record) and `new OUT --game 1|2` (exit codes 0 success, 1 findings, differences, a refused loss or merge conflicts, 2 usage or file error; see `--help`). `eggbert-editor --version` and `--help` work without a display. `eggbert-editor --smoke-test` runs an end-to-end self check that needs no game data; `--smoke-test --game-data DIR` additionally recognises the game in `DIR` (read only) and draws with its artwork.
 
@@ -89,8 +91,10 @@ For every file it reports size, checksum prefix, revision and whether an untouch
 
 | Location | Contents |
 | --- | --- |
-| `src/world/` | Revision descriptors, bounded little-endian readers, structural probe, read-only decoded views and the lossless document core (transactions, undo, changed ranges). Independent of Qt. |
-| `src/app/` | Qt application: file load/save, tabbed main window, document tab, canvas, renderer, palette, game assets, music player, panels and reports. |
+| `src/world/` | Revision descriptors, bounded little-endian readers, structural probe, read-only decoded views and the lossless document core (transactions, undo, changed ranges); catalogs, World Doctor, conversions, merge, stamps, campaign and installation rules, the Mobile Eggbert text-world reader. Independent of Qt. |
+| `src/app/` | Qt application: file load/save, tabbed main window, document tab, canvas, renderer, palette, game assets, music player, panels and reports; recovery, deploy and pack stores, the command line, the run-time translator. |
+| `translations/` | Interface catalogues (Czech), read at run time; see its README. |
+| `CMakePresets.json` | Build presets for Linux (tested) and Windows and macOS (untested). |
 | `tests/` | Asset-free tests: headless core tests, offscreen UI tests, smoke and install tests, and the opt-in local-sample check. |
 | `docs/user-guide.md`, `docs/format-notes.md` | User documentation, also embedded in the Help menu. |
 | `resources/` | Desktop entry and the project's own icon. |

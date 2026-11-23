@@ -52,7 +52,7 @@
   </message>
   <message>
    <source>%1 bytes</source>
-   <translation type="unfinished" />
+   <translation>%1 bajtů</translation>
   </message>
   <message>
    <source>Revision field: %1.%2</source>
@@ -308,7 +308,7 @@ Judged for: %1</source>
   <name>eggbert::DocumentTab</name>
   <message>
    <source>This document is read-only.</source>
-   <translation type="unfinished" />
+   <translation>Tento dokument je jen pro čtení.</translation>
   </message>
   <message>
    <source>Nothing would change.</source>
@@ -320,11 +320,11 @@ Judged for: %1</source>
   </message>
   <message>
    <source>The change at offset %1 is outside the world layout.</source>
-   <translation type="unfinished" />
+   <translation>Změna na offsetu %1 leží mimo rozvržení světa.</translation>
   </message>
   <message>
    <source>Offset %1 is in a preserved range and cannot be edited.</source>
-   <translation type="unfinished" />
+   <translation>Offset %1 leží v zachovávaném rozsahu a nelze jej upravit.</translation>
   </message>
   <message>
    <source>The document changed underneath this edit (offset %1).</source>
@@ -340,7 +340,7 @@ Judged for: %1</source>
   </message>
   <message>
    <source>Profile not chosen</source>
-   <translation type="unfinished" />
+   <translation>Profil nezvolen</translation>
   </message>
   <message>
    <source>Speedy Blupi / Eggbert 1</source>
@@ -352,7 +352,7 @@ Judged for: %1</source>
   </message>
   <message>
    <source>The %1 layer is locked.</source>
-   <translation type="unfinished" />
+   <translation>Vrstva %1 je zamčená.</translation>
   </message>
   <message>
    <source>Pencil</source>
@@ -360,7 +360,7 @@ Judged for: %1</source>
   </message>
   <message>
    <source>Picked value %1 from the %2 layer at (%3, %4)</source>
-   <translation type="unfinished" />
+   <translation>Nabrána hodnota %1 z vrstvy %2 na (%3, %4)</translation>
   </message>
   <message>
    <source>Line</source>
@@ -376,47 +376,47 @@ Judged for: %1</source>
   </message>
   <message>
    <source>Edit Metadata</source>
-   <translation type="unfinished" />
+   <translation>Úprava metadat</translation>
   </message>
   <message>
    <source>Turn Start %1</source>
-   <translation type="unfinished" />
+   <translation>Otočit start %1</translation>
   </message>
   <message>
    <source>Move Start %1</source>
-   <translation type="unfinished" />
+   <translation>Přesunout start %1</translation>
   </message>
   <message>
    <source>Copy Start %1 to All</source>
-   <translation type="unfinished" />
+   <translation>Kopírovat start %1 do všech</translation>
   </message>
   <message>
    <source>Choose a game profile first: border rules are verified per game.</source>
-   <translation type="unfinished" />
+   <translation>Nejprve zvolte profil hry: pravidla okrajů jsou ověřena pro každou hru zvlášť.</translation>
   </message>
   <message>
    <source>Choose an adaptive brush of the chosen game first.</source>
-   <translation type="unfinished" />
+   <translation>Nejprve zvolte adaptivní štětec zvolené hry.</translation>
   </message>
   <message>
    <source>Custom Border Brush</source>
-   <translation type="unfinished" />
+   <translation>Vlastní štětec okrajů</translation>
   </message>
   <message>
    <source>Adaptive Brush</source>
-   <translation type="unfinished" />
+   <translation>Adaptivní štětec</translation>
   </message>
   <message numerus="yes">
    <source>%n neighbouring cell(s) outside the brush took a new form</source>
-   <translation type="unfinished">
-    <numerusform />
-    <numerusform />
-    <numerusform />
+   <translation>
+    <numerusform>%n sousední buňka mimo štětec získala nový tvar</numerusform>
+    <numerusform>%n sousední buňky mimo štětec získaly nový tvar</numerusform>
+    <numerusform>%n sousedních buněk mimo štětec získalo nový tvar</numerusform>
    </translation>
   </message>
   <message>
    <source>The object pool is full (%1 of %2 slots in use); nothing was created.</source>
-   <translation type="unfinished" />
+   <translation>Všechny sloty objektů jsou obsazené (%1 z %2); nic nebylo vytvořeno.</translation>
   </message>
   <message>
    <source>This document has no complete object pool.</source>
@@ -424,7 +424,7 @@ Judged for: %1</source>
   </message>
   <message>
    <source>That slot holds no object.</source>
-   <translation type="unfinished" />
+   <translation>Tento slot neobsahuje žádný objekt.</translation>
   </message>
   <message>
    <source>The position is outside the representable range.</source>
@@ -444,31 +444,31 @@ Judged for: %1</source>
   </message>
   <message>
    <source>Type %1</source>
-   <translation type="unfinished" />
+   <translation>Typ %1</translation>
   </message>
   <message>
    <source>Type %1 (not verified for this game)</source>
-   <translation type="unfinished" />
+   <translation>Typ %1 (pro tuto hru neověřen)</translation>
   </message>
   <message>
    <source>Choose a game profile first: object presets are verified per game.</source>
-   <translation type="unfinished" />
+   <translation>Nejprve zvolte profil hry: předvolby objektů jsou ověřeny pro každou hru zvlášť.</translation>
   </message>
   <message>
    <source>Choose an object preset first.</source>
-   <translation type="unfinished" />
+   <translation>Nejprve zvolte předvolbu objektu.</translation>
   </message>
   <message>
    <source>Create %1</source>
-   <translation type="unfinished" />
+   <translation>Vytvořit %1</translation>
   </message>
   <message>
    <source>Created %1 in slot %2</source>
-   <translation type="unfinished" />
+   <translation>Vytvořeno: %1 ve slotu %2</translation>
   </message>
   <message>
    <source>Delete Object in Slot %1</source>
-   <translation type="unfinished" />
+   <translation>Smazat objekt ve slotu %1</translation>
   </message>
   <message>
    <source>Only objects of a type verified for the chosen game can be duplicated.</source>
@@ -476,7 +476,7 @@ Judged for: %1</source>
   </message>
   <message>
    <source>Duplicate Object in Slot %1</source>
-   <translation type="unfinished" />
+   <translation>Duplikovat objekt ve slotu %1</translation>
   </message>
   <message>
    <source>Only objects of a type verified for the chosen game can be moved.</source>
@@ -484,15 +484,15 @@ Judged for: %1</source>
   </message>
   <message>
    <source>Move Object in Slot %1</source>
-   <translation type="unfinished" />
+   <translation>Přesunout objekt ve slotu %1</translation>
   </message>
   <message>
    <source>Move Start of Slot %1</source>
-   <translation type="unfinished" />
+   <translation>Přesunout začátek slotu %1</translation>
   </message>
   <message>
    <source>Move End of Slot %1</source>
-   <translation type="unfinished" />
+   <translation>Přesunout konec slotu %1</translation>
   </message>
   <message>
    <source>Set %1 of Slot %2</source>
@@ -500,23 +500,23 @@ Judged for: %1</source>
   </message>
   <message>
    <source>Nothing is selected.</source>
-   <translation type="unfinished" />
+   <translation>Nic není vybráno.</translation>
   </message>
   <message numerus="yes">
    <source>Copied %n cell(s) from the %1 layer</source>
-   <translation type="unfinished">
-    <numerusform />
-    <numerusform />
-    <numerusform />
+   <translation>
+    <numerusform>Zkopírována %n buňka z vrstvy %1</numerusform>
+    <numerusform>Zkopírovány %n buňky z vrstvy %1</numerusform>
+    <numerusform>Zkopírováno %n buněk z vrstvy %1</numerusform>
    </translation>
   </message>
   <message>
    <source>Cut</source>
-   <translation type="unfinished" />
+   <translation>Vyjmout</translation>
   </message>
   <message>
    <source>The clipboard holds no tiles.</source>
-   <translation type="unfinished" />
+   <translation>Schránka neobsahuje žádné dlaždice.</translation>
   </message>
   <message>
    <source>These tiles were copied under a different or unknown game profile; pasting them here is not available.</source>
@@ -524,18 +524,18 @@ Judged for: %1</source>
   </message>
   <message>
    <source>The pasted tiles equal what is already there.</source>
-   <translation type="unfinished" />
+   <translation>Vkládané dlaždice se shodují s tím, co tam už je.</translation>
   </message>
   <message>
    <source>Paste</source>
-   <translation type="unfinished" />
+   <translation>Vložit</translation>
   </message>
   <message numerus="yes">
    <source>%n cell(s) fell outside the map and were not pasted</source>
-   <translation type="unfinished">
-    <numerusform />
-    <numerusform />
-    <numerusform />
+   <translation>
+    <numerusform>%n buňka byla mimo mapu a nebyla vložena</numerusform>
+    <numerusform>%n buňky byly mimo mapu a nebyly vloženy</numerusform>
+    <numerusform>%n buněk bylo mimo mapu a nebylo vloženo</numerusform>
    </translation>
   </message>
   <message>
@@ -544,11 +544,11 @@ Judged for: %1</source>
   </message>
   <message>
    <source>Fill Selection</source>
-   <translation type="unfinished" />
+   <translation>Vyplnit výběr</translation>
   </message>
   <message>
    <source>Replace %1 with %2</source>
-   <translation type="unfinished" />
+   <translation>Nahradit %1 hodnotou %2</translation>
   </message>
   <message>
    <source>This stamp was made under another game profile; placing it here is not available.</source>
@@ -556,11 +556,11 @@ Judged for: %1</source>
   </message>
   <message>
    <source>The stamp equals what is already there.</source>
-   <translation type="unfinished" />
+   <translation>Razítko se shoduje s tím, co tam už je.</translation>
   </message>
   <message>
    <source>Place Stamp %1</source>
-   <translation type="unfinished" />
+   <translation>Umístit razítko %1</translation>
   </message>
   <message>
    <source>%1 tile(s) written, %2 object(s) created%3</source>
@@ -572,31 +572,31 @@ Judged for: %1</source>
   </message>
   <message>
    <source>Select an area with at least two objects first.</source>
-   <translation type="unfinished" />
+   <translation>Nejprve vyberte oblast s alespoň dvěma objekty.</translation>
   </message>
   <message>
    <source>The objects are already placed that way.</source>
-   <translation type="unfinished" />
+   <translation>Objekty jsou už takto umístěny.</translation>
   </message>
   <message>
    <source>Align Objects</source>
-   <translation type="unfinished" />
+   <translation>Zarovnat objekty</translation>
   </message>
   <message numerus="yes">
    <source>%n object(s) moved</source>
-   <translation type="unfinished">
-    <numerusform />
-    <numerusform />
-    <numerusform />
+   <translation>
+    <numerusform>Přesunut %n objekt</numerusform>
+    <numerusform>Přesunuty %n objekty</numerusform>
+    <numerusform>Přesunuto %n objektů</numerusform>
    </translation>
   </message>
   <message>
    <source>Flip Horizontally</source>
-   <translation type="unfinished" />
+   <translation>Převrátit vodorovně</translation>
   </message>
   <message>
    <source>Flip Vertically</source>
-   <translation type="unfinished" />
+   <translation>Převrátit svisle</translation>
   </message>
   <message>
    <source>Eraser</source>
@@ -604,19 +604,19 @@ Judged for: %1</source>
   </message>
   <message>
    <source>Cell (%1, %2)</source>
-   <translation type="unfinished" />
+   <translation>Buňka (%1, %2)</translation>
   </message>
   <message>
    <source>foreground %1 @ offset %2</source>
-   <translation type="unfinished" />
+   <translation>popředí %1 @ offset %2</translation>
   </message>
   <message>
    <source>bigDecor %1 @ offset %2</source>
-   <translation type="unfinished" />
+   <translation>bigDecor %1 @ offset %2</translation>
   </message>
   <message>
    <source>Read-only: %1</source>
-   <translation type="unfinished" />
+   <translation>Jen pro čtení: %1</translation>
   </message>
  </context>
  <context>
@@ -647,7 +647,7 @@ Judged for: %1</source>
   </message>
   <message>
    <source>Choose the game in the tool bar to see what its worlds can contain.</source>
-   <translation type="unfinished" />
+   <translation>Zvolte hru na panelu nástrojů a uvidíte, co mohou její světy obsahovat.</translation>
   </message>
   <message>
    <source>%1 of %2 entries</source>
@@ -899,7 +899,7 @@ Judged for: %1</source>
   </message>
   <message>
    <source>Puts the world of the current tab into this installation. The file it replaces is kept and can be put back.</source>
-   <translation type="unfinished" />
+   <translation>Vloží svět z aktuální karty do této instalace. Nahrazený soubor se uchová a lze jej vrátit zpět.</translation>
   </message>
   <message>
    <source>Roll Back Last Deploy</source>
@@ -911,11 +911,11 @@ Judged for: %1</source>
   </message>
   <message>
    <source>Starts the command you configured for this game, in the game directory.</source>
-   <translation type="unfinished" />
+   <translation>Spustí příkaz nastavený pro tuto hru v adresáři hry.</translation>
   </message>
   <message>
    <source>Choose the directory of the game you have (View &gt; Game Artwork Directory) to see its worlds here.</source>
-   <translation type="unfinished" />
+   <translation>Vyberte adresář hry, kterou máte (Zobrazení &gt; Adresář s grafikou hry), a uvidíte zde její světy.</translation>
   </message>
   <message>
    <source>%1 has no DATA folder.</source>
@@ -2035,7 +2035,7 @@ Game:</source>
   </message>
   <message>
    <source>Tile ID </source>
-   <translation type="unfinished" />
+   <translation>ID dlaždice </translation>
   </message>
   <message>
    <source>Raw stored tile ID written by the pencil (-1 is an empty cell)</source>
@@ -2962,11 +2962,11 @@ These files could not be put back and stay as imported:
   </message>
   <message>
    <source>No complete object pool in this document.</source>
-   <translation type="unfinished" />
+   <translation>Tento dokument neobsahuje úplné záznamy objektů.</translation>
   </message>
   <message>
    <source>Stored slots %1 - in use %2 - free %3</source>
-   <translation type="unfinished" />
+   <translation>Uložených slotů %1 - obsazených %2 - volných %3</translation>
   </message>
   <message>
    <source>The pool is full: this is the format's hard limit. Nothing can be added and effects the game creates while playing will find no slot.</source>
@@ -2982,7 +2982,7 @@ These files could not be put back and stay as imported:
   </message>
   <message>
    <source>Select an object to see its stored fields.</source>
-   <translation type="unfinished" />
+   <translation>Vyberte objekt a uvidíte jeho uložená pole.</translation>
   </message>
   <message>
    <source>Slot %1 at offset %2: type %3, step %4, time %5, phase %6, unknown1 %7, unknown2 %8. These fields are shown as stored and are not edited here.</source>
@@ -3033,7 +3033,7 @@ These files could not be put back and stay as imported:
   </message>
   <message>
    <source>One screen: 10 cells wide and 480 pixels high, no scrolling</source>
-   <translation type="unfinished" />
+   <translation>Jedna obrazovka: 10 buněk na šířku a 480 pixelů na výšku, bez posouvání</translation>
   </message>
   <message>
    <source>Wide</source>
@@ -3041,7 +3041,7 @@ These files could not be put back and stay as imported:
   </message>
   <message>
    <source>Scrolls horizontally: 100 cells wide, one screen high</source>
-   <translation type="unfinished" />
+   <translation>Posouvá se vodorovně: 100 buněk na šířku, jedna obrazovka na výšku</translation>
   </message>
   <message>
    <source>Tall</source>
@@ -3049,7 +3049,7 @@ These files could not be put back and stay as imported:
   </message>
   <message>
    <source>Scrolls vertically: one screen wide, 100 cells high</source>
-   <translation type="unfinished" />
+   <translation>Posouvá se svisle: jedna obrazovka na šířku, 100 buněk na výšku</translation>
   </message>
   <message>
    <source>Large</source>
@@ -3057,7 +3057,7 @@ These files could not be put back and stay as imported:
   </message>
   <message>
    <source>Scrolls both ways: 100 x 100 cells</source>
-   <translation type="unfinished" />
+   <translation>Posouvá se oběma směry: 100 x 100 buněk</translation>
   </message>
   <message>
    <source>Background</source>
@@ -3085,7 +3085,7 @@ These files could not be put back and stay as imported:
   </message>
   <message>
    <source>Open a world to change its size, background and music.</source>
-   <translation type="unfinished" />
+   <translation>Otevřete svět a můžete změnit jeho velikost, pozadí a hudbu.</translation>
   </message>
   <message>
    <source>Choose the game in the tool bar to change background and music; their numbers mean different things in the two games.</source>
@@ -3117,7 +3117,7 @@ These files could not be put back and stay as imported:
   </message>
   <message>
    <source>Foreground tiles that are in none of the groups</source>
-   <translation type="unfinished" />
+   <translation>Dlaždice popředí, které nejsou v žádné skupině</translation>
   </message>
   <message>
    <source>All tiles</source>
@@ -3133,7 +3133,7 @@ These files could not be put back and stay as imported:
   </message>
   <message>
    <source>Every bigDecor picture, by number</source>
-   <translation type="unfinished" />
+   <translation>Všechny obrázky bigDecor podle čísla</translation>
   </message>
   <message>
    <source>Empty cell (-1)</source>
@@ -3162,7 +3162,7 @@ Painted with the adaptive brush, which fits it to its neighbours.</source>
   </message>
   <message>
    <source>Every object the game's own editor can place</source>
-   <translation type="unfinished" />
+   <translation>Všechny objekty, které umí umístit vlastní editor hry</translation>
   </message>
   <message>
    <source>%1: %2 object(s), as one button of the game's own editor offers them</source>
@@ -3175,7 +3175,7 @@ Stored type %2. Click, then click a cell to place it%3.</source>
   </message>
   <message>
    <source>; drag to set its path</source>
-   <translation type="unfinished" />
+   <translation>; tažením nastavíte dráhu</translation>
   </message>
   <message>
    <source>Choose the game in the tool bar to see its objects, its editor's groups and its border brushes. Tiles are shown as numbered swatches.</source>
@@ -3183,7 +3183,7 @@ Stored type %2. Click, then click a cell to place it%3.</source>
   </message>
   <message>
    <source>Pictures are schematic: no game graphics are loaded for this game. The editor ships none; it can read them from a game you have.</source>
-   <translation type="unfinished" />
+   <translation>Obrázky jsou schematické: pro tuto hru není načtena žádná grafika. Editor žádnou neobsahuje; umí ji načíst ze hry, kterou máte.</translation>
   </message>
   <message>
    <source>%1
@@ -3298,19 +3298,19 @@ Paints tile %2 and recomputes the border forms around it.</source>
   <name>eggbert::StatisticsPanel</name>
   <message>
    <source>Double-click to locate</source>
-   <translation type="unfinished" />
+   <translation>Dvojklikem vyhledáte</translation>
   </message>
   <message>
    <source>Statistic</source>
-   <translation type="unfinished" />
+   <translation>Statistika</translation>
   </message>
   <message>
    <source>Value</source>
-   <translation type="unfinished" />
+   <translation>Hodnota</translation>
   </message>
   <message>
    <source>File (stored facts)</source>
-   <translation type="unfinished" />
+   <translation>Soubor (uložené údaje)</translation>
   </message>
   <message>
    <source>Size</source>
@@ -3318,63 +3318,63 @@ Paints tile %2 and recomputes the border forms around it.</source>
   </message>
   <message>
    <source>%1 bytes</source>
-   <translation type="unfinished" />
+   <translation>%1 bajtů</translation>
   </message>
   <message>
    <source>Revision field</source>
-   <translation type="unfinished" />
+   <translation>Pole revize</translation>
   </message>
   <message>
    <source>unavailable</source>
-   <translation type="unfinished" />
+   <translation>nedostupné</translation>
   </message>
   <message>
    <source>Surplus bytes</source>
-   <translation type="unfinished" />
+   <translation>Přebytečné bajty</translation>
   </message>
   <message>
    <source>Missing bytes</source>
-   <translation type="unfinished" />
+   <translation>Chybějící bajty</translation>
   </message>
   <message>
    <source>absent</source>
-   <translation type="unfinished" />
+   <translation>chybí</translation>
   </message>
   <message>
    <source>Occupied cells</source>
-   <translation type="unfinished" />
+   <translation>Obsazené buňky</translation>
   </message>
   <message>
    <source>Empty cells (-1)</source>
-   <translation type="unfinished" />
+   <translation>Prázdné buňky (-1)</translation>
   </message>
   <message>
    <source>Unique values</source>
-   <translation type="unfinished" />
+   <translation>Různých hodnot</translation>
   </message>
   <message>
    <source>Bounds of occupied cells</source>
-   <translation type="unfinished" />
+   <translation>Rozsah obsazených buněk</translation>
   </message>
   <message>
    <source>(%1, %2) to (%3, %4)</source>
-   <translation type="unfinished" />
+   <translation>(%1, %2) až (%3, %4)</translation>
   </message>
   <message>
    <source>none</source>
-   <translation type="unfinished" />
+   <translation>žádný</translation>
   </message>
   <message>
    <source>Values by frequency</source>
-   <translation type="unfinished" />
+   <translation>Hodnoty podle četnosti</translation>
   </message>
   <message>
    <source>Value %1</source>
-   <translation type="unfinished" />
+   <translation>Hodnota %1</translation>
   </message>
   <message>
    <source>%1 cells</source>
-   <translation type="unfinished" />
+   <translation>%1 buněk</translation>
   </message>
   <message>
    <source>Foreground layer</source>
@@ -3390,47 +3390,47 @@ Paints tile %2 and recomputes the border forms around it.</source>
   </message>
   <message>
    <source>Stored slots</source>
-   <translation type="unfinished" />
+   <translation>Uložené sloty</translation>
   </message>
   <message>
    <source>Active (type not 0)</source>
-   <translation type="unfinished" />
+   <translation>Aktivní (typ není 0)</translation>
   </message>
   <message>
    <source>Free (type 0)</source>
-   <translation type="unfinished" />
+   <translation>Volné (typ 0)</translation>
   </message>
   <message>
    <source>Free slots with other non-zero bytes</source>
-   <translation type="unfinished" />
+   <translation>Volné sloty s jinými nenulovými bajty</translation>
   </message>
   <message>
    <source>Active with different start and end</source>
-   <translation type="unfinished" />
+   <translation>Aktivní s různým začátkem a koncem</translation>
   </message>
   <message>
    <source>By stored type</source>
-   <translation type="unfinished" />
+   <translation>Podle uloženého typu</translation>
   </message>
   <message>
    <source>Type %1</source>
-   <translation type="unfinished" />
+   <translation>Typ %1</translation>
   </message>
   <message>
    <source>By stored channel</source>
-   <translation type="unfinished" />
+   <translation>Podle uloženého kanálu</translation>
   </message>
   <message>
    <source>Channel %1</source>
-   <translation type="unfinished" />
+   <translation>Kanál %1</translation>
   </message>
   <message>
    <source>By stored icon</source>
-   <translation type="unfinished" />
+   <translation>Podle uložené ikony</translation>
   </message>
   <message>
    <source>Icon %1</source>
-   <translation type="unfinished" />
+   <translation>Ikona %1</translation>
   </message>
   <message>
    <source>Player starts</source>
@@ -3438,39 +3438,39 @@ Paints tile %2 and recomputes the border forms around it.</source>
   </message>
   <message>
    <source>Start %1</source>
-   <translation type="unfinished" />
+   <translation>Start %1</translation>
   </message>
   <message>
    <source>(%1, %2) direction %3</source>
-   <translation type="unfinished" />
+   <translation>(%1, %2) směr %3</translation>
   </message>
   <message>
    <source>Bounds of used cells</source>
-   <translation type="unfinished" />
+   <translation>Rozsah použitých buněk</translation>
   </message>
   <message>
    <source>%1 bytes in %2 range(s)</source>
-   <translation type="unfinished" />
+   <translation>%1 bajtů v %2 rozsazích</translation>
   </message>
   <message>
    <source>Offset %1</source>
-   <translation type="unfinished" />
+   <translation>Offset %1</translation>
   </message>
   <message>
    <source>%1 byte(s)</source>
-   <translation type="unfinished" />
+   <translation>%1 bajtů</translation>
   </message>
   <message>
    <source>... %1 more</source>
-   <translation type="unfinished" />
+   <translation>... a %1 dalších</translation>
   </message>
   <message>
    <source>Unsaved byte ranges</source>
-   <translation type="unfinished" />
+   <translation>Neuložené rozsahy bajtů</translation>
   </message>
   <message>
    <source>Changed since opened</source>
-   <translation type="unfinished" />
+   <translation>Změněno od otevření</translation>
   </message>
   <message>
    <source>World statistics</source>

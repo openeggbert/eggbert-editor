@@ -89,7 +89,7 @@ Verified and reported observations are recorded with citations in `docs/research
 Slices A–M are done as far as they could be verified here; of slice N the three-way merge is done and playtest traces were examined and not started (see its entry). What remains open, in the order it would be worth doing:
 
 1. **A hosted CI run** (needs the owner: a pull request or a push to `main`/`develop`). It would exercise the Linux jobs on GitHub's runners and give the first real result for the `windows-untested` and `macos-untested` jobs.
-2. **The other half of the Czech catalogue** (392 of 831 texts are still English) and a Czech guide.
+2. **The rest of the Czech catalogue** (285 of 831 texts are still English, and the catalog names of tiles and objects are not translatable yet) and a Czech guide.
 3. **A merge interface in the window** (per-conflict choice) on top of `mergeWorlds`.
 3a. **Editing Mobile Eggbert text worlds in the window.** The codec (`src/world/text_world.hpp`) already changes single tokens losslessly; what is missing is a document tab that uses it. It needs its own design for tools, validation and rendering because none of the BLP catalogs may be assumed to apply.
 4. **Stamps:** thumbnails and a ghost under the cursor before placing.
@@ -116,7 +116,7 @@ The plan allows this slice "only with a verifiable design; otherwise documented 
 ### Slice L result (2026-11-23): Czech interface, accessibility, other platforms
 
 - `src/app/catalog_translator.hpp`: a `QTranslator` that reads `.ts` catalogues from the program's resources at run time (no Linguist tools in the build); unfinished or empty translations fall back to English; Czech plural forms. Language preference in **Edit → Preferences** (system, English, Čeština), applied at start.
-- `translations/eggbert-editor_cs.ts`: 831 messages extracted with `lupdate` (command in `translations/README.md`), **439 translated** — the menus, tool bar, docks, welcome page and the most used dialogs. The other 392 (mostly long explanatory sentences, status messages and report texts) are shown in English.
+- `translations/eggbert-editor_cs.ts`: 831 messages extracted with `lupdate` (command in `translations/README.md`), **546 translated** — the menus, tool bar, docks and side panels, welcome page, status messages and the most used dialogs. The other 285 (mostly long explanatory sentences and report texts) are shown in English, and so are the names in the game catalogs (tile groups, object names), which are not translatable strings yet.
 - Accessibility: 28 controls that had no name for a screen reader (the Palette's picture lists, the Objects panel's fields, the inspector's choosers, the trees) now have accessible names; a test walks the main window and fails on any focusable control without one.
 - `CMakePresets.json` (`linux`, `linux-sanitizers`, `windows-msvc`, `macos`) and two CI jobs, `windows-untested` and `macos-untested`, allowed to fail. **Neither platform has been built or run**: there is no Windows or macOS machine here and no hosted run (the owner asked for no pull request). No package for them is claimed.
 - Tests: `translation` (language choice, plural forms, a catalogue from text including damaged input, the shipped catalogue's placeholders, accelerators and ellipses, the main window's menus in Czech with English fallback, the accessibility walk).
@@ -254,7 +254,7 @@ Order and acceptance are in `plan.md`, **Promotion of the roadmap**. Tick a slic
 - [x] I Experimental editing: typed byte edits, unverified music/region numbers, custom border rules
 - [x] J Stamps, alignment, replace in all open worlds
 - [x] K Element encyclopedia and installation gallery (the Installation dock's world list)
-- [x] L Czech interface (439 of 831 texts), accessibility names, Windows/macOS configurations (untested)
+- [x] L Czech interface (546 of 831 texts), accessibility names, Windows/macOS configurations (untested)
 - [x] M Mobile Eggbert text worlds: lossless codec and description (no editing tab, no conversion)
 - [ ] N Three-way merge (done: `merge` command) and playtest traces (not started: no verifiable design)
 
