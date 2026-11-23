@@ -37,8 +37,18 @@ signals:
     void findingActivated(int findingIndex);
     void fixRequested(int findingIndex);
 
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override;
+
 private:
     void rebuildList();
+    // Gives the finding column the width the other three leave and lays the
+    // rows out again for it. Done by the panel itself: the header's own
+    // stretching did not follow a narrower table with every Qt version.
+    void fitFindingColumn();
+    void scheduleFit();
+
+    bool fitPending_ = false;
 
     QPointer<DocumentTab> tab_;
     DoctorReport report_;

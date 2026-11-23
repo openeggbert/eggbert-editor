@@ -293,7 +293,11 @@ int main(int argc, char **argv) {
         const auto wide = rect().height();
         const bool wideFits = fits();
         CHECK(wideFits);
-        own.resize(460, 400);
+        // Narrow enough that the finding must wrap, wide enough that the
+        // column keeps more than its least width (below that the table
+        // scrolls sideways instead): the other columns plus 240 pixels.
+        const auto others = tree->columnWidth(0) + tree->columnWidth(1) + tree->columnWidth(3);
+        own.resize(others + 240 + own.width() - tree->viewport()->width(), 400);
         QTest::qWait(150);
         const auto narrow = rect().height();
         const auto textWidth =

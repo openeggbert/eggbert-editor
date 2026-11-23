@@ -2,12 +2,14 @@
 #include "diagnostics_panel.hpp"
 
 #include <QCheckBox>
+#include <QEvent>
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QLabel>
 #include <QPushButton>
 #include <QStyle>
 #include <QStyledItemDelegate>
+#include <QTimer>
 #include <QTreeWidget>
 #include <QVBoxLayout>
 
@@ -154,16 +156,19 @@ DiagnosticsPanel::DiagnosticsPanel(QWidget *parent) : QWidget(parent) {
     tree_->setHeaderLabels({tr("Severity"), tr("Rule"), tr("Finding"), tr("Offset")});
     // The finding takes the width that is left and wraps onto as many lines
     // as it needs, so that it can be read without a tooltip or scrolling.
+    // Its width is set by fitFindingColumn whenever the table's width or
+    // the other columns change.
     tree_->header()->setStretchLastSection(false);
     tree_->header()->setSectionResizeMode(QHeaderView::ResizeToContents);
-    tree_->header()->setSectionResizeMode(2, QHeaderView::Stretch);
+    tree_->header()->setSectionResizeMode(2, QHeaderView::Fixed);
     tree_->setWordWrap(true);
     tree_->setItemDelegate(new WrappedColumnDelegate(tree_, 2));
     tree_->setTextElideMode(Qt::ElideNone);
     tree_->setUniformRowHeights(false);
+    tree_->viewport()->installEventFilter(this);
     connect(tree_->header(), &QHeaderView::sectionResized, this, [this](int section) {
-        if (section == 2) {
-            tree_->doItemsLayout(); // row heights follow the new width
+        if (section != 2) {
+            scheduleFit();
         }
     });
     layout->addWidget(tree_, 1);
@@ -245,6 +250,37 @@ void DiagnosticsPanel::setShown(Severity severity, bool shown) {
         ->setChecked(shown);
 }
 
+bool DiagnosticsPanel::eventFilter(QObject *watched, QEvent *event) {
+    if (watched == tree_->viewport() && event->type() == QEvent::Resize) {
+        scheduleFit();
+    }
+    return QWidget::eventFilter(watched, event);
+}
+
+void DiagnosticsPanel::scheduleFit() {
+    // Not from inside the header's or the view's own layout pass.
+    if (fitPending_) {
+        return;
+    }
+    fitPending_ = true;
+    QTimer::singleShot(0, this, [this] {
+        fitPending_ = false;
+        fitFindingColumn();
+    });
+}
+
+void DiagnosticsPanel::fitFindingColumn() {
+    auto *header = tree_->header();
+    const int others = header->sectionSize(0) + header->sectionSize(1) + header->sectionSize(3);
+    // Never narrower than a few words: a very narrow dock scrolls sideways
+    // rather than making one word a line.
+    const int width = std::max(160, tree_->viewport()->width() - others);
+    if (header->sectionSize(2) != width) {
+        header->resizeSection(2, width);
+    }
+    tree_->doItemsLayout(); // row heights follow the width
+}
+
 void DiagnosticsPanel::rebuildList() {
     tree_->clear();
     detail_->clear();
@@ -281,6 +317,7 @@ void DiagnosticsPanel::rebuildList() {
         item->setText(3, QString::number(finding.range.offset));
         item->setToolTip(2, findingText(finding));
     }
+    fitFindingColumn();
 }
 
 const Finding *DiagnosticsPanel::findingAtRow(int row) const {
