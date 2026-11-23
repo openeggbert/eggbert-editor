@@ -63,7 +63,7 @@ ctest --test-dir build --output-on-failure
 ./build/eggbert-editor
 ```
 
-If CMake cannot find Qt, set `CMAKE_PREFIX_PATH` to your Qt kit directory when configuring. For a multi-configuration generator such as Visual Studio, build with `--config Release` and pass `-C Release` to CTest. On macOS, launch the generated application bundle. Only Linux is tested and packaged; the build also describes a ZIP for Windows and a disk image for macOS (`cpack`), which have never been produced. `CMakePresets.json` (CMake 3.25 or newer) has the presets `linux`, `linux-sanitizers`, `windows-msvc` and `macos`, and the CI workflow has jobs for Windows and macOS; those two have never been built or run by the project and are marked untested.
+If CMake cannot find Qt, set `CMAKE_PREFIX_PATH` to your Qt kit directory when configuring. For a multi-configuration generator such as Visual Studio, build with `--config Release` and pass `-C Release` to CTest. On macOS, launch the generated application bundle. Linux is where the editor is developed and where the packages have been installed and tried by hand. Windows (MSVC, Qt 6.5) and macOS (Apple clang, Qt 6.10) are built, tested and packaged by the CI workflow on hosted runners — a ZIP and a disk image that carry Qt along (`cpack`); nobody has yet run those two packages by hand. On macOS use Qt 6.9.2 or newer: older releases link a framework current macOS SDKs no longer have. `CMakePresets.json` (CMake 3.25 or newer) has the presets `linux`, `linux-sanitizers`, `windows-msvc` and `macos`.
 
 The interface is available in English and Czech (**Edit → Preferences → Language**); the Czech catalogue in `translations/` covers the interface's texts, the catalog names and the sentences the checking and converting code composes (World Doctor, conversions, campaign findings, the encyclopedia, text-world problems, packs and deploys), and the user guide exists in Czech (`docs/user-guide.cs.md`, shown by Help in a Czech interface). The Binary Inspector's structural names, citations, the diagnostics file and the command line stay English. Catalogues are read at run time, so building needs no Qt Linguist tools.
 
@@ -98,7 +98,7 @@ For every file it reports size, checksum prefix, revision and whether an untouch
 | `src/world/` | Revision descriptors, bounded little-endian readers, structural probe, read-only decoded views and the lossless document core (transactions, undo, changed ranges); catalogs, World Doctor, conversions, merge, stamps, campaign and installation rules, the Mobile Eggbert text-world reader. Independent of Qt. |
 | `src/app/` | Qt application: file load/save, tabbed main window, document tab, canvas, renderer, palette, game assets, music player, panels and reports; recovery, deploy and pack stores, the command line, the run-time translator. |
 | `translations/` | Interface catalogues (Czech), read at run time; see its README. |
-| `CMakePresets.json` | Build presets for Linux (tested) and Windows and macOS (untested). |
+| `CMakePresets.json` | Build presets for Linux, Windows and macOS. |
 | `tests/` | Asset-free tests: headless core tests, offscreen UI tests, smoke and install tests, and the opt-in local-sample check. |
 | `docs/user-guide.md`, `docs/format-notes.md` | User documentation, also embedded in the Help menu. |
 | `resources/` | Desktop entry and the project's own icon. |

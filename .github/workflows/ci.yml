@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-only
-name: Linux CI
+name: CI
 
 on:
   push:
@@ -70,15 +70,11 @@ jobs:
       - name: Test
         run: ctest --test-dir build-asan --output-on-failure
 
-  # The two jobs below configure, build and test on Windows and macOS. They
-  # have never run: the project was developed where only Linux is available
-  # and no hosted run has happened yet. Until one has, they are allowed to
-  # fail without failing the workflow, and no package for these platforms is
-  # claimed to work (see NEXT.md).
-  windows-untested:
+  # Windows and macOS: configure, build, test and package (a ZIP and a disk
+  # image that carry Qt along). First green on hosted runners on 2026-11-23.
+  windows:
     runs-on: windows-2022
     timeout-minutes: 40
-    continue-on-error: true
 
     steps:
       - name: Check out source
@@ -100,13 +96,12 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
 
-      - name: Package (ZIP with Qt alongside; never run by the project)
+      - name: Package (ZIP with Qt alongside)
         run: cpack --config build-windows/CPackConfig.cmake -C Release -B build-windows/packages
 
-  macos-untested:
+  macos:
     runs-on: macos-latest
     timeout-minutes: 40
-    continue-on-error: true
 
     steps:
       - name: Check out source
@@ -135,5 +130,5 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
 
-      - name: Package (disk image; never run by the project)
+      - name: Package (disk image)
         run: cpack --config build-macos/CPackConfig.cmake -B build-macos/packages

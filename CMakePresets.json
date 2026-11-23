@@ -22,7 +22,7 @@
     },
     {
       "name": "windows-msvc",
-      "displayName": "Windows, MSVC (untested: never built by the project)",
+      "displayName": "Windows, MSVC",
       "generator": "Visual Studio 17 2022",
       "architecture": "x64",
       "binaryDir": "${sourceDir}/build-windows",
@@ -31,7 +31,7 @@
     },
     {
       "name": "macos",
-      "displayName": "macOS (untested: never built by the project)",
+      "displayName": "macOS",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build-macos",
       "cacheVariables": {"CMAKE_BUILD_TYPE": "Release", "BUILD_TESTING": "ON"},
