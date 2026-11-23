@@ -66,16 +66,20 @@
 #include "app/catalog_texts.hpp"
 #include "app/encyclopedia_dialog.hpp"
 #include "app/installation_panel.hpp"
+#include "app/svg_export.hpp"
 #include "app/text_world_editor.hpp"
 #include "app/tool_icons.hpp"
 #include "world/new_world.hpp"
 #include "world/campaign_doors.hpp"
 #include "world/hex_model.hpp"
 #include "world/revision_convert.hpp"
+#include "world/scenario.hpp"
 #include "world/text_world.hpp"
 #include "app/png_export_dialog.hpp"
 #include "app/probe_report.hpp"
 #include "app/statistics_panel.hpp"
+#include <set>
+
 #include "world/adaptive.hpp"
 #include "world/object_catalog.hpp"
 #include "world/offset_map.hpp"
@@ -449,6 +453,10 @@ void MainWindow::installDefaultPrompts() {
     prompts.borderRulesPath = [this] {
         return QFileDialog::getOpenFileName(this, tr("Custom Border Rules"), QString(),
                                             tr("Border rules (*.txt *.rules);;All files (*)"));
+    };
+    prompts.scenarioPath = [this] {
+        return QFileDialog::getOpenFileName(this, tr("Check Against Scenario"), QString(),
+                                            tr("Scenarios (*.txt);;All files (*)"));
     };
     prompts.confirmProtectedEdit = [this](DocumentTab *, const QString &description) {
         return QMessageBox::warning(this, tr("Edit Bytes"), description,
@@ -1317,6 +1325,94 @@ void MainWindow::createActions() {
     connect(addAction(fileMenu, QStringLiteral("filePlaytest"), tr("Pla&ytest"),
                       QKeySequence(Qt::Key_F5)),
             &QAction::triggered, this, [this] { playtest(); });
+    connect(addAction(fileMenu, QStringLiteral("fileExportSvg"),
+                      tr("Export World S&VG (Schematic)...")),
+            &QAction::triggered, this, [this] {
+                auto *tab = currentTab();
+                if (tab == nullptr) {
+                    return;
+                }
+                const auto svg = renderWorldSvg(tab->document().view(), SvgExportOptions{});
+                if (svg.isEmpty()) {
+                    prompts.error(tr("Export World SVG"),
+                                  tr("This file has no complete tile layer to draw."));
+                    return;
+                }
+                const auto path = prompts.saveTextPath(
+                    QFileInfo(tab->file().path()).completeBaseName() + QStringLiteral(".svg"));
+                if (path.isEmpty()) {
+                    return;
+                }
+                QSaveFile file(path);
+                file.setDirectWriteFallback(false);
+                if (!file.open(QIODevice::WriteOnly) || file.write(svg) != svg.size() ||
+                    !file.commit()) {
+                    prompts.error(tr("Export World SVG"), tr("%1 could not be written.").arg(path));
+                    return;
+                }
+                statusBar()->showMessage(tr("Schematic SVG written to %1").arg(path), 8000);
+            });
+    connect(addAction(fileMenu, QStringLiteral("fileRecordScenario"), tr("Record Sce&nario...")),
+            &QAction::triggered, this, [this] {
+                auto *tab = currentTab();
+                if (tab == nullptr) {
+                    return;
+                }
+                const auto text =
+                    recordScenario(worldFacts(tab->document().view(), tab->profile()));
+                const auto path = prompts.saveTextPath(
+                    QFileInfo(tab->file().path()).completeBaseName() +
+                    QStringLiteral("-scenario.txt"));
+                if (path.isEmpty()) {
+                    return;
+                }
+                QSaveFile file(path);
+                file.setDirectWriteFallback(false);
+                const auto size = static_cast<qint64>(text.size());
+                if (!file.open(QIODevice::WriteOnly) || file.write(text.data(), size) != size ||
+                    !file.commit()) {
+                    prompts.error(tr("Record Scenario"), tr("%1 could not be written.").arg(path));
+                    return;
+                }
+                statusBar()->showMessage(tr("Scenario written to %1").arg(path), 8000);
+            });
+    connect(addAction(fileMenu, QStringLiteral("fileCheckScenario"),
+                      tr("Chec&k Against Scenario...")),
+            &QAction::triggered, this, [this] {
+                auto *tab = currentTab();
+                if (tab == nullptr) {
+                    return;
+                }
+                const auto path = prompts.scenarioPath();
+                if (path.isEmpty()) {
+                    return;
+                }
+                QFile file(path);
+                if (!file.open(QIODevice::ReadOnly) || file.size() > DocumentFile::maximumBytes) {
+                    prompts.error(tr("Check Against Scenario"),
+                                  tr("%1 could not be read.").arg(path));
+                    return;
+                }
+                const auto scenario = file.readAll();
+                const auto result = checkScenario(
+                    std::string_view(scenario.constData(),
+                                     static_cast<std::size_t>(scenario.size())),
+                    worldFacts(tab->document().view(), tab->profile()));
+                if (!result) {
+                    prompts.error(tr("Check Against Scenario"),
+                                  tr("%1 is not a scenario. %2")
+                                      .arg(path, QString::fromStdString(result.error())));
+                    return;
+                }
+                QStringList lines;
+                for (const auto &failure : result->failures) {
+                    lines << QString::fromStdString(failure);
+                }
+                lines << tr("%1 expectation(s) checked, %2 failed.")
+                             .arg(result->checked)
+                             .arg(result->failures.size());
+                prompts.showReport(tr("Check Against Scenario"), lines.join(QLatin1Char('\n')));
+            });
     connect(addAction(fileMenu, QStringLiteral("fileCampaignOverview"),
                       tr("Campaign O&verview")),
             &QAction::triggered, this,
@@ -3749,6 +3845,25 @@ QString MainWindow::campaignOverview() const {
     }
     const auto doors = reviewDoors(campaign.game, views);
     lines << QString() << tr("Doors between the official worlds:");
+    // The campaign graph: which worlds each world's doors lead to.
+    for (const auto &[number, view] : views) {
+        const auto role = officialWorldRole(campaign.game, number);
+        if (role != WorldRole::start && role != WorldRole::hub && role != WorldRole::mission) {
+            continue;
+        }
+        std::set<int> targets;
+        for (const auto &door : doorTiles(view, campaign.game)) {
+            targets.insert(doorTarget(campaign.game, number, door.code));
+        }
+        if (targets.empty()) {
+            continue;
+        }
+        QStringList numbers;
+        for (const auto target : targets) {
+            numbers << QString::number(target);
+        }
+        lines << tr("World %1 -> %2").arg(number).arg(numbers.join(QStringLiteral(", ")));
+    }
     for (const auto &missing : doors.missingTargets) {
         lines << tr("[warning] World %1 has a door (tile %2 at cell %3, %4) to world %5, which "
                     "is not in the installation.")
@@ -4360,6 +4475,9 @@ void MainWindow::updateUi() {
     }
     enable("filePlaytest", hasTab && gameDirectoryFor(tab->profile()) != nullptr);
     enable("editPlaytestCommand", hasTab && tab->profile() != GameProfile::unknown);
+    enable("fileExportSvg", hasTab);
+    enable("fileRecordScenario", hasTab);
+    enable("fileCheckScenario", hasTab);
     enable("fileConvertRevision", hasTab);
     enable("fileMerge", writable);
     enable("fileConvertGame", hasTab && tab->profile() != GameProfile::unknown);

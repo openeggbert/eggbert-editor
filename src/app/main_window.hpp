@@ -83,6 +83,8 @@ struct Prompts {
         editBytes;
     // File with user-written border rules; empty cancels.
     std::function<QString()> borderRulesPath;
+    // Scenario file to check the world against; empty cancels.
+    std::function<QString()> scenarioPath;
     // Second confirmation before bytes in a preserved range are changed.
     std::function<bool(DocumentTab *, const QString &description)> confirmProtectedEdit;
     // The base file and the other side's file for a merge into the tab.

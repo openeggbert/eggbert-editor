@@ -5,6 +5,7 @@
 
 #include "app/cli.hpp"
 #include "app/png_export.hpp"
+#include "app/svg_export.hpp"
 #include "world/game_convert.hpp"
 #include "world/merge.hpp"
 #include "world/new_world.hpp"
@@ -17,11 +18,13 @@
 #include <algorithm>
 #include <tuple>
 
+#include <QDir>
 #include <QFile>
 #include <QGuiApplication>
 #include <QImage>
 #include <QImageReader>
 #include <QTemporaryDir>
+#include <QXmlStreamReader>
 
 using namespace eggbert;
 using namespace eggbert::test;
@@ -369,6 +372,91 @@ int main(int argc, char **argv) {
         CHECK_EQ(run({"convert-game", textPath, unused, "--from", "1", "--to", "2"}).code, 2);
         CHECK(!QFile::exists(unused));
     }
+    // export-svg: a well-formed schematic picture with one rectangle per
+    // occupied cell, the same bytes every time, never game artwork.
+    {
+        CHECK(isCommandLineCommand("export-svg") && !commandNeedsGraphics("export-svg"));
+        const auto svgPath = dir.filePath("a.svg");
+        const auto result = run({"export-svg", path, svgPath, "--scale", "10"});
+        CHECK_EQ(result.code, 0);
+        CHECK(result.out.contains("schematic SVG"));
+        const auto svg = readAll(svgPath);
+        SvgExportOptions options;
+        options.cellSize = 10;
+        CHECK(svg == renderWorldSvg(WorldView(world), options));
+        QXmlStreamReader xml(svg);
+        int tiles = 0;
+        int starts = 0;
+        bool sawCell = false;
+        QString width;
+        while (!xml.atEnd()) {
+            xml.readNext();
+            if (!xml.isStartElement()) {
+                continue;
+            }
+            const auto attributes = xml.attributes();
+            if (xml.name() == QLatin1String("svg")) {
+                width = attributes.value("width").toString();
+            } else if (xml.name() == QLatin1String("rect") && attributes.hasAttribute("data-tile")) {
+                ++tiles;
+                // The tile at cell (3, 70) holds 9: at x 30, y 700, 10 wide.
+                sawCell = sawCell || (attributes.value("x") == QLatin1String("30") &&
+                                      attributes.value("y") == QLatin1String("700") &&
+                                      attributes.value("data-tile") == QLatin1String("9") &&
+                                      attributes.value("width") == QLatin1String("10"));
+            } else if (xml.name() == QLatin1String("polygon")) {
+                ++starts;
+            }
+        }
+        CHECK(!xml.hasError());
+        CHECK_EQ(width, QString("1000"));
+        CHECK_EQ(tiles, 2); // the two foreground tiles of this world
+        CHECK(sawCell);
+        CHECK_EQ(starts, 4);
+        CHECK(!svg.contains("<image")); // no raster content at all
+        // Layers can be left out.
+        const auto bare = dir.filePath("bare.svg");
+        CHECK_EQ(run({"export-svg", path, bare, "--no-foreground", "--no-starts"}).code, 0);
+        CHECK(!readAll(bare).contains("data-tile") && !readAll(bare).contains("<polygon"));
+        CHECK_EQ(run({"export-svg", path}).code, 2);
+        CHECK_EQ(run({"export-svg", path, svgPath, "--scale", "0"}).code, 2);
+        // A file cut short after its tile layers can still be drawn; one
+        // without a complete tile layer cannot.
+        CHECK_EQ(run({"export-svg", brokenPath, dir.filePath("broken.svg")}).code, 0);
+        auto stub = world;
+        stub.resize(900);
+        const auto stubPath = dir.filePath("stub.blp");
+        writeAll(stubPath, stub);
+        const auto refusedSvg = run({"export-svg", stubPath, dir.filePath("stub.svg")});
+        CHECK_EQ(refusedSvg.code, 2);
+        CHECK(refusedSvg.err.contains("complete tile layer"));
+        CHECK(!QFile::exists(dir.filePath("stub.svg")));
+        CHECK_EQ(run({"export-svg", path, dir.filePath("no/such/dir/x.svg")}).code, 2);
+    }
+    // export-batch: one picture per world, each equal to export-png's.
+    {
+        CHECK(isCommandLineCommand("export-batch") && commandNeedsGraphics("export-batch"));
+        const auto outDir = dir.filePath("pictures");
+        CHECK(QDir().mkpath(outDir));
+        const auto result = run({"export-batch", outDir, path, otherPath, "--scale", "4"});
+        CHECK_EQ(result.code, 0);
+        CHECK(result.out.contains("2 of 2 picture(s) written"));
+        const auto single = dir.filePath("single.png");
+        CHECK_EQ(run({"export-png", path, single, "--scale", "4"}).code, 0);
+        CHECK(readAll(QDir(outDir).filePath("a.png")) == readAll(single));
+        CHECK(!readAll(QDir(outDir).filePath("b.png")).isEmpty());
+        // A file that is not a world: the others are still written, exit 1.
+        const auto mixed = run({"export-batch", outDir, path, dir.filePath("missing.blp")});
+        CHECK_EQ(mixed.code, 1);
+        CHECK(mixed.out.contains("1 of 2 picture(s) written"));
+        // Two inputs with the same name, a missing directory, too few arguments.
+        const auto twinDir = dir.filePath("twin");
+        CHECK(QDir().mkpath(twinDir));
+        writeAll(QDir(twinDir).filePath("a.blp"), world);
+        CHECK_EQ(run({"export-batch", outDir, path, QDir(twinDir).filePath("a.blp")}).code, 2);
+        CHECK_EQ(run({"export-batch", dir.filePath("nowhere"), path}).code, 2);
+        CHECK_EQ(run({"export-batch", outDir}).code, 2);
+    }
     // merge
     {
         CHECK(isCommandLineCommand("merge") && !commandNeedsGraphics("merge"));
@@ -423,6 +511,69 @@ int main(int argc, char **argv) {
         CHECK_EQ(run({"merge", basePath, minePath, dir.filePath("missing.blp"), unused}).code, 2);
         CHECK_EQ(run({"merge", basePath, minePath, brokenPath, unused}).code, 2);
         CHECK(!QFile::exists(unused));
+    }
+    // scenario-record and scenario-check
+    {
+        CHECK(isCommandLineCommand("scenario-record") && isCommandLineCommand("scenario-check"));
+        CHECK(!commandNeedsGraphics("scenario-check"));
+        CHECK(commandLineUsage().contains("scenario-record FILE OUT.txt"));
+        CHECK(commandLineUsage().contains("scenario-check FILE SCENARIO.txt"));
+        auto subject = blankWorld(fxRevision13);
+        put16(subject, fxSlotOffset(fxRevision13, 0), 5);
+        put16(subject, fxSlotOffset(fxRevision13, 3), 5);
+        const auto subjectPath = dir.filePath("scenario-world.blp");
+        writeAll(subjectPath, subject);
+        const auto scenarioPath = dir.filePath("scenario.txt");
+        const auto recorded = run({"scenario-record", subjectPath, scenarioPath, "--game", "1"});
+        CHECK_EQ(recorded.code, 0);
+        CHECK(recorded.out.contains("expectation(s) recorded"));
+        const auto text = readAll(scenarioPath);
+        CHECK(text.contains("objects.type.5 = 2\n"));
+        CHECK(text.contains("doctor.errors = "));
+        // Never over an existing file.
+        CHECK_EQ(run({"scenario-record", subjectPath, scenarioPath}).code, 2);
+        CHECK(readAll(scenarioPath) == text);
+        // The world it was recorded from passes.
+        const auto passed = run({"scenario-check", subjectPath, scenarioPath, "--game", "1"});
+        CHECK_EQ(passed.code, 0);
+        CHECK(passed.out.contains(" expectation(s) checked, 0 failed"));
+        // A changed world fails, with the line and both numbers.
+        put16(subject, fxSlotOffset(fxRevision13, 3), 0);
+        const auto changedPath = dir.filePath("scenario-changed.blp");
+        writeAll(changedPath, subject);
+        const auto failed = run({"scenario-check", changedPath, scenarioPath, "--game", "1"});
+        CHECK_EQ(failed.code, 1);
+        CHECK(failed.out.contains("objects.type.5 is 1, expected = 2."));
+        CHECK(failed.out.contains(" failed\n") && !failed.out.contains(", 0 failed"));
+        // A hand-written scenario.
+        const auto ownPath = dir.filePath("own-scenario.txt");
+        {
+            QFile own(ownPath);
+            CHECK(own.open(QIODevice::WriteOnly));
+            own.write("# at least one treasure\nobjects.type.5 >= 1\n");
+        }
+        CHECK_EQ(run({"scenario-check", changedPath, ownPath}).code, 0);
+        // Usage and file errors.
+        {
+            QFile bad(dir.filePath("bad-scenario.txt"));
+            CHECK(bad.open(QIODevice::WriteOnly));
+            bad.write("objects.type.5 about 2\n");
+        }
+        const auto malformed = run({"scenario-check", changedPath, dir.filePath("bad-scenario.txt")});
+        CHECK_EQ(malformed.code, 2);
+        CHECK(malformed.err.contains("Line 1: "));
+        CHECK_EQ(run({"scenario-check", changedPath}).code, 2);
+        CHECK_EQ(run({"scenario-check", changedPath, dir.filePath("missing.txt")}).code, 2);
+        CHECK_EQ(run({"scenario-check", dir.filePath("missing.blp"), ownPath}).code, 2);
+        CHECK_EQ(run({"scenario-check", changedPath, ownPath, "--game", "3"}).code, 2);
+        CHECK_EQ(run({"scenario-record", subjectPath}).code, 2);
+        const auto unusedScenario = dir.filePath("unused-scenario.txt");
+        CHECK_EQ(run({"scenario-record", dir.filePath("missing.blp"), unusedScenario}).code, 2);
+        CHECK(!QFile::exists(unusedScenario));
+        // A damaged world is still described: what World Doctor says is a fact too.
+        const auto damagedScenario = dir.filePath("damaged-scenario.txt");
+        CHECK_EQ(run({"scenario-record", brokenPath, damagedScenario}).code, 0);
+        CHECK(readAll(damagedScenario).contains("doctor.rule.STRUCT-TRUNCATED = 1\n"));
     }
     CHECK_EQ(run({}).code, 2);
     CHECK_EQ(run({"frobnicate"}).code, 2);

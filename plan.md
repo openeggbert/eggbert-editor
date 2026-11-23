@@ -227,6 +227,7 @@ The items are worked in this order, one bounded slice at a time; each slice is c
 | L | Localization (Czech first), accessibility pass, Windows and macOS build configurations | translations load and fall back cleanly; CI configurations exist; packages for platforms that cannot be built here are marked untested | medium |
 | M | Mobile Eggbert text worlds as a separate document profile | token-preserving round trip on synthetic text fixtures; no conversion to or from BLP | large |
 | N | Three-way merge, playtest traces and heatmaps | only with a verifiable design; otherwise documented as not started | large |
+| O | Rest of the roadmap list that slices A–N did not name: SVG export, PNG batches, the campaign graph as a listing, world regression scenarios | the SVG is well-formed, deterministic and free of game artwork; a batch picture equals the single export; a recorded scenario holds for its world and fails, naming line and numbers, after a change | small |
 
 
 

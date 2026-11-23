@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "cli.hpp"
 
+#include <QDir>
+#include <QSet>
 #include <QFile>
 #include <QFileInfo>
 #include <QSaveFile>
@@ -12,6 +14,7 @@
 #include "app/game_assets.hpp"
 #include "app/png_export.hpp"
 #include "app/probe_report.hpp"
+#include "app/svg_export.hpp"
 #include "world/doctor.hpp"
 #include "world/game_convert.hpp"
 #include "world/hex_model.hpp"
@@ -19,6 +22,7 @@
 #include "world/new_world.hpp"
 #include "world/offset_map.hpp"
 #include "world/revision_convert.hpp"
+#include "world/scenario.hpp"
 #include "world/text_world.hpp"
 
 namespace eggbert {
@@ -490,6 +494,180 @@ int convertGameCommand(const QStringList &arguments, QTextStream &out, QTextStre
     return exitOk;
 }
 
+// The facts of a world file for the scenario commands; the game profile
+// matters for what World Doctor reports.
+std::optional<std::vector<WorldFact>> scenarioFacts(const Parsed &parsed, QTextStream &err,
+                                                    int &code) {
+    auto profile = GameProfile::unknown;
+    if (parsed.values.contains(QStringLiteral("--game"))) {
+        const auto game = parseGame(parsed.values[QStringLiteral("--game")]);
+        if (!game) {
+            code = usageError(err, QStringLiteral("--game takes 1 or 2"));
+            return std::nullopt;
+        }
+        profile = *game;
+    }
+    auto loaded = DocumentFile::load(parsed.positional[0]);
+    if (!loaded) {
+        err << parsed.positional[0] << ": " << loaded.error().detail << "\n";
+        code = exitUsage;
+        return std::nullopt;
+    }
+    return worldFacts(loaded.value()->document().view(), profile);
+}
+
+int scenarioRecord(const QStringList &arguments, QTextStream &out, QTextStream &err) {
+    const auto parsed = parse(arguments, {QStringLiteral("--game")}, {});
+    if (!parsed.error.isEmpty() || parsed.positional.size() != 2) {
+        return usageError(err, parsed.error.isEmpty()
+                                   ? QStringLiteral("scenario-record needs a world file and an "
+                                                    "output file")
+                                   : parsed.error);
+    }
+    const auto &path = parsed.positional[1];
+    if (QFileInfo::exists(path)) {
+        err << path << ": already exists; scenario-record never overwrites a file\n";
+        return exitUsage;
+    }
+    int code = exitUsage;
+    const auto facts = scenarioFacts(parsed, err, code);
+    if (!facts) {
+        return code;
+    }
+    const auto text = recordScenario(*facts);
+    const auto *data = reinterpret_cast<const std::byte *>(text.data());
+    if (!writeNewFile(path, std::vector<std::byte>(data, data + text.size()))) {
+        err << path << ": cannot be written\n";
+        return exitUsage;
+    }
+    out << path << ": " << facts->size() << " expectation(s) recorded\n";
+    return exitOk;
+}
+
+int scenarioCheck(const QStringList &arguments, QTextStream &out, QTextStream &err) {
+    const auto parsed = parse(arguments, {QStringLiteral("--game")}, {});
+    if (!parsed.error.isEmpty() || parsed.positional.size() != 2) {
+        return usageError(err, parsed.error.isEmpty()
+                                   ? QStringLiteral("scenario-check needs a world file and a "
+                                                    "scenario file")
+                                   : parsed.error);
+    }
+    const auto scenario = readFile(parsed.positional[1]);
+    if (!scenario) {
+        err << parsed.positional[1] << ": cannot be read\n";
+        return exitUsage;
+    }
+    int code = exitUsage;
+    const auto facts = scenarioFacts(parsed, err, code);
+    if (!facts) {
+        return code;
+    }
+    const auto result = checkScenario(
+        std::string_view(scenario->constData(), static_cast<std::size_t>(scenario->size())),
+        *facts);
+    if (!result) {
+        err << parsed.positional[1] << ": " << QString::fromStdString(result.error()) << "\n";
+        return exitUsage;
+    }
+    for (const auto &failure : result->failures) {
+        out << QString::fromStdString(failure) << "\n";
+    }
+    out << result->checked << " expectation(s) checked, " << result->failures.size()
+        << " failed\n";
+    return result->failures.empty() ? exitOk : exitFound;
+}
+
+int exportSvg(const QStringList &arguments, QTextStream &out, QTextStream &err) {
+    const QStringList off{QStringLiteral("--no-foreground"), QStringLiteral("--no-bigdecor"),
+                          QStringLiteral("--no-objects"), QStringLiteral("--no-starts")};
+    const auto parsed = parse(arguments, {QStringLiteral("--scale")}, off);
+    if (!parsed.error.isEmpty() || parsed.positional.size() != 2) {
+        return usageError(err, parsed.error.isEmpty()
+                                   ? QStringLiteral("export-svg needs a world file and an output "
+                                                    "file")
+                                   : parsed.error);
+    }
+    SvgExportOptions options;
+    if (parsed.values.contains(QStringLiteral("--scale"))) {
+        bool ok = false;
+        options.cellSize = parsed.values[QStringLiteral("--scale")].toInt(&ok);
+        if (!ok || options.cellSize < 1 || options.cellSize > 64) {
+            return usageError(err, QStringLiteral("--scale takes 1 to 64"));
+        }
+    }
+    options.showForeground = !parsed.flags.contains(QStringLiteral("--no-foreground"));
+    options.showBigDecor = !parsed.flags.contains(QStringLiteral("--no-bigdecor"));
+    options.showObjects = !parsed.flags.contains(QStringLiteral("--no-objects"));
+    options.showStarts = !parsed.flags.contains(QStringLiteral("--no-starts"));
+    auto loaded = DocumentFile::load(parsed.positional[0]);
+    if (!loaded) {
+        err << parsed.positional[0] << ": " << loaded.error().detail << "\n";
+        return exitUsage;
+    }
+    const auto svg = renderWorldSvg(loaded.value()->document().view(), options);
+    if (svg.isEmpty()) {
+        err << parsed.positional[0] << ": not a world with a complete tile layer\n";
+        return exitUsage;
+    }
+    QSaveFile file(parsed.positional[1]);
+    file.setDirectWriteFallback(false);
+    if (!file.open(QIODevice::WriteOnly) || file.write(svg) != svg.size() || !file.commit()) {
+        err << parsed.positional[1] << ": cannot be written\n";
+        return exitUsage;
+    }
+    out << parsed.positional[1] << ": schematic SVG, " << svg.size() << " bytes\n";
+    return exitOk;
+}
+
+// export-png for several worlds: OUTDIR, then the files; every option of
+// export-png applies to each.
+int exportBatch(const QStringList &arguments, QTextStream &out, QTextStream &err) {
+    QStringList options;
+    QStringList positional;
+    static const QStringList withValue{QStringLiteral("--scale"), QStringLiteral("--crop"),
+                                       QStringLiteral("--game"), QStringLiteral("--game-data")};
+    for (qsizetype index = 0; index < arguments.size(); ++index) {
+        if (arguments[index].startsWith(QLatin1String("--"))) {
+            options << arguments[index];
+            if (withValue.contains(arguments[index]) && index + 1 < arguments.size()) {
+                options << arguments[++index];
+            }
+        } else {
+            positional << arguments[index];
+        }
+    }
+    if (positional.size() < 2) {
+        return usageError(err, QStringLiteral("export-batch needs an output directory and at "
+                                              "least one world file"));
+    }
+    const QDir directory(positional.takeFirst());
+    if (!directory.exists()) {
+        err << directory.path() << ": not an existing directory\n";
+        return exitUsage;
+    }
+    // Two inputs must not write the same picture.
+    QSet<QString> names;
+    for (const auto &path : positional) {
+        const auto name = QFileInfo(path).completeBaseName().toLower();
+        if (names.contains(name)) {
+            err << path << ": another input has the same name; nothing was written\n";
+            return exitUsage;
+        }
+        names.insert(name);
+    }
+    int failed = 0;
+    for (const auto &path : positional) {
+        const auto target =
+            directory.filePath(QFileInfo(path).completeBaseName() + QStringLiteral(".png"));
+        if (exportPng(QStringList{path, target} + options, out, err) != exitOk) {
+            ++failed;
+        }
+    }
+    out << positional.size() - failed << " of " << positional.size() << " picture(s) written to "
+        << directory.path() << "\n";
+    return failed == 0 ? exitOk : exitFound;
+}
+
 int merge(const QStringList &arguments, QTextStream &out, QTextStream &err) {
     const auto parsed = parse(arguments, {QStringLiteral("--prefer")}, {});
     auto preference = MergePreference::none;
@@ -570,11 +748,13 @@ bool isCommandLineCommand(const QString &name) {
     return name == QLatin1String("info") || name == QLatin1String("validate") ||
            name == QLatin1String("diff") || name == QLatin1String("export-png") ||
            name == QLatin1String("convert") || name == QLatin1String("new") ||
-           name == QLatin1String("convert-game") || name == QLatin1String("merge");
+           name == QLatin1String("convert-game") || name == QLatin1String("merge") ||
+           name == QLatin1String("export-svg") || name == QLatin1String("export-batch") ||
+           name == QLatin1String("scenario-record") || name == QLatin1String("scenario-check");
 }
 
 bool commandNeedsGraphics(const QString &name) {
-    return name == QLatin1String("export-png");
+    return name == QLatin1String("export-png") || name == QLatin1String("export-batch");
 }
 
 QString commandLineUsage() {
@@ -591,6 +771,12 @@ QString commandLineUsage() {
         "      [--no-objects] [--no-starts] [--no-paths] [--no-backdrop] [--grid]\n"
         "      [--labels] [--transparent]\n"
         "      picture of the world, or of a crop given in cells\n"
+        "  eggbert-editor export-batch OUTDIR FILE... [options of export-png]\n"
+        "      one picture per world, named after it, in an existing directory; exit 1\n"
+        "      when some could not be written\n"
+        "  eggbert-editor export-svg FILE OUT.svg [--scale 1..64] [--no-foreground]\n"
+        "      [--no-bigdecor] [--no-objects] [--no-starts]\n"
+        "      a scalable schematic picture (never with game artwork)\n"
         "  eggbert-editor convert FILE OUT --to 1.0|1.1|1.2|1.3 [--allow-loss]\n"
         "      a copy of the world in another revision; OUT must not exist; exit 1 when\n"
         "      the target cannot store everything and --allow-loss is not given\n"
@@ -605,8 +791,13 @@ QString commandLineUsage() {
         "      differently and no side is preferred\n"
         "  eggbert-editor new OUT --game 1|2\n"
         "      the world the game's own editor starts with; OUT must not exist\n"
-        "Exit codes: 0 success, 1 findings, differences, refused loss or merge\n"
-        "conflicts, 2 usage or file error.\n");
+        "  eggbert-editor scenario-record FILE OUT.txt [--game 1|2]\n"
+        "      writes what is true of a world now (counts of tiles and objects, header\n"
+        "      values, World Doctor findings) as expectations; OUT must not exist\n"
+        "  eggbert-editor scenario-check FILE SCENARIO.txt [--game 1|2]\n"
+        "      checks a world against recorded expectations; exit 1 when some fail\n"
+        "Exit codes: 0 success, 1 findings, differences, refused loss, merge\n"
+        "conflicts or failed expectations, 2 usage or file error.\n");
 }
 
 int runCommandLine(const QStringList &arguments, QTextStream &out, QTextStream &err) {
@@ -629,6 +820,14 @@ int runCommandLine(const QStringList &arguments, QTextStream &out, QTextStream &
         code = convertGameCommand(rest, out, err);
     } else if (arguments[0] == QLatin1String("merge")) {
         code = merge(rest, out, err);
+    } else if (arguments[0] == QLatin1String("export-svg")) {
+        code = exportSvg(rest, out, err);
+    } else if (arguments[0] == QLatin1String("export-batch")) {
+        code = exportBatch(rest, out, err);
+    } else if (arguments[0] == QLatin1String("scenario-record")) {
+        code = scenarioRecord(rest, out, err);
+    } else if (arguments[0] == QLatin1String("scenario-check")) {
+        code = scenarioCheck(rest, out, err);
     } else {
         code = exportPng(rest, out, err);
     }

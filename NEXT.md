@@ -47,9 +47,9 @@ Verification on 2026-11-22, Ubuntu 24.04, GCC 13.3.0, CMake 3.28.3, Ninja, Qt 6.
 ```sh
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
 cmake --build build --parallel              # no warnings
-ctest --test-dir build --output-on-failure  # 70/70 passed (71 registered): layout, le_reader, world_probe, world_view, world_document, world_stats, offset_map, tile_tools, metadata, object_ops, hex_model, doctor, adaptive, animation, atlas_table, editor_groups, revision_convert, new_world, encyclopedia, expert_edit, custom_border, game_convert, installation, campaign, campaign_doors, reachability, stamp, text_world, text_world_document, merge, view_transform, probe_report, document_file, recovery_store, deploy_store, campaign_pack, cli, world_renderer, png_export, game_assets, main_window, docks, tools, metadata_ui, objects_ui, inspector, doctor_ui, adaptive_ui, workspace, artwork_ui, palette, music_player, animation_ui, interface_ui, recovery_ui, convert_ui, new_world_ui, encyclopedia_ui, experimental_ui, convert_game_ui, installation_ui, campaign_ui, stamps_ui, merge_ui, text_world_editor, translation, cli_usage, smoke, version, install_smoke; sample_matrix skipped without EGGBERT_SAMPLE_DIRS
+ctest --test-dir build --output-on-failure  # 71/71 passed (72 registered): layout, le_reader, world_probe, world_view, world_document, world_stats, offset_map, tile_tools, metadata, object_ops, hex_model, doctor, adaptive, animation, atlas_table, editor_groups, revision_convert, new_world, encyclopedia, expert_edit, custom_border, game_convert, installation, campaign, campaign_doors, reachability, stamp, text_world, text_world_document, merge, scenario, view_transform, probe_report, document_file, recovery_store, deploy_store, campaign_pack, cli, world_renderer, png_export, game_assets, main_window, docks, tools, metadata_ui, objects_ui, inspector, doctor_ui, adaptive_ui, workspace, artwork_ui, palette, music_player, animation_ui, interface_ui, recovery_ui, convert_ui, new_world_ui, encyclopedia_ui, experimental_ui, convert_game_ui, installation_ui, campaign_ui, stamps_ui, merge_ui, text_world_editor, translation, cli_usage, smoke, version, install_smoke; sample_matrix skipped without EGGBERT_SAMPLE_DIRS
 cmake -S . -B build-asan -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DEGGBERT_SANITIZE=ON
-cmake --build build-asan --parallel && ctest --test-dir build-asan   # 70/70 passed under ASan/UBSan, sample_matrix skipped
+cmake --build build-asan --parallel && ctest --test-dir build-asan   # 71/71 passed under ASan/UBSan, sample_matrix skipped
 ```
 
 Commit `c8f7a77` (binary inspector) was pushed green in Release but with a use-after-free that the sanitizer run reported in `main_window` (the hex views kept a pointer to the document replaced by Revert/Reload); the next commit fixes it with `DocumentTab::documentReplaced` and a regression check in `inspector`. Always run the sanitizer suite to completion before committing.
@@ -98,6 +98,16 @@ Slices A–M are done as far as they could be verified here; of slice N the thre
 6. **Compressed ZIP packs** (a decompressor would be a new dependency or a sizeable piece of code).
 7. Evidence gaps listed under **Original-data evidence**: other editions, original 1.0/1.1 worlds, behaviour in the running games, the 25 eggs stored four pixels higher than the catalog writes.
 
+### Slice O result (2026-11-23): the rest of the roadmap list
+
+The owner's goal "do the post-1.0 backlog too" was checked against every bullet of `plan.md`, **Post-1.0 roadmap**; four things named there had no slice of their own and were added as slice O.
+
+- **SVG export.** `src/app/svg_export.hpp`: `renderWorldSvg(view, options)` — a schematic, deterministic drawing (a square per occupied cell with `data-tile`, bigDecor outlines, a circle per object with `data-slot`/`data-type` and a dashed path line, the starts with `data-start`), never with game artwork; empty when the file has no complete tile layer. **File → Export World SVG (Schematic)** and `eggbert-editor export-svg FILE OUT.svg [--scale 1..64] [--no-foreground] [--no-bigdecor] [--no-objects] [--no-starts]`. Tests: `cli` (well-formed XML read back with `QXmlStreamReader`, element counts, options, refusals), `interface_ui`.
+- **PNG batches.** `eggbert-editor export-batch OUTDIR FILE... [options of export-png]`: one picture per world, named after it, byte-identical to `export-png`'s; duplicate names and a missing directory are refused, a world that cannot be drawn does not stop the others (exit 1). Test: `cli`.
+- **Campaign graph.** Campaign Overview now lists the connections it follows (`World 1 -> 10, 20`) before the door findings. Test: `campaign_ui`.
+- **World regression scenarios.** `src/world/scenario.hpp` (Qt-free): `worldFacts(view, profile)` (revision, file size, header values, occupied cells per layer, objects in use, free and per stored type, World Doctor findings per severity and rule), `recordScenario`, `checkScenario` (expectations `name = N`, `>=`, `<=`; comments; a parse error names its line; a fact the world lacks counts as 0). `scenario-record` / `scenario-check` commands (exit 1 when expectations fail) and **File → Record Scenario** / **Check Against Scenario** (the tab's current bytes, unsaved edits included). A damaged world is still described — its `STRUCT-TRUNCATED` finding is a fact too. Tests: `scenario`, `cli`, `interface_ui`.
+- Limits: the scenario facts are static counts; nothing about how a world plays is recorded. The SVG has no option for artwork by design.
+
 ### Slice N result (2026-11-23): three-way merge done; playtest traces and heatmaps not started
 
 The plan allows this slice "only with a verifiable design; otherwise documented as not started".
@@ -117,7 +127,7 @@ The plan allows this slice "only with a verifiable design; otherwise documented 
 ### Slice L result (2026-11-23): Czech interface, accessibility, other platforms
 
 - `src/app/catalog_translator.hpp`: a `QTranslator` that reads `.ts` catalogues from the program's resources at run time (no Linguist tools in the build); unfinished or empty translations fall back to English; Czech plural forms. Language preference in **Edit → Preferences** (system, English, Čeština), applied at start.
-- `translations/eggbert-editor_cs.ts`: 1,035 messages extracted with `lupdate` (command in `translations/README.md`), **all translated** (completed 2026-11-23 at the owner's request). The catalog names (tile entries, objects, groups, border families, run-time object types) are listed for the tools in `src/app/catalog_texts.cpp` and shown through `catalogText()`; the `translation` test fails when a catalog name is missing there or the catalogue has unfinished entries. Still English: texts composed in the Qt-free core (World Doctor findings, conversion notes, report details, the encyclopedia's facts) and the documents.
+- `translations/eggbert-editor_cs.ts`: 1,049 messages extracted with `lupdate` (command in `translations/README.md`), **all translated** (completed 2026-11-23 at the owner's request). The catalog names (tile entries, objects, groups, border families, run-time object types) are listed for the tools in `src/app/catalog_texts.cpp` and shown through `catalogText()`; the `translation` test fails when a catalog name is missing there or the catalogue has unfinished entries. Still English: texts composed in the Qt-free core (World Doctor findings, conversion notes, report details, the encyclopedia's facts) and the documents.
 - Accessibility: 28 controls that had no name for a screen reader (the Palette's picture lists, the Objects panel's fields, the inspector's choosers, the trees) now have accessible names; a test walks the main window and fails on any focusable control without one.
 - `CMakePresets.json` (`linux`, `linux-sanitizers`, `windows-msvc`, `macos`) and two CI jobs, `windows-untested` and `macos-untested`, allowed to fail. **Neither platform has been built or run**: there is no Windows or macOS machine here and no hosted run (the owner asked for no pull request). No package for them is claimed.
 - Tests: `translation` (language choice, plural forms, a catalogue from text including damaged input, the shipped catalogue's placeholders, accelerators and ellipses, the main window's menus in Czech with English fallback, the accessibility walk).
@@ -274,8 +284,9 @@ Order and acceptance are in `plan.md`, **Promotion of the roadmap**. Tick a slic
 - [x] I Experimental editing: typed byte edits, unverified music/region numbers, custom border rules
 - [x] J Stamps, alignment, replace in all open worlds
 - [x] K Element encyclopedia and installation gallery (the Installation dock's world list)
-- [x] L Czech interface (all 1,035 interface texts and catalog names), accessibility names, Windows/macOS configurations (untested)
+- [x] L Czech interface (all 1,049 interface texts and catalog names), accessibility names, Windows/macOS configurations (untested)
 - [x] M Mobile Eggbert text worlds: lossless codec, description and an editing window (no conversion)
+- [x] O SVG export, PNG batches, campaign graph listing, world regression scenarios
 - [ ] N Three-way merge (done: `merge` command) and playtest traces (not started: no verifiable design)
 
 ## Explicit non-goals

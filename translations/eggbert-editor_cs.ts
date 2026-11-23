@@ -3468,6 +3468,62 @@ jinde: %5</translation>
    <source>Merged as one undo step</source>
    <translation>Sloučeno jako jeden krok zpět</translation>
   </message>
+  <message>
+   <source>Check Against Scenario</source>
+   <translation>Kontrola podle scénáře</translation>
+  </message>
+  <message>
+   <source>Scenarios (*.txt);;All files (*)</source>
+   <translation>Scénáře (*.txt);;Všechny soubory (*)</translation>
+  </message>
+  <message>
+   <source>Export World S&amp;VG (Schematic)...</source>
+   <translation>Exportovat svět do S&amp;VG (schematicky)...</translation>
+  </message>
+  <message>
+   <source>Export World SVG</source>
+   <translation>Export světa do SVG</translation>
+  </message>
+  <message>
+   <source>This file has no complete tile layer to draw.</source>
+   <translation>Tento soubor nemá úplnou vrstvu dlaždic, kterou by šlo nakreslit.</translation>
+  </message>
+  <message>
+   <source>Schematic SVG written to %1</source>
+   <translation>Schematické SVG zapsáno do %1</translation>
+  </message>
+  <message>
+   <source>Record Sce&amp;nario...</source>
+   <translation>Zaznamenat scé&amp;nář...</translation>
+  </message>
+  <message>
+   <source>Record Scenario</source>
+   <translation>Záznam scénáře</translation>
+  </message>
+  <message>
+   <source>Scenario written to %1</source>
+   <translation>Scénář zapsán do %1</translation>
+  </message>
+  <message>
+   <source>Chec&amp;k Against Scenario...</source>
+   <translation>Z&amp;kontrolovat podle scénáře...</translation>
+  </message>
+  <message>
+   <source>%1 could not be read.</source>
+   <translation>%1 nelze přečíst.</translation>
+  </message>
+  <message>
+   <source>%1 is not a scenario. %2</source>
+   <translation>%1 není scénář. %2</translation>
+  </message>
+  <message>
+   <source>%1 expectation(s) checked, %2 failed.</source>
+   <translation>Zkontrolováno očekávání: %1, nesplněno: %2.</translation>
+  </message>
+  <message>
+   <source>World %1 -&gt; %2</source>
+   <translation>Svět %1 -&gt; %2</translation>
+  </message>
  </context>
  <context>
   <name>eggbert::MetadataDialog</name>

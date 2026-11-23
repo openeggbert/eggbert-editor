@@ -58,7 +58,13 @@ int main(int argc, char **argv) {
     // The source installation: three of "the game's" worlds and two designed.
     const auto game = makeGame(dir.filePath("game"));
     const QDir data(game.root + "/DATA");
-    write(data.filePath("WORLD001.BLP"), raw(worldWith(1)));
+    {
+        // World 1 has doors to hubs 10 and 20 (tiles 158 and 159).
+        auto first = worldWith(1);
+        put16(first, fxCellOffset(fxForegroundOffset, 20, 20), 158);
+        put16(first, fxCellOffset(fxForegroundOffset, 21, 20), 159);
+        write(data.filePath("WORLD001.BLP"), raw(first));
+    }
     write(data.filePath("WORLD010.BLP"), raw(worldWith(2)));
     write(data.filePath("WORLD011.BLP"), raw(worldWith(3)));
     write(data.filePath("u001-001.blp"), raw(worldWith(4)));
@@ -138,9 +144,13 @@ int main(int argc, char **argv) {
         CHECK(text.contains("Basis: numbering rules"));
         // The generated worlds hold no door tiles: nothing leads anywhere.
         CHECK(text.contains("Doors between the official worlds:"));
-        CHECK(text.contains("[note] No door of these worlds leads to world 10."));
+        // The graph: world 1 leads to hubs 10 and 20; hub 20 is not there.
+        CHECK(text.contains("World 1 -> 10, 20"));
+        CHECK(text.contains("[warning] World 1 has a door (tile 159 at cell 21, 20) to world 20, "
+                            "which is not in the installation."));
+        CHECK(!text.contains("No door of these worlds leads to world 10."));
+        CHECK(text.contains("[note] No door of these worlds leads to world 11."));
         CHECK(text.contains("[note] No door of these worlds leads to world 12."));
-        CHECK(!text.contains("[warning] World"));
     }
 
     // Export: what is not the game's own, as one ZIP file.

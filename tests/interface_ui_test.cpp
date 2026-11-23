@@ -254,5 +254,115 @@ int main(int argc, char **argv) {
         QFile again(textPath);
         CHECK(again.open(QIODevice::ReadOnly) && again.readAll() == content);
     }
+    // File -> Export World SVG writes the schematic picture of the tab.
+    {
+        MainWindow window;
+        QStringList errors;
+        window.prompts.error = [&](const QString &, const QString &text) { errors << text; };
+        window.prompts.unsavedChanges = [](DocumentTab *) { return UnsavedChoice::discard; };
+        QTemporaryDir svgDir;
+        const auto worldPath = svgDir.filePath("pic.blp");
+        {
+            auto bytes = eggbert::test::blankWorld(eggbert::test::fxRevision13);
+            eggbert::test::put16(
+                bytes, eggbert::test::fxCellOffset(eggbert::test::fxForegroundOffset, 2, 3), 30);
+            QFile file(worldPath);
+            CHECK(file.open(QIODevice::WriteOnly));
+            file.write(reinterpret_cast<const char *>(bytes.data()),
+                       static_cast<qint64>(bytes.size()));
+        }
+        auto *action = window.findChild<QAction *>("fileExportSvg");
+        CHECK(action != nullptr && !action->isEnabled());
+        CHECK(window.openPath(worldPath) != nullptr);
+        CHECK(action->isEnabled());
+        QString suggested;
+        const auto svgPath = svgDir.filePath("out.svg");
+        window.prompts.saveTextPath = [&](const QString &name) {
+            suggested = name;
+            return svgPath;
+        };
+        action->trigger();
+        CHECK_EQ(suggested, QString("pic.svg"));
+        CHECK(errors.isEmpty());
+        QFile written(svgPath);
+        CHECK(written.open(QIODevice::ReadOnly));
+        const auto svg = written.readAll();
+        CHECK(svg.startsWith("<?xml") && svg.contains("data-tile=\"30\""));
+        // Cancelled: nothing is written.
+        const auto other = svgDir.filePath("other.svg");
+        window.prompts.saveTextPath = [](const QString &) { return QString(); };
+        action->trigger();
+        CHECK(!QFile::exists(other));
+    }
+    // File -> Record Scenario and Check Against Scenario: the scenario of the
+    // world as it is now in the tab, unsaved edits included.
+    {
+        MainWindow window;
+        QStringList errors;
+        QStringList reports;
+        window.prompts.error = [&](const QString &, const QString &text) { errors << text; };
+        window.prompts.showReport = [&](const QString &, const QString &text) { reports << text; };
+        window.prompts.unsavedChanges = [](DocumentTab *) { return UnsavedChoice::discard; };
+        QTemporaryDir scenarioDir;
+        const auto worldPath = scenarioDir.filePath("level.blp");
+        {
+            auto bytes = eggbert::test::blankWorld(eggbert::test::fxRevision13);
+            eggbert::test::put16(
+                bytes, eggbert::test::fxCellOffset(eggbert::test::fxForegroundOffset, 2, 3), 30);
+            QFile file(worldPath);
+            CHECK(file.open(QIODevice::WriteOnly));
+            file.write(reinterpret_cast<const char *>(bytes.data()),
+                       static_cast<qint64>(bytes.size()));
+        }
+        auto *record = window.findChild<QAction *>("fileRecordScenario");
+        auto *check = window.findChild<QAction *>("fileCheckScenario");
+        CHECK(record != nullptr && check != nullptr);
+        CHECK(!record->isEnabled() && !check->isEnabled());
+        auto *tab = window.openPath(worldPath);
+        CHECK(tab != nullptr);
+        CHECK(record->isEnabled() && check->isEnabled());
+        QString suggested;
+        const auto scenarioPath = scenarioDir.filePath("kept.txt");
+        window.prompts.saveTextPath = [&](const QString &name) {
+            suggested = name;
+            return scenarioPath;
+        };
+        record->trigger();
+        CHECK_EQ(suggested, QString("level-scenario.txt"));
+        QFile written(scenarioPath);
+        CHECK(written.open(QIODevice::ReadOnly));
+        CHECK(written.readAll().contains("foreground.occupied = 1\n"));
+        window.prompts.scenarioPath = [&] { return scenarioPath; };
+        check->trigger();
+        CHECK_EQ(reports.size(), qsizetype{1});
+        CHECK(reports.last().endsWith(" expectation(s) checked, 0 failed."));
+        // An unsaved edit is checked too.
+        {
+            const std::vector<CellPos> cells{{5, 5}};
+            CHECK(tab->paintStroke(cells, 31, QStringLiteral("Paint"), 0));
+        }
+        check->trigger();
+        CHECK_EQ(reports.size(), qsizetype{2});
+        CHECK(reports.last().contains("foreground.occupied is 2, expected = 1."));
+        CHECK(reports.last().endsWith(" expectation(s) checked, 1 failed."));
+        // What is not a scenario, a missing file and cancelling.
+        const auto notScenario = scenarioDir.filePath("notes.txt");
+        {
+            QFile file(notScenario);
+            CHECK(file.open(QIODevice::WriteOnly));
+            file.write("just some notes\n");
+        }
+        window.prompts.scenarioPath = [&] { return notScenario; };
+        check->trigger();
+        CHECK_EQ(errors.size(), qsizetype{1});
+        CHECK(errors.last().contains("Line 1: "));
+        window.prompts.scenarioPath = [&] { return scenarioDir.filePath("missing.txt"); };
+        check->trigger();
+        CHECK_EQ(errors.size(), qsizetype{2});
+        window.prompts.scenarioPath = [] { return QString(); };
+        check->trigger();
+        CHECK_EQ(errors.size(), qsizetype{2});
+        CHECK_EQ(reports.size(), qsizetype{2});
+    }
     return test::finish("interface_ui");
 }

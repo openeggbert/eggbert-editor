@@ -212,7 +212,7 @@ Type an offset (`1608` or `0x648`), `cell 3,70`, `big 3,70` or `slot 137` to jum
 
 ### Campaigns and packs
 
-**File → Campaign Overview** lists the worlds of the installation in the order the game reaches them — the first world, each group's hub followed by its missions, the final world, network and demo worlds, other numbers, then designed worlds — and says what the numbering alone shows: a missing world 1, a hub whose missions are absent or missions whose hub is absent, numbers outside the scheme. Below that it follows the door tiles of the official worlds — from the first world a door leads to its number times ten, elsewhere to the group's hub plus its number, and the exit door back to the first world — and reports a door that leads to a world file that is not there, and a hub or mission that no door leads to.
+**File → Campaign Overview** lists the worlds of the installation in the order the game reaches them — the first world, each group's hub followed by its missions, the final world, network and demo worlds, other numbers, then designed worlds — and says what the numbering alone shows: a missing world 1, a hub whose missions are absent or missions whose hub is absent, numbers outside the scheme. Below that it follows the door tiles of the official worlds — from the first world a door leads to its number times ten, elsewhere to the group's hub plus its number, and the exit door back to the first world — and reports a door that leads to a world file that is not there, and a hub or mission that no door leads to. Before those findings the overview lists the connections themselves, one line per world that has doors: `World 1 -> 10, 20` means the first world's doors lead to the hubs 10 and 20.
 
 **File → Export Campaign Pack** writes worlds of the installation, with a manifest (name, game, and for each world its place, size and SHA-256), as one ZIP file or as a folder. The designed worlds and the worlds this editor itself deployed are offered ticked. Files in the game's own world numbers that the editor did not put there are most likely the game's originals: they are listed but cannot be ticked until you tick the box saying that a pack containing them must not be passed on. The ZIP is written without compression and opens in any ZIP program.
 
@@ -240,6 +240,22 @@ Read-only worlds stay read-only.
 
 **File → Export World PNG** (Ctrl+E) writes one image of the complete world: 6,400 × 6,400 pixels at the native 64 pixels per cell, or smaller. Choose the whole world or only the selected cells, the layers and overlays, a solid or transparent background and, with artwork, whether the world's backdrop picture is drawn (tiled from the top-left corner, without the canvas's scrolling shift); the dialog shows the size and the memory needed first. The picture is drawn with the same code as the canvas and records the game profile, the kind of drawing and the settings in its metadata. It is schematic unless you tick **Draw with game artwork** (available when artwork for the tab's game is loaded). Pictures drawn with artwork contain copyrighted material of the game's owners: keep them for your own use unless you have permission to share them.
 
+**File → Export World SVG (Schematic)** writes a scalable drawing instead: one square per occupied cell, outlines for bigDecor, a circle per object with a dashed line along its path, and the four starts. It never contains game artwork, so it can be shared freely, and every element carries what it stands for (`data-tile`, `data-slot` and `data-type`, `data-start`), which makes the file usable by other tools. A file without a complete tile layer cannot be drawn.
+
+## Regression scenarios
+
+A scenario is a small text file of things that should stay true about a world while you keep working on it: how many treasures it holds, that World Doctor finds no error, where the first start is. **File → Record Scenario** writes everything that is true of the world in the tab right now, one expectation per line:
+
+```
+# Eggbert Editor world scenario: delete or loosen (>=, <=) lines as needed.
+doctor.errors = 0
+foreground.occupied = 412
+objects.type.5 = 12
+start.1.x = 194
+```
+
+Delete the lines you do not care about and loosen others with `>=` or `<=` (for example `objects.type.5 >= 10`). **File → Check Against Scenario** then compares the world in the tab — unsaved edits included — with such a file and lists each expectation that no longer holds with its line and both numbers. A name the world has nothing for (an object type that does not occur, a rule that reports nothing) counts as 0. The facts recorded are the revision, the file size, music, region, scrolling and the four starts from the header, the occupied cells of each tile layer, the objects in use, free and per stored type, and the World Doctor findings per severity and per rule (they depend on the game chosen for the tab). The commands `scenario-record` and `scenario-check` do the same without a window, so a folder of worlds can be checked by a script.
+
 ## Appearance and layout
 
 Panels can be moved, floated, stacked and closed; **View** lists them. **View → Layout** arranges them for mapping, object work or validation, and **Reset Layout** restores the default. **View → Theme** switches between the system, light and dark appearance. Window layout, theme and recent files are remembered.
@@ -262,8 +278,12 @@ Besides opening files (`eggbert-editor world.blp ...`), the program has commands
 - `eggbert-editor convert-game FILE OUT --from 1|2 --to 2|1 [--unknown refuse|keep|remove]` writes a copy for the other game, as **File → Convert for Other Game** does, and prints the list. `OUT` must not exist. Without `--unknown keep` or `--unknown remove`, a world with values unknown to the target game is not converted: the list goes to the error output and the exit code is 1.
 - `eggbert-editor merge BASE MINE THEIRS OUT [--prefer mine|theirs]` combines what two worlds changed starting from the same base. The three files must be complete worlds of one revision and the same length. The merge goes element by element — one header value, one cell, one whole object record, or one byte elsewhere: an element changed on one side takes that side's bytes, one changed alike on both takes them, and one changed differently on both is a conflict. With conflicts and no `--prefer`, they are listed (offset, name, the three versions), nothing is written and the exit code is 1; with `--prefer`, that side's whole element is taken for each conflict. `OUT` must not exist. **File → Merge Changes** does the same in the window, with each conflict decided separately.
 - `eggbert-editor new OUT --game 1|2` writes the world **File → New World** writes. `OUT` must not exist.
+- `eggbert-editor export-batch OUTDIR FILE... [options of export-png]` writes one picture per world into an existing directory, each named after its world (`world001.blp` becomes `world001.png`) and identical to what `export-png` writes for it. Two worlds with the same name are refused. A world that cannot be drawn does not stop the others; the exit code is then 1.
+- `eggbert-editor export-svg FILE OUT.svg [--scale N] [--no-foreground] [--no-bigdecor] [--no-objects] [--no-starts]` writes the schematic drawing **File → Export World SVG** writes; `--scale` is the size of one cell (1 to 64, 16 when not given).
+- `eggbert-editor scenario-record FILE OUT.txt [--game 1|2]` writes the scenario **File → Record Scenario** writes. `OUT` must not exist.
+- `eggbert-editor scenario-check FILE SCENARIO.txt [--game 1|2]` checks a world against a scenario and prints each expectation that fails; the exit code is 1 when some fail and 2 when the file is not a scenario.
 
-Exit codes: 0 success, 1 findings, differences, a refused loss or merge conflicts, 2 wrong usage or a file that cannot be read or written. `eggbert-editor --help` lists everything.
+Exit codes: 0 success, 1 findings, differences, a refused loss, merge conflicts, pictures that could not be written or failed expectations, 2 wrong usage or a file that cannot be read or written. `eggbert-editor --help` lists everything.
 
 ## Mobile Eggbert text worlds
 
