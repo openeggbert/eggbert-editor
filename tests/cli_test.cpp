@@ -5,6 +5,7 @@
 
 #include "app/cli.hpp"
 #include "app/png_export.hpp"
+#include "world/game_convert.hpp"
 #include "world/new_world.hpp"
 #include "world/revision_convert.hpp"
 #include "world/world_view.hpp"
@@ -265,6 +266,75 @@ int main(int argc, char **argv) {
         CHECK_EQ(run({"new", "--game", "1"}).code, 2);
         CHECK_EQ(run({"new", dir.filePath("no/such/dir/x.blp"), "--game", "1"}).code, 2);
         CHECK(!QFile::exists(unused));
+    }
+    // convert-game
+    {
+        CHECK(isCommandLineCommand("convert-game") && !commandNeedsGraphics("convert-game"));
+        CHECK(commandLineUsage().contains("convert-game FILE OUT --from"));
+        // A world of the second game with one tile and one object the first
+        // game does not have.
+        auto modern = blankWorld(fxRevision13);
+        put16(modern, fxCellOffset(fxForegroundOffset, 7, 7), 300);
+        put16(modern, fxSlotOffset(fxRevision13, 2), 44);
+        const auto modernPath = dir.filePath("modern.blp");
+        writeAll(modernPath, modern);
+        const auto outPath = dir.filePath("for-first.blp");
+        const auto refused = run({"convert-game", modernPath, outPath, "--from", "2", "--to", "1"});
+        CHECK_EQ(refused.code, 1);
+        CHECK(refused.err.contains("unknown to the target game"));
+        CHECK(refused.err.contains("[unknown] foreground tile 300 (1 place(s), first at cell 7,7)"));
+        CHECK(refused.err.contains("[unknown] object type 44 (1 place(s), first in slot 2)"));
+        CHECK(refused.err.contains("--unknown keep"));
+        CHECK(!QFile::exists(outPath));
+        // Kept: the library's bytes, the notes on standard output.
+        const auto kept = run({"convert-game", modernPath, outPath, "--from", "2", "--to", "1",
+                               "--unknown", "keep"});
+        CHECK_EQ(kept.code, 0);
+        CHECK(kept.out.contains("for game 1, 50468 bytes"));
+        CHECK(kept.out.contains("[unknown] foreground tile 300"));
+        const auto expectedKept = convertGame(modern, GameProfile::speedyBlupi2,
+                                              GameProfile::speedyBlupi1, UnknownPolicy::keep);
+        CHECK(expectedKept.has_value());
+        const auto keptBytes = readAll(outPath);
+        CHECK(std::equal(keptBytes.begin(), keptBytes.end(),
+                         reinterpret_cast<const char *>(expectedKept->bytes.data())));
+        CHECK_EQ(keptBytes.size(), qsizetype{50'468});
+        // Removed, to another file (the first is never replaced).
+        CHECK_EQ(run({"convert-game", modernPath, outPath, "--from", "2", "--to", "1",
+                      "--unknown", "remove"})
+                     .code,
+                 2);
+        const auto removedPath = dir.filePath("for-first-clean.blp");
+        const auto removed = run({"convert-game", modernPath, removedPath, "--from", "2", "--to",
+                                  "1", "--unknown", "remove"});
+        CHECK_EQ(removed.code, 0);
+        CHECK(removed.out.contains("2 place(s) cleared"));
+        CHECK(!removed.out.contains("[unknown]"));
+        auto expectedRemoved = blankWorld(fxRevision12);
+        const auto removedBytes = readAll(removedPath);
+        CHECK(std::equal(removedBytes.begin(), removedBytes.end(),
+                         reinterpret_cast<const char *>(expectedRemoved.data())));
+        // The other direction with nothing unknown needs no choice.
+        const auto backPath = dir.filePath("for-second.blp");
+        const auto back = run({"convert-game", removedPath, backPath, "--from", "1", "--to", "2"});
+        CHECK_EQ(back.code, 0);
+        CHECK(back.out.contains("for game 2"));
+        // Usage and file errors.
+        const auto unused = dir.filePath("unused-game.blp");
+        CHECK_EQ(run({"convert-game", modernPath, unused}).code, 2);
+        CHECK_EQ(run({"convert-game", modernPath, unused, "--from", "2", "--to", "2"}).code, 2);
+        CHECK_EQ(run({"convert-game", modernPath, unused, "--from", "2", "--to", "3"}).code, 2);
+        CHECK_EQ(run({"convert-game", modernPath, unused, "--from", "2", "--to", "1", "--unknown",
+                      "maybe"})
+                     .code,
+                 2);
+        CHECK_EQ(run({"convert-game", brokenPath, unused, "--from", "2", "--to", "1"}).code, 2);
+        CHECK_EQ(run({"convert-game", dir.filePath("missing.blp"), unused, "--from", "2", "--to",
+                      "1"})
+                     .code,
+                 2);
+        CHECK(!QFile::exists(unused));
+        CHECK(readAll(modernPath).size() == 50'468 && readAll(modernPath)[2] == 3);
     }
     CHECK_EQ(run({}).code, 2);
     CHECK_EQ(run({"frobnicate"}).code, 2);

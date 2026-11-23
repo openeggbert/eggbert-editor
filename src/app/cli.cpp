@@ -13,6 +13,7 @@
 #include "app/png_export.hpp"
 #include "app/probe_report.hpp"
 #include "world/doctor.hpp"
+#include "world/game_convert.hpp"
 #include "world/hex_model.hpp"
 #include "world/new_world.hpp"
 #include "world/offset_map.hpp"
@@ -360,12 +361,125 @@ int convert(const QStringList &arguments, QTextStream &out, QTextStream &err) {
     return exitOk;
 }
 
+QString itemName(GameItem item) {
+    switch (item) {
+    case GameItem::foregroundTile:
+        return QStringLiteral("foreground tile");
+    case GameItem::bigDecorTile:
+        return QStringLiteral("bigDecor tile");
+    case GameItem::objectType:
+        return QStringLiteral("object type");
+    case GameItem::objectIcon:
+        return QStringLiteral("object picture");
+    case GameItem::region:
+        return QStringLiteral("region");
+    }
+    return {};
+}
+
+} // namespace
+
+QString describeGameNote(const GameConversionNote &note) {
+    auto where = QString();
+    if (note.firstCell) {
+        where = QStringLiteral(", first at cell %1,%2").arg(note.firstCell->x).arg(note.firstCell->y);
+    } else if (note.firstSlot) {
+        where = QStringLiteral(", first in slot %1").arg(*note.firstSlot);
+    }
+    return QStringLiteral("[%1] %2 %3 (%4 place(s)%5): %6")
+        .arg(note.kind == CarryKind::unknownToTarget ? QStringLiteral("unknown")
+                                                     : QStringLiteral("differs"),
+             itemName(note.item))
+        .arg(note.value)
+        .arg(note.count)
+        .arg(where, QString::fromStdString(note.text));
+}
+
+namespace {
+
+int convertGameCommand(const QStringList &arguments, QTextStream &out, QTextStream &err) {
+    const auto parsed = parse(arguments,
+                              {QStringLiteral("--from"), QStringLiteral("--to"),
+                               QStringLiteral("--unknown")},
+                              {});
+    const auto game = [&](const QString &option) {
+        return parsed.values.contains(option)
+                   ? parseGame(parsed.values[option]).value_or(GameProfile::unknown)
+                   : GameProfile::unknown;
+    };
+    const auto from = game(QStringLiteral("--from"));
+    const auto to = game(QStringLiteral("--to"));
+    auto policy = UnknownPolicy::refuse;
+    const auto wanted = parsed.values.value(QStringLiteral("--unknown"), QStringLiteral("refuse"));
+    if (wanted == QLatin1String("keep")) {
+        policy = UnknownPolicy::keep;
+    } else if (wanted == QLatin1String("remove")) {
+        policy = UnknownPolicy::remove;
+    } else if (wanted != QLatin1String("refuse")) {
+        return usageError(err, QStringLiteral("--unknown takes refuse, keep or remove"));
+    }
+    if (!parsed.error.isEmpty() || parsed.positional.size() != 2 ||
+        from == GameProfile::unknown || to == GameProfile::unknown || from == to) {
+        return usageError(err, parsed.error.isEmpty()
+                                   ? QStringLiteral("convert-game needs a world file, an output "
+                                                    "file, --from 1|2 and --to with the other "
+                                                    "game")
+                                   : parsed.error);
+    }
+    const auto source = readFile(parsed.positional[0]);
+    if (!source) {
+        err << parsed.positional[0] << ": cannot be read\n";
+        return exitUsage;
+    }
+    if (QFileInfo::exists(parsed.positional[1])) {
+        err << parsed.positional[1] << ": already exists; convert-game never overwrites a file\n";
+        return exitUsage;
+    }
+    const std::span<const std::byte> bytes(
+        reinterpret_cast<const std::byte *>(source->constData()),
+        static_cast<std::size_t>(source->size()));
+    const auto converted = convertGame(bytes, from, to, policy);
+    if (!converted) {
+        err << parsed.positional[0] << ": " << QString::fromStdString(converted.error().detail)
+            << "\n";
+        if (converted.error().error != ConversionError::wouldLoseData) {
+            return exitUsage;
+        }
+        // Say what they are, so the choice between keep and remove is informed.
+        if (const auto kept = convertGame(bytes, from, to, UnknownPolicy::keep)) {
+            for (const auto &note : kept->notes) {
+                err << "  " << describeGameNote(note) << "\n";
+            }
+        }
+        err << "Use --unknown keep to leave them stored or --unknown remove to clear them.\n";
+        return exitFound;
+    }
+    if (!writeNewFile(parsed.positional[1], converted->bytes)) {
+        err << parsed.positional[1] << ": cannot be written\n";
+        return exitUsage;
+    }
+    out << parsed.positional[1] << ": for game " << (to == GameProfile::speedyBlupi1 ? 1 : 2)
+        << ", " << converted->bytes.size() << " bytes";
+    if (converted->removedCount != 0) {
+        out << ", " << converted->removedCount << " place(s) cleared";
+    }
+    out << "\n";
+    for (const auto &note : converted->revisionNotes) {
+        out << "  " << QString::fromStdString(note) << "\n";
+    }
+    for (const auto &note : converted->notes) {
+        out << "  " << describeGameNote(note) << "\n";
+    }
+    return exitOk;
+}
+
 } // namespace
 
 bool isCommandLineCommand(const QString &name) {
     return name == QLatin1String("info") || name == QLatin1String("validate") ||
            name == QLatin1String("diff") || name == QLatin1String("export-png") ||
-           name == QLatin1String("convert") || name == QLatin1String("new");
+           name == QLatin1String("convert") || name == QLatin1String("new") ||
+           name == QLatin1String("convert-game");
 }
 
 bool commandNeedsGraphics(const QString &name) {
@@ -389,6 +503,11 @@ QString commandLineUsage() {
         "  eggbert-editor convert FILE OUT --to 1.0|1.1|1.2|1.3 [--allow-loss]\n"
         "      a copy of the world in another revision; OUT must not exist; exit 1 when\n"
         "      the target cannot store everything and --allow-loss is not given\n"
+        "  eggbert-editor convert-game FILE OUT --from 1|2 --to 2|1\n"
+        "      [--unknown refuse|keep|remove]\n"
+        "      a copy for the other game, with every value that game does not know or\n"
+        "      treats differently listed; exit 1 when such values exist and neither\n"
+        "      keep nor remove was chosen\n"
         "  eggbert-editor new OUT --game 1|2\n"
         "      the world the game's own editor starts with; OUT must not exist\n"
         "Exit codes: 0 success, 1 findings, differences or refused loss, 2 usage or file\n"
@@ -411,6 +530,8 @@ int runCommandLine(const QStringList &arguments, QTextStream &out, QTextStream &
         code = convert(rest, out, err);
     } else if (arguments[0] == QLatin1String("new")) {
         code = create(rest, out, err);
+    } else if (arguments[0] == QLatin1String("convert-game")) {
+        code = convertGameCommand(rest, out, err);
     } else {
         code = exportPng(rest, out, err);
     }

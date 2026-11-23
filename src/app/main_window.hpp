@@ -13,6 +13,7 @@
 #include "app/recovery_store.hpp"
 #include "app/document_tab.hpp"
 #include "app/png_export.hpp"
+#include "world/game_convert.hpp"
 #include "world/world_stats.hpp"
 
 class QAction;
@@ -60,6 +61,12 @@ struct Prompts {
     std::function<QString()> borderRulesPath;
     // Second confirmation before bytes in a preserved range are changed.
     std::function<bool(DocumentTab *, const QString &description)> confirmProtectedEdit;
+    // Shown with everything the target game does not know or treats
+    // differently; returns what to do with the unknown values (keep or
+    // remove), or nullopt to cancel.
+    std::function<std::optional<UnknownPolicy>(DocumentTab *, GameProfile target,
+                                               const std::vector<GameConversionNote> &)>
+        convertGame;
     // The game a new world is for; nullopt cancels.
     std::function<std::optional<GameProfile>(GameProfile suggested)> newWorldGame;
     // The revision to convert a copy to and whether loss is accepted.
@@ -232,6 +239,9 @@ public:
     // Asks for the game and a file, writes the world the games' editors
     // start with and opens it; returns the new tab or null.
     DocumentTab *createWorld();
+    // Writes a copy of the tab's world for the other game (never in place)
+    // and opens it with that game selected; returns the new tab or null.
+    DocumentTab *convertGameOf(DocumentTab *tab);
     // Writes a copy of the tab's world in another revision (never in place)
     // and opens it; returns the new tab or null.
     DocumentTab *convertRevisionOf(DocumentTab *tab);

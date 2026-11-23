@@ -2,7 +2,7 @@
 
 Eggbert Editor edits individual world files of *Speedy Blupi* / *Speedy Eggbert* and *Speedy Blupi II* / *Speedy Eggbert 2*: the `.blp` world files and the exported `.xch` files, which have the same layout. It changes only the bytes you edit. Everything else in the file — reserved fields, unused object slots, text after the title, data after the end of the layout — is written back exactly as it was read.
 
-It is an editor for one world at a time. It does not manage campaigns, does not install worlds into a game, does not start the game and does not convert worlds between the two games.
+It is an editor for one world at a time. It does not manage campaigns, does not install worlds into a game and does not start the game.
 
 ## Opening a world
 
@@ -135,6 +135,17 @@ Read-only documents can be copied with Save As; the copy is byte-identical.
 
 The header, the tiles and the object records are copied byte for byte; only the revision number changes. Going up, what the older revision does not store is added the way the games fill it when they load such a world: an empty back layer for 1.0, a hundred free object slots for 1.0 and 1.1. Going down, the dialog lists what the target cannot store — back-layer tiles in 1.0, objects or leftover bytes in slots 100 to 199 in 1.0 and 1.1 — and converts only after you tick **Convert anyway and lose what the target cannot store**. A back layer that is empty and slots that are completely zero are simply left out, so an upgrade can always be undone exactly. Bytes after the end of the world are carried over. Between 1.2 and 1.3 only the number differs; the games read the title only from revision 1.3. Truncated files and unknown revisions cannot be converted.
 
+### Converting for the other game
+
+The two games read the same file layout and share almost every stored number, so a world of one game mostly works in the other. **File → Convert for Other Game** (available once the tab's game is chosen) writes a copy for the other game to a new file, in the revision that game's stock worlds use, and opens it with that game selected. The file you started from is not changed.
+
+Before anything is written a list shows every stored value the other game does not know or treats differently, with how often and where it first occurs (the evidence is in each line's tooltip):
+
+- **unknown** — the other game has no picture or code for it: second-game tiles 246 to 440, back-layer pictures 54 to 99, the object types only the second game has (keys, wasp, creature, conveyor lifts, hovercraft, dynamite, homing bomb and others) and backdrops 24 to 31, when converting for the first game.
+- **differs** — both games have the number but show it differently: the first game's blocks 48 to 67 (the second game shows tile 215 instead), a lift or crate drawn with a tile picture the other game lacks, and the seven backdrop numbers that are different pictures in the two games.
+
+When something is unknown you choose between keeping those values stored (the other game ignores them, and converting back restores the world exactly) and removing them (those cells are emptied, those object slots freed, the backdrop set to 2). Values that merely differ are never changed. Nothing else is touched: apart from the revision number the copy is byte-identical to the source.
+
 ### If the editor stops unexpectedly
 
 A few seconds after an edit, the unsaved state of every modified world is copied to a recovery folder in your user profile (never next to the world file). The copy is removed when you save, revert or close the world. If the editor or the computer stops before that, the next start asks what to do with each copy: **Restore** opens the world and puts the changes back as one undo step, still unsaved; **Save a Copy As** writes them to a file of your choice; **Discard** deletes them; **Ask Again Later** keeps them. Restore is offered only when the world file is byte for byte what it was when the copy was made; if the file changed or vanished, the changes can still be saved as a copy. A damaged copy is reported and never used.
@@ -206,10 +217,11 @@ Besides opening files (`eggbert-editor world.blp ...`), the program has commands
 - `eggbert-editor diff FILE OTHER` lists the differing byte ranges with their structural names and old and new bytes; the exit code is 1 when the files differ.
 - `eggbert-editor export-png FILE OUT.png` writes the picture **File → Export World PNG** writes. Options: `--scale N` (pixels per cell, 1 to 64), `--crop x,y,width,height` (in cells), `--game 1|2`, `--game-data DIR` (draw with that game's artwork), `--no-foreground`, `--no-bigdecor`, `--no-objects`, `--no-starts`, `--no-paths`, `--no-backdrop`, `--grid`, `--labels`, `--transparent`.
 - `eggbert-editor convert FILE OUT --to 1.0|1.1|1.2|1.3 [--allow-loss]` writes a copy in another revision, as **File → Convert Revision** does. `OUT` must not exist. When the target cannot store everything, nothing is written and the exit code is 1 unless `--allow-loss` is given.
+- `eggbert-editor convert-game FILE OUT --from 1|2 --to 2|1 [--unknown refuse|keep|remove]` writes a copy for the other game, as **File → Convert for Other Game** does, and prints the list. Without `--unknown keep` or `--unknown remove`, a world with values unknown to the target game is not converted: the list goes to the error output and the exit code is 1.
 - `eggbert-editor new OUT --game 1|2` writes the world **File → New World** writes. `OUT` must not exist.
 
 Exit codes: 0 success, 1 findings, differences or a refused loss, 2 wrong usage or a file that cannot be read or written. `eggbert-editor --help` lists everything.
 
 ## What the editor does not do
 
-It does not edit revisions 1.0 and 1.1 in place (convert a copy instead), does not edit bytes in the hex view itself (see **Experimental editing** for typed byte edits), does not offer objects, border brushes or music and region values it has no evidence for unless experimental editing is on (raw tile numbers and an object's numeric fields are always yours to type), does not create or renumber campaigns, does not copy worlds into a game installation, does not launch a game, and does not convert between Speedy Blupi 1 and 2 or to the Mobile Eggbert format.
+It does not edit revisions 1.0 and 1.1 in place (convert a copy instead), does not edit bytes in the hex view itself (see **Experimental editing** for typed byte edits), does not offer objects, border brushes or music and region values it has no evidence for unless experimental editing is on (raw tile numbers and an object's numeric fields are always yours to type), does not create or renumber campaigns, does not copy worlds into a game installation, does not launch a game, and does not convert to or from the Mobile Eggbert format.

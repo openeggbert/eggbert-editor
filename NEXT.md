@@ -45,9 +45,9 @@ Verification on 2026-11-22, Ubuntu 24.04, GCC 13.3.0, CMake 3.28.3, Ninja, Qt 6.
 ```sh
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
 cmake --build build --parallel              # no warnings
-ctest --test-dir build --output-on-failure  # 52/52 passed (53 registered): layout, le_reader, world_probe, world_view, world_document, world_stats, offset_map, tile_tools, metadata, object_ops, hex_model, doctor, adaptive, animation, atlas_table, editor_groups, revision_convert, new_world, encyclopedia, expert_edit, custom_border, view_transform, probe_report, document_file, recovery_store, cli, world_renderer, png_export, game_assets, main_window, docks, tools, metadata_ui, objects_ui, inspector, doctor_ui, adaptive_ui, workspace, artwork_ui, palette, music_player, animation_ui, interface_ui, recovery_ui, convert_ui, new_world_ui, encyclopedia_ui, experimental_ui, cli_usage, smoke, version, install_smoke; sample_matrix skipped without EGGBERT_SAMPLE_DIRS
+ctest --test-dir build --output-on-failure  # 54/54 passed (55 registered): layout, le_reader, world_probe, world_view, world_document, world_stats, offset_map, tile_tools, metadata, object_ops, hex_model, doctor, adaptive, animation, atlas_table, editor_groups, revision_convert, new_world, encyclopedia, expert_edit, custom_border, game_convert, view_transform, probe_report, document_file, recovery_store, cli, world_renderer, png_export, game_assets, main_window, docks, tools, metadata_ui, objects_ui, inspector, doctor_ui, adaptive_ui, workspace, artwork_ui, palette, music_player, animation_ui, interface_ui, recovery_ui, convert_ui, new_world_ui, encyclopedia_ui, experimental_ui, convert_game_ui, cli_usage, smoke, version, install_smoke; sample_matrix skipped without EGGBERT_SAMPLE_DIRS
 cmake -S . -B build-asan -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DEGGBERT_SANITIZE=ON
-cmake --build build-asan --parallel && ctest --test-dir build-asan   # 52/52 passed under ASan/UBSan, sample_matrix skipped
+cmake --build build-asan --parallel && ctest --test-dir build-asan   # 54/54 passed under ASan/UBSan, sample_matrix skipped
 ```
 
 Commit `c8f7a77` (binary inspector) was pushed green in Release but with a use-after-free that the sanitizer run reported in `main_window` (the hex views kept a pointer to the document replaced by Revert/Reload); the next commit fixes it with `DocumentTab::documentReplaced` and a regression check in `inspector`. Always run the sanitizer suite to completion before committing.
@@ -82,18 +82,30 @@ Verified and reported observations are recorded with citations in `docs/research
 - **CI steps in a clean system.** A minimal Ubuntu 24.04 system (`debootstrap --variant=minbase`, then `cmake ninja-build g++ dpkg-dev` as a hosted runner has them, then the workflow's `qt6-base-dev`: CMake 3.28.3, GCC 13.3.0, Qt 6.4.2) ran every step of `.github/workflows/ci.yml` on commit `5a5f3d8`: job *build-and-test* — configure, build (0 warnings), `ctest` exit 0 (sample test skipped), `cpack` producing the TGZ and DEB; job *sanitizers* — configure, build (0 warnings), `ctest` exit 0. The sanitizer needs `/proc`, which a bare chroot lacks; with it mounted the job passes. The hosted workflow itself has still not run (no pull request, owner's decision).
 - **Independent documentation audit.** A second reviewer compared `docs/user-guide.md`, `README.md` and `docs/format-notes.md` with the code and reported 23 mismatches (none in the format notes). Six were fixed in the code because the documented behaviour was the better one: second-game tiles 384/385 are now drawn before objects; picking a bigDecor picture while the adaptive tile brush is active switches to the Pencil; music plays from a chosen game directory even when its pictures are unusable (`MainWindow::gameDirectoryFor`); the PNG dialog has a backdrop option recorded in `EggbertSettings`; Save As shows the World Doctor summary like Save; the 1/2 path badges are drawn down to five pixels per cell, so they show when the whole world is in view. The rest were wording corrections in the guide and README. The reviewer could not check statements about the games themselves (it had no access to the research sources); those rest on `docs/research/evidence.md`.
 
-## Next task: slice E of the promoted roadmap (loss-aware conversion between the two games)
+## Next task: slice F of the promoted roadmap (installation workspace)
 
-See `plan.md`, **Promotion of the roadmap**. Design to implement:
+See `plan.md`, **Promotion of the roadmap**. Research is done (machine-checked notes in the development scratch area; every fact must be re-read at its citation and entered in `docs/research/evidence.md` as it is used). Facts to build on, with where to re-read them:
 
-1. Evidence first: which stored values mean the same thing in both games and which do not — tile numbers (the second game's sheets extend the first game's; check with both catalogs and the sprite tables), object types and their icons (`object_catalog` has 31 and 42 verified presets), music and region ranges, header fields either game ignores. Record every mapping with its citation in `docs/research/evidence.md`; a value without evidence is reported, never translated by guess.
-2. Headless `src/world/game_convert.hpp`: `planGameConversion(view, from, to)` returning a report (per kind: kept, translated, without counterpart — with cell or slot lists) and `convertGame(bytes, from, to, policy)` producing a new byte image; revision follows the target game (1.2 for the first, 1.3 for the second) through `convertRevision`. Never in place.
-3. UI: File → Convert to Other Game… with the report shown before anything is written; the result is a new file. CLI: `convert-game`.
-4. Tests: synthetic worlds per mapping class, refusal without acceptance, source untouched; with the opt-in samples, every stock world converts there and the report totals are stable.
+- File names in `data` (both games): official `world%.3d.blp`, user worlds `u%.3d-%.3d.blp` (gamer 1–8, mission 1–20; 999 is the game's own play-test scratch file), saves `s%.3d-%.3d.blp`, `info%.3d.blp` (528 bytes), `demo%.3d.blp`, `config.def` — `src/decor.cpp:279-295`, `games/sb2/src/decor.cpp:560-572` (read for worlds; the rest reported).
+- The game keeps no list of user worlds: its design screen probes one number at a time by reading the file; only the `uGGG-NNN.blp` itself must exist (reported).
+- Hubs are purely numeric (world 1 and multiples of 10); multiplayer worlds 101–110 / 201–212; demo worlds from 200 / 300 (reported).
+- No command-line option selects a mission; `config.def` has `FullScreen=` (reported). A playtest command can therefore only start the game; the user walks to the design screen.
 
-### Slice A2 result (2026-11-23): New World
+Design to implement:
 
-Added under the owner's instruction to work on the interface (an editor without a way to start a world was the largest gap seen in a review of the screens). `src/world/new_world.hpp` (Qt-free) builds the state both games' editors start a mission with (evidence: **New world** in `docs/research/evidence.md`, read in both sources): revision 1.2 for the first game, 1.3 for the second. **File → New World…** (Ctrl+N), the welcome page's **New World…** and `eggbert-editor new OUT --game 1|2` write it to a new file; the window opens it with the game selected and remembered. Tests: `new_world` (bytes equal an independent description built with the fixture helpers; nothing else set; Doctor: no error, no warning under either profile), `new_world_ui` (welcome button and menu, suggestions, edit and save afterwards, open file not replaced, cancel paths, unwritable destination), `cli` (both games, existing output kept, usage errors). Not covered: loading the file in a running game.
+1. Headless `src/world/installation.hpp` (Qt-free where possible; file access through a small interface so tests use a generated directory): classify the files of a `DATA` directory by name and probe (official world, user world of gamer G, play-test scratch, save, info, demo, other); slot names for a target (official N, user G/N).
+2. `src/app/deploy.hpp`: staged deploy of the current world bytes to a slot — write to a temporary file in the same directory, verify, keep the previous file as a backup in the editor's data directory (never inside the installation) with a manifest (path, SHA-256, time), atomic rename; rollback restores the backup byte-exactly and verifies it; a failed step leaves the installation unchanged.
+3. UI: **Installation** dock listing the worlds of the current game directory with thumbnails (this is also slice K's gallery), open on double click, **Deploy Current World…** with the slot chooser and the list of what will be replaced, **Roll Back Last Deploy**, and **Playtest** running a user-configured command (never run by tests: only the command line that would be started is tested).
+4. Tests on a generated installation: classification, deploy and rollback byte-exact, injected failures leave everything as it was, nothing written outside the chosen slot.
+
+### Slice E result (2026-11-23): conversion between the two games
+
+- Evidence: **The two games compared** in `docs/research/evidence.md` (structures, type and channel constants and the collision table are the same; what each game lacks is listed with citations; checks against both original installations).
+- `src/world/game_convert.hpp` (Qt-free): `reviewGameConversion` lists every stored value the target does not know (`unknownToTarget`) or shows differently (`differsInTarget`) with count, first place and citation; `convertGame` writes the copy in the target's stock revision and, by `UnknownPolicy`, refuses, keeps or removes the unknown values. Values that merely differ are never rewritten (the second game's own loader does the 48–67 → 215 substitution; writing it would lose the stored number).
+- `eggbert-editor convert-game FILE OUT --from A --to B [--unknown refuse|keep|remove]`; **File → Convert for Other Game…** with the list shown before anything is written; never onto an open file.
+- Tests: `game_convert` (identity apart from the revision, every note class in both directions, the three policies byte-exact, free slots ignored, refusals), `cli`, `convert_game_ui` (prompt contents, keep and remove equal the library's bytes, back conversion, cancel paths, the real dialog).
+- Opt-in check with the original installations (private): 59 of 59 and 96 of 96 stock worlds convert; all 155 are byte-identical after converting there and back with unknown values kept.
+- Not covered: whether the first game really tolerates the kept unknown values while running (the claim rests on the bounds checks cited in the evidence); what other editions do.
 
 ### Slice I result (2026-11-23): experimental editing
 
@@ -170,7 +182,7 @@ Order and acceptance are in `plan.md`, **Promotion of the roadmap**. Tick a slic
 - [x] B Autosave recovery and snapshots
 - [x] C Headless command line; PNG layers and crops
 - [x] D Revision conversion (1.0/1.1 written and upgraded through converted copies)
-- [ ] E Loss-aware SB1↔SB2 conversion
+- [x] E Conversion between the two games with a list of what cannot be carried
 - [ ] F Installation workspace: world list, deploy with backup and rollback, playtest command
 - [ ] G Campaign workspace and packs
 - [ ] H Advanced World Doctor

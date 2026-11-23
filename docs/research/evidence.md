@@ -73,6 +73,25 @@ Eggbert Editor does not copy two side effects of the games' editors: placing an 
 
 Deliberate differences from the games' editors, so that an adaptive edit never removes unrelated content: Eggbert Editor does not delete objects standing on a cell that becomes solid, and it does not reproduce the source quirk by which a freshly written four-cell lightning beam also clears beam cells five to eight rows below the emitter. Every cell an adaptive stroke would change is previewed before the click.
 
+## The two games compared
+
+Basis of **Convert for Other Game** (`src/world/game_convert.cpp`). "Scripted" rows were produced by scripts over the two source trees and re-run for this entry; "reported" rows come from a source comparison whose citations were machine-checked but not all re-read by eye.
+
+| Observation | Where | How |
+| --- | --- | --- |
+| The header, cell and object structures are declared identically, and both loaders read the same header fields | `src/decor.h:27-51`, `:99-115`; `games/sb2/src/decor.h:27-51`, `:99-115`; `src/decor.cpp:383-403`; `games/sb2/src/decor.cpp:654-669` | reported |
+| The object type constants (72 names, values 1–58, 90–100, 200–203) and the channel constants are the same in both `def.h` files | `src/def.h:995-1066`, `:699`; `games/sb2/src/def.h:993-1064`, `:697` | scripted |
+| The first game's code never names types 18, 39–44, 46–57 and 90–100; the second game's code never names type 58 (an effect the first game creates while playing) | search of `src/*.cpp` and `games/sb2/src/*.cpp` for each constant name; `src/decblupi.cpp:2320` | scripted |
+| The collision entries of tiles 0–236 are identical in both games; tiles 237–245 have none in either | `src/obstacle.h`, `games/sb2/src/obstacle.h` | scripted |
+| The first game draws a tile only when its number is below the table's count (246) and tests collisions only below `MAXQUART` (237): second-game tiles 246–440 are neither drawn nor solid there | `src/pixmap.cpp:788-790`; `src/pixtables.h:314-315`; `src/decblupi.cpp:3805` | read |
+| The first game's back-layer table has 54 pictures, the second's 100; a larger number is skipped | `src/pixmap.cpp:818-820`; `src/pixtables.h:755-756`; `games/sb2/src/pixtables.h:390-391` | read (first game), reported |
+| The second game's tile table gives numbers 48–67 a one-pixel rectangle, and its loader rewrites stored foreground 48–67 to 215; object records are not rewritten. In the first game 48–67 are twenty ordinary solid blocks (editor group "Dream") | `games/sb2/src/pixtables.h:154-160`; `games/sb2/src/decor.cpp:675-684`; `src/decdesign.cpp:212-217` | read (second game), reported |
+| A lift (type 1) is drawn with its stored channel and icon; so is a crate (type 12) | `src/decblock.cpp:1414-1424`; `games/sb2/src/decblock.cpp:1861-1870` | read (lift, first game), reported |
+| The first game's editor offers regions 0–23, the second's 0–31; the tooltip names differ for 4, 6, 9, 10, 18, 21 and 23 | `src/event.cpp:3093-3095`; `games/sb2/src/event.cpp:3680-3682`; `src/res/blupi.rc:286-300`; `games/sb2/res/sb2-eggbert-en.rc:288-302`, `:414-421` | read (ranges), reported (names) |
+| Other differences that change no stored value and are not reported by the converter: lava animation length, the exit door 184 leading to world 99 or 199 in the campaign, door states of official missions, landing sounds, chest sparkles and shield frames | comparison notes | reported |
+
+Checked against the two original installations (2026-11-23, private, read only): the ten music files are byte-identical between the games, so a music number plays the same tune; backdrops 0, 3, 7, 8, 11–14, 16, 17 and 22 are pixel-identical and the other shared numbers differ (many only in colour depth); all 59 stock worlds of the first game convert for the second with nothing unknown (differences: the 48–67 blocks, 19 lift or crate pictures, 11 backdrops) and all 96 of the second convert for the first when unknown values are kept (16 need no choice at all); every one of the 155 is byte-identical again after converting there and back.
+
 ## New world
 
 | Observation | Where | How |

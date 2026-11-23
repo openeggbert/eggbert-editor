@@ -1,6 +1,6 @@
 # Eggbert Editor
 
-A desktop editor for 2D worlds from the Windows games Speedy Blupi and Speedy Blupi II, also released as Speedy Eggbert and Speedy Eggbert 2. Version 1.0 is intentionally scoped to lossless editing of individual world files. Installation deployment, campaigns and loss-aware SB1↔SB2 BLP conversion are post-1.0 roadmap items. A separate post-1.0 Mobile Eggbert text-world profile is planned, but conversion between BLP and Mobile Eggbert worlds is intentionally unsupported in both directions.
+A desktop editor for 2D worlds from the Windows games Speedy Blupi and Speedy Blupi II, also released as Speedy Eggbert and Speedy Eggbert 2. Its core is lossless editing of individual world files; this unreleased development version has also grown revision and game conversion, recovery, a command line and other items of the roadmap in `plan.md`. Installation deployment and campaigns are roadmap items not implemented yet. A separate Mobile Eggbert text-world profile is planned, but conversion between BLP and Mobile Eggbert worlds is intentionally unsupported in both directions.
 
 What works today:
 
@@ -25,6 +25,7 @@ What works today:
 - **Element Encyclopedia**: a searchable list of every catalogued tile, object and border family of the chosen game with what is stored for it and the evidence; any entry can be selected for painting or placing.
 - **Experimental editing** (off by default): typed byte edits as undoable transactions with a second confirmation for preserved ranges, unverified music and region numbers, and border rules of your own for the Adaptive brush. The revision field and the file length never change.
 - **New World** (and the `new` command) writes the world the games' own editors start a mission with, for either game.
+- **Convert for Other Game** (and the `convert-game` command) writes a copy of a world for the other game and lists every stored value that game does not know or shows differently; unknown values are kept or removed by your choice, never silently.
 - **Convert Revision** (and the `convert` command) writes a copy of a world in revision 1.0, 1.1, 1.2 or 1.3 to a new file; anything the target cannot store is listed and dropped only on request.
 
 Version 1.0.0 implements the whole fixed 1.0 scope.
@@ -54,7 +55,7 @@ ctest --test-dir build --output-on-failure
 
 If CMake cannot find Qt, set `CMAKE_PREFIX_PATH` to your Qt kit directory when configuring. For a multi-configuration generator such as Visual Studio, build with `--config Release` and pass `-C Release` to CTest. On macOS, launch the generated application bundle. Only Linux is tested and packaged.
 
-`eggbert-editor world.blp ...` opens files given on the command line. Six commands work without a window and never change a world they read: `info FILE`, `validate FILE [--game 1|2]`, `diff FILE OTHER`, `export-png FILE OUT.png [--scale N] [--crop x,y,w,h] ...`, `convert FILE OUT --to 1.0|1.1|1.2|1.3 [--allow-loss]` and `new OUT --game 1|2` (exit codes 0 success, 1 findings, differences or a refused loss, 2 usage or file error; see `--help`). `eggbert-editor --version` and `--help` work without a display. `eggbert-editor --smoke-test` runs an end-to-end self check that needs no game data; `--smoke-test --game-data DIR` additionally recognises the game in `DIR` (read only) and draws with its artwork.
+`eggbert-editor world.blp ...` opens files given on the command line. Seven commands work without a window and never change a world they read: `info FILE`, `validate FILE [--game 1|2]`, `diff FILE OTHER`, `export-png FILE OUT.png [--scale N] [--crop x,y,w,h] ...`, `convert FILE OUT --to 1.0|1.1|1.2|1.3 [--allow-loss]`, `convert-game FILE OUT --from 1|2 --to 2|1 [--unknown refuse|keep|remove]` and `new OUT --game 1|2` (exit codes 0 success, 1 findings, differences or a refused loss, 2 usage or file error; see `--help`). `eggbert-editor --version` and `--help` work without a display. `eggbert-editor --smoke-test` runs an end-to-end self check that needs no game data; `--smoke-test --game-data DIR` additionally recognises the game in `DIR` (read only) and draws with its artwork.
 
 The tests need no game installation, no game assets and no network. Add `-DEGGBERT_SANITIZE=ON` to build with the address and undefined-behavior sanitizers.
 

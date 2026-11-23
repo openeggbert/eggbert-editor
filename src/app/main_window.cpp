@@ -23,6 +23,7 @@
 #include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
+#include <QRadioButton>
 #include <QRegularExpression>
 #include <QPlainTextEdit>
 #include <QPushButton>
@@ -59,6 +60,7 @@
 #include "app/music_player.hpp"
 #include "app/palette_panel.hpp"
 #include "app/sprite_icons.hpp"
+#include "app/cli.hpp"
 #include "app/encyclopedia_dialog.hpp"
 #include "app/tool_icons.hpp"
 #include "world/new_world.hpp"
@@ -436,6 +438,55 @@ void MainWindow::installDefaultPrompts() {
         return QMessageBox::warning(this, tr("Edit Bytes"), description,
                                     QMessageBox::Yes | QMessageBox::Cancel,
                                     QMessageBox::Cancel) == QMessageBox::Yes;
+    };
+    prompts.convertGame = [this](DocumentTab *tab, GameProfile target,
+                                 const std::vector<GameConversionNote> &notes)
+        -> std::optional<UnknownPolicy> {
+        QDialog dialog(this);
+        dialog.setWindowTitle(tr("Convert for Other Game"));
+        auto *layout = new QVBoxLayout(&dialog);
+        const auto *info = profileInfo(target);
+        layout->addWidget(new QLabel(
+            tr("A copy of %1 is written for %2; this file is not changed.")
+                .arg(QFileInfo(tab->file().path()).fileName(),
+                     QString::fromUtf8(info->name.data(),
+                                       static_cast<qsizetype>(info->name.size()))),
+            &dialog));
+        const auto unknown = std::ranges::count_if(notes, [](const GameConversionNote &note) {
+            return note.kind == CarryKind::unknownToTarget;
+        });
+        auto *list = new QListWidget(&dialog);
+        list->setObjectName(QStringLiteral("convertGameNotes"));
+        list->setWordWrap(true);
+        for (const auto &note : notes) {
+            auto *item = new QListWidgetItem(describeGameNote(note), list);
+            item->setToolTip(QString::fromStdString(note.provenance));
+        }
+        if (notes.empty()) {
+            new QListWidgetItem(tr("Both games know everything this world stores."), list);
+        }
+        layout->addWidget(list, 1);
+        auto *keep = new QRadioButton(
+            tr("Keep the values the other game does not know (it ignores them)"), &dialog);
+        keep->setObjectName(QStringLiteral("convertGameKeep"));
+        auto *remove = new QRadioButton(
+            tr("Remove them: empty those cells, free those object slots, backdrop 2"), &dialog);
+        remove->setObjectName(QStringLiteral("convertGameRemove"));
+        keep->setChecked(true);
+        keep->setVisible(unknown != 0);
+        remove->setVisible(unknown != 0);
+        layout->addWidget(keep);
+        layout->addWidget(remove);
+        auto *buttons =
+            new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+        layout->addWidget(buttons);
+        connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+        connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+        dialog.resize(680, 380);
+        if (dialog.exec() != QDialog::Accepted) {
+            return std::nullopt;
+        }
+        return remove->isChecked() ? UnknownPolicy::remove : UnknownPolicy::keep;
     };
     prompts.newWorldGame = [this](GameProfile suggested) -> std::optional<GameProfile> {
         const QStringList games{QString::fromUtf8(speedyBlupi1Info.name.data(),
@@ -837,6 +888,9 @@ void MainWindow::createActions() {
     connect(addAction(fileMenu, QStringLiteral("fileConvertRevision"),
                       tr("Convert Re&vision...")),
             &QAction::triggered, this, [this] { convertRevisionOf(currentTab()); });
+    connect(addAction(fileMenu, QStringLiteral("fileConvertGame"),
+                      tr("Convert for Other &Game...")),
+            &QAction::triggered, this, [this] { convertGameOf(currentTab()); });
     connect(addAction(fileMenu, QStringLiteral("fileSnapshot"), tr("Take S&napshot...")),
             &QAction::triggered, this, [this] { takeSnapshot(currentTab()); });
     connect(addAction(fileMenu, QStringLiteral("fileSnapshots"), tr("Snaps&hots...")),
@@ -2661,6 +2715,75 @@ DocumentTab *MainWindow::createWorld() {
     return opened;
 }
 
+DocumentTab *MainWindow::convertGameOf(DocumentTab *tab) {
+    if (tab == nullptr || tab->profile() == GameProfile::unknown) {
+        return nullptr;
+    }
+    const auto from = tab->profile();
+    const auto to = from == GameProfile::speedyBlupi1 ? GameProfile::speedyBlupi2
+                                                      : GameProfile::speedyBlupi1;
+    const auto current = tab->document().currentBytes();
+    // Everything there is to say, before anything is decided.
+    const auto preview = convertGame(current, from, to, UnknownPolicy::keep);
+    if (!preview) {
+        prompts.error(tr("Convert for Other Game"),
+                      QString::fromStdString(preview.error().detail));
+        return nullptr;
+    }
+    const auto policy = prompts.convertGame(tab, to, preview->notes);
+    if (!policy || *policy == UnknownPolicy::refuse) {
+        return nullptr;
+    }
+    const auto converted = convertGame(current, from, to, *policy);
+    if (!converted) {
+        prompts.error(tr("Convert for Other Game"),
+                      QString::fromStdString(converted.error().detail));
+        return nullptr;
+    }
+    const QFileInfo source(tab->file().path());
+    const auto suggested = source.dir().filePath(
+        QStringLiteral("%1-game%2.%3")
+            .arg(source.completeBaseName())
+            .arg(to == GameProfile::speedyBlupi1 ? 1 : 2)
+            .arg(source.suffix().isEmpty() ? QStringLiteral("blp") : source.suffix()));
+    const auto path = prompts.saveAsPath(suggested);
+    if (path.isEmpty()) {
+        return nullptr;
+    }
+    const auto key = samePathKey(path);
+    for (int index = 0; index < tabCount(); ++index) {
+        if (samePathKey(tabAt(index)->file().path()) == key) {
+            prompts.error(tr("Convert for Other Game"),
+                          tr("%1 is open in the editor. Choose another file: the conversion "
+                             "never replaces its source.")
+                              .arg(path));
+            return nullptr;
+        }
+    }
+    QSaveFile file(path);
+    file.setDirectWriteFallback(false);
+    const auto size = static_cast<qint64>(converted->bytes.size());
+    if (!file.open(QIODevice::WriteOnly) ||
+        file.write(reinterpret_cast<const char *>(converted->bytes.data()), size) != size ||
+        !file.commit()) {
+        prompts.error(tr("Convert for Other Game"), tr("%1 was not written.").arg(path));
+        return nullptr;
+    }
+    rememberProfile(path, to);
+    auto *opened = openPath(path);
+    if (opened != nullptr) {
+        opened->setProfile(to);
+    }
+    statusBar()->showMessage(
+        converted->removedCount != 0
+            ? tr("Converted copy written to %1; %n place(s) cleared", nullptr,
+                 static_cast<int>(converted->removedCount))
+                  .arg(path)
+            : tr("Converted copy written to %1").arg(path),
+        8000);
+    return opened;
+}
+
 DocumentTab *MainWindow::convertRevisionOf(DocumentTab *tab) {
     if (tab == nullptr) {
         return nullptr;
@@ -3007,6 +3130,7 @@ void MainWindow::updateUi() {
     }
     experimentalLabel_->setVisible(experimental_);
     enable("fileConvertRevision", hasTab);
+    enable("fileConvertGame", hasTab && tab->profile() != GameProfile::unknown);
     enable("fileSnapshots", hasTab);
     enable("fileProperties", hasTab);
     enable("fileExportPng", hasTab);

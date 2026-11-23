@@ -6,9 +6,9 @@
 
 namespace eggbert {
 
-// Headless commands: `info`, `validate`, `diff`, `export-png`, `convert` and
-// `new`. They never change a world file they read (export-png, convert and
-// new write only their output file).
+// Headless commands: `info`, `validate`, `diff`, `export-png`, `convert`,
+// `convert-game` and `new`. They never change a world file they read
+// (export-png, the two converters and new write only their output file).
 //
 // Exit codes: 0 success (validate: no error finding; diff: files equal),
 // 1 the command ran and found something (validate: errors; diff: files
@@ -21,5 +21,9 @@ namespace eggbert {
 // `arguments` without the program name; the first one is the command.
 int runCommandLine(const QStringList &arguments, QTextStream &out, QTextStream &err);
 [[nodiscard]] QString commandLineUsage();
+
+struct GameConversionNote;
+// One line for a conversion note: kind, what, how often, where, why.
+[[nodiscard]] QString describeGameNote(const GameConversionNote &note);
 
 } // namespace eggbert
