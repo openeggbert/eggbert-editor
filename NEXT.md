@@ -98,6 +98,11 @@ Slices A–Q are done as far as they could be verified here. Every bullet of `pl
 4. Evidence gaps listed under **Original-data evidence**: other editions, original 1.0/1.1 worlds, behaviour in the running games, the 25 eggs stored four pixels higher than the catalog writes.
 5. Still English by design: the Binary Inspector's structural names and arithmetic, citations, the diagnostics file and the command line.
 
+### After slice Q (2026-11-23): pictures of the Installation dock drawn with game artwork
+
+- `InstallationPanel::setArtwork`: the list appears with the schematic pictures as before; while drawing with game artwork is on, each picture is then replaced by one drawn with the game's pictures (no backdrop), one world per turn of the event loop, and kept by file path, time and size so that an unchanged file is not drawn again. For all three games.
+- Test: `mobile_world_ui` (pictures start schematic, are replaced through the event loop, survive a refresh, and a changed file is drawn again). Measured privately on the port's 78 worlds: 1.3 s for all pictures, without holding the window up.
+
 ### After slice Q (2026-11-23): Czech for Qt's own buttons and menus
 
 - The standard buttons of dialogs were English in a Czech interface wherever Qt's own translation files are missing (they are not part of every package). `src/app/qt_texts.cpp` marks the texts Qt looks up for standard buttons (`QPlatformTheme`), the details button of a message box, the context menu of an input field, the menu of a number box, the dock buttons and the scroll-bar menu — 55 texts, contexts and wording checked against the strings of the installed Qt libraries where that was possible — and the editor's catalogue translates them (1,408 messages, none unfinished). `main.cpp` also installs Qt's own `qtbase_<language>` translation when it is there; the editor's catalogue is asked first.
@@ -117,7 +122,7 @@ The owner's instruction: the editor of Mobile Eggbert worlds must show the game'
 - **Czech**: 1,350 messages, none unfinished; the refusals of the image are translated through `coreText`; both guides have the rewritten section **Mobile Eggbert worlds** and the same structure.
 - **Windows line ends** (added after the first version of this slice): a text world with CR LF opens in the full editor like any other; the carriage return counts as part of the line break in `TextWorld` (`hasCarriageReturns`), every one stays where it was on saving, new object lines end the same way, and the tab shows a caution with what is and is not known about the port reading such a file.
 - **Campaign Overview** (added after the first version of this slice): the port's `IsWorld` and its door transitions were read and equal the second game's rule, so `doorCode`, `doorTarget`, `reviewDoors`, `reviewCampaign` and File → Campaign Overview now work for the port's worlds folder (hubs 10 to 140, missions, 199; no network worlds or demos). Checked privately on the 78 worlds: 76 door tiles, every door leads to a present world, every hub and mission is led to, nothing reported about the numbering.
-- **Limits, stated in the guide**: campaign packs are not offered for these worlds; the port has no music files; object durations are shown as stored, not as the port rescales them; thumbnails in the Installation dock are schematic, as for the Windows games.
+- **Limits, stated in the guide**: campaign packs are not offered for these worlds; the port has no music files; object durations are shown as stored, not as the port rescales them.
 
 ### After the stop review of 2026-11-23: hosted CI, the rest of the Czech, text-world shapes
 

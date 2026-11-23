@@ -1,8 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #pragma once
 
+#include <QHash>
+#include <QImage>
+#include <QPixmap>
 #include <QWidget>
 
+#include <deque>
+#include <memory>
 #include <vector>
 
 #include "world/installation.hpp"
@@ -10,8 +15,11 @@
 class QLabel;
 class QListWidget;
 class QPushButton;
+class QTimer;
 
 namespace eggbert {
+
+class GameAssets;
 
 // The worlds of a game installation the user chose: every official and
 // user-designed world in its data directory with a small picture, its role
@@ -36,6 +44,15 @@ public:
     // choose one.
     void setInstallation(const QString &gameDirectory, GameProfile profile);
     void refresh();
+    // The game's pictures for the small pictures of the list; none for
+    // schematic ones. The list appears with schematic pictures at once and
+    // each is then replaced by one drawn with the artwork, one world at a
+    // time, so a large installation does not hold the window up.
+    void setArtwork(std::shared_ptr<const GameAssets> artwork);
+    // How many pictures are still waiting to be drawn with artwork, and a
+    // way to draw them all now.
+    [[nodiscard]] std::size_t pendingThumbnails() const { return pending_.size(); }
+    void finishThumbnails();
     [[nodiscard]] const QString &gameDirectory() const { return gameDirectory_; }
     // The folder its worlds are in (DATA, or Mobile Eggbert's `worlds`), or
     // empty.
@@ -68,6 +85,23 @@ signals:
     void chooseDirectoryRequested();
 
 private:
+    struct Loaded {
+        bool complete = false;
+        QString title;
+        QImage picture;
+    };
+    // Reads a world file and draws its small picture, schematically or with
+    // the given artwork.
+    [[nodiscard]] Loaded loadWorld(const QString &path, const GameAssets *artwork) const;
+    [[nodiscard]] QString thumbnailKey(const QString &path) const;
+    void drawNextThumbnail();
+
+    std::shared_ptr<const GameAssets> artwork_;
+    // Rows whose picture is still schematic, and pictures drawn with the
+    // current artwork by file (path, time and size).
+    std::deque<int> pending_;
+    QHash<QString, QPixmap> thumbnails_;
+    QTimer *thumbnailTimer_ = nullptr;
     QString gameDirectory_;
     QString dataDirectory_;
     GameProfile profile_ = GameProfile::unknown;

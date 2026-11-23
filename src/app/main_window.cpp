@@ -3507,6 +3507,9 @@ void MainWindow::refreshInstallationActions() {
     if (installation_->gameDirectory() != directory) {
         installation_->setInstallation(directory, profile);
     }
+    // The small pictures are drawn like the map: with the game's pictures
+    // while drawing with game artwork is on.
+    installation_->setArtwork(artworkEnabled_ ? artworkFor(profile) : nullptr);
     bool complete = false;
     if (tab != nullptr) {
         const auto &probe = tab->document().probe();

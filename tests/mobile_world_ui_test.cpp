@@ -369,6 +369,44 @@ int main(int argc, char **argv) {
         CHECK(panel->list()->item(0)->text().startsWith("world011.txt - mission"));
         CHECK(panel->list()->item(1)->text().startsWith("world020.txt - group hub"));
         CHECK(!panel->list()->item(0)->icon().isNull());
+        // The small pictures start schematic and are then drawn with the
+        // port's pictures, one world per turn of the event loop.
+        {
+            const auto holds = [&](const QColor &colour) {
+                const auto image =
+                    panel->list()->item(0)->icon().pixmap(64, 64).toImage().convertToFormat(
+                        QImage::Format_ARGB32);
+                for (int y = 0; y < image.height(); ++y) {
+                    for (int x = 0; x < image.width(); ++x) {
+                        if (image.pixelColor(x, y) == colour) {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            };
+            CHECK_EQ(panel->pendingThumbnails(), std::size_t{2});
+            CHECK(!holds(portColor(0, 40)));
+            for (int turn = 0; turn < 100 && panel->pendingThumbnails() != 0; ++turn) {
+                QCoreApplication::processEvents();
+            }
+            CHECK_EQ(panel->pendingThumbnails(), std::size_t{0});
+            CHECK(holds(portColor(0, 40)));
+            // Unchanged files keep their pictures; a changed one is drawn again.
+            panel->refresh();
+            CHECK_EQ(panel->pendingThumbnails(), std::size_t{0});
+            CHECK(holds(portColor(0, 40)));
+            auto other = original;
+            other.replace(",,,,40,", ",,,,41,");
+            writeFile(port.worldPath, other + "\n");
+            panel->refresh();
+            CHECK_EQ(panel->pendingThumbnails(), std::size_t{1});
+            panel->finishThumbnails();
+            CHECK(holds(portColor(0, 41)) && !holds(portColor(0, 40)));
+            writeFile(port.worldPath, original);
+            panel->refresh();
+            panel->finishThumbnails();
+        }
         CHECK(panel->summary()->text().contains("2 world(s) of Mobile Eggbert"));
         CHECK(panel->deployButton()->isEnabled());
         // Campaign packs hold .blp worlds; the overview works for the port.
