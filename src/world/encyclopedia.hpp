@@ -2,6 +2,7 @@
 #pragma once
 
 #include <cstdint>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -23,6 +24,14 @@ struct EncyclopediaEntry {
     std::string group;
     // What is stored for it, in words and numbers.
     std::string facts;
+    // The same sentence as its parts, each a pattern (%1 to %9) with what
+    // fills it, so that an interface can show it in another language: the
+    // filled parts in order are `facts`.
+    struct FactPart {
+        std::string_view pattern;
+        std::vector<std::string> arguments;
+    };
+    std::vector<FactPart> factParts;
     std::string provenance;
 
     // How the editor selects it. Tiles: layer and the numbers the entry
@@ -39,6 +48,9 @@ struct EncyclopediaEntry {
     std::int16_t channel = 0;
     std::int16_t icon = 0;
 };
+
+// Every pattern a fact part can be, for translation catalogues.
+[[nodiscard]] std::span<const std::string_view> encyclopediaFactPatterns();
 
 // Every tile entry and object of the game editor's groups, then the adaptive
 // border families, in catalog order. Empty for GameProfile::unknown.

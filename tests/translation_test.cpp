@@ -10,12 +10,20 @@
 #include "app/catalog_translator.hpp"
 #include "app/cli.hpp"
 #include "app/conversion_texts.hpp"
+#include "app/core_texts.hpp"
 #include "app/doctor_texts.hpp"
 #include "app/main_window.hpp"
 
 #include "world/adaptive.hpp"
 #include "world/doctor.hpp"
 #include "world/editor_groups.hpp"
+#include "world/encyclopedia.hpp"
+#include "world/text_world.hpp"
+#include "world/scenario.hpp"
+#include "world/revision_convert.hpp"
+#include "world/merge.hpp"
+#include "world/demo_recording.hpp"
+#include "world/campaign.hpp"
 #include "world/game_convert.hpp"
 #include "world/installation.hpp"
 #include "world/object_catalog.hpp"
@@ -264,6 +272,54 @@ int main(int argc, char **argv) {
         CHECK(conversionNoteLine(notes[1]).endsWith("draws its own block 50 here."));
     }
 
+    // The encyclopedia's facts: every part's pattern is marked, and without
+    // a catalogue the text is the core's.
+    {
+        QSet<QString> marked;
+        for (const auto *text : encyclopediaTexts()) {
+            marked.insert(QString::fromUtf8(text));
+        }
+        for (const auto pattern : encyclopediaFactPatterns()) {
+            CHECK(marked.contains(
+                QString::fromUtf8(pattern.data(), static_cast<qsizetype>(pattern.size()))));
+        }
+        CHECK_EQ(marked.size(), static_cast<qsizetype>(encyclopediaFactPatterns().size()));
+        for (const auto &entry : encyclopedia(GameProfile::speedyBlupi2)) {
+            CHECK_EQ(encyclopediaFactsText(entry), QString::fromStdString(entry.facts));
+        }
+    }
+
+    // Other sentences of the core are looked up by their pattern: the
+    // sentence with its numbers replaced by placeholders.
+    {
+        QStringList numbers;
+        CHECK_EQ(corePattern("Hub 10 has none of its missions (11 to 18).", &numbers),
+                 QString("Hub %1 has none of its missions (%2 to %3)."));
+        CHECK(numbers == (QStringList{"10", "11", "18"}));
+        // A minus sign belongs to a number only after a space, a parenthesis
+        // or at the start.
+        CHECK_EQ(corePattern("values below -1 and (-2), u001-002.blp, 204-byte", &numbers),
+                 QString("values below %1 and (%2), u%3-%4.blp, %5-byte"));
+        CHECK(numbers == (QStringList{"-1", "-2", "001", "002", "204"}));
+        CHECK_EQ(corePattern("-7 first", &numbers), QString("%1 first"));
+        CHECK_EQ(corePattern("no numbers"), QString("no numbers"));
+        // Without a catalogue, and for sentences nobody listed, the text is
+        // the core's own.
+        for (const auto *sentence :
+             {"Hub 10 has none of its missions (11 to 18).", "Something nobody listed 5.",
+              "1 2 3 4 5 6 7 8 9 10 numbers are too many", ""}) {
+            CHECK_EQ(coreText(sentence), QString(sentence));
+        }
+        // Every listed pattern is a pattern (numbering it again changes nothing).
+        for (const auto *pattern : coreTexts()) {
+            QString renumbered(QString::fromUtf8(pattern));
+            for (int number = 1; number <= 9; ++number) {
+                renumbered.replace(QStringLiteral("%%1").arg(number), QStringLiteral("0"));
+            }
+            CHECK_EQ(corePattern(renumbered.toStdString()), QString::fromUtf8(pattern));
+        }
+    }
+
     // English window first: the reference texts.
     QStringList englishMenus;
     {
@@ -278,6 +334,91 @@ int main(int argc, char **argv) {
     // With the catalogue installed the window is Czech where translated and
     // English elsewhere.
     QCoreApplication::installTranslator(&czech);
+    // Sentences the core really produces come out translated, with their
+    // numbers in place.
+    {
+        CHECK_EQ(coreText("Hub 10 has none of its missions (11 to 18)."),
+                 QString::fromUtf8("Rozcestn\u00edk 10 nem\u00e1 \u017e\u00e1dnou ze sv\u00fdch mis\u00ed (11 a\u017e 18)."));
+        CHECK_EQ(coreText("Something nobody listed 5."), QString("Something nobody listed 5."));
+        // A campaign with a hub but no missions, and a missing first world.
+        Campaign campaign;
+        campaign.game = GameProfile::speedyBlupi1;
+        campaign.entries.push_back({WorldSlot{false, 0, 10}, "world010.blp", 0, {}, {}});
+        campaign.entries.push_back({WorldSlot{false, 0, 55}, "world055.blp", 0, {}, {}});
+        const auto found = reviewCampaign(campaign);
+        CHECK(found.size() >= 2);
+        for (const auto &finding : found) {
+            CHECK(coreText(finding.text) != QString::fromStdString(finding.text));
+            CHECK(coreText(finding.basis) != QString::fromUtf8(finding.basis.data()));
+        }
+        // A text world with shape problems and the labels of its undo steps.
+        const auto broken = TextWorld::parse(
+            "DescFile: music=x \nDecor: \n1,2\nMoveObject: type=0 \nMoveObject: type=5 \n");
+        const auto problems = broken.problems();
+        CHECK(problems.size() >= 6);
+        for (const auto &problem : problems) {
+            if (coreText(problem) == QString::fromStdString(problem)) {
+                std::fprintf(stderr, "not translated: %s\n", problem.c_str());
+            }
+            CHECK(coreText(problem) != QString::fromStdString(problem));
+        }
+        for (const auto *label : {"Remove object 2", "Duplicate object 1", "Add object"}) {
+            CHECK(coreText(label) != QString(label));
+        }
+        CHECK_EQ(coreText("BigDecor (0, 99)"), QString("BigDecor (0, 99)")); // a name and numbers
+        // Revision conversion: what would be lost, and the notes.
+        auto crowded = eggbert::test::blankWorld(eggbert::test::fxRevision13);
+        eggbert::test::put16(
+            crowded, eggbert::test::fxCellOffset(eggbert::test::fxRevision13.bigDecorOffset, 1, 1), 20);
+        eggbert::test::put16(crowded, eggbert::test::fxSlotOffset(eggbert::test::fxRevision13, 150), 5);
+        const auto refused = convertRevision(crowded, FormatRevision::v1_0, false);
+        CHECK(!refused.has_value() && refused.error().sentences.size() == 2);
+        if (!refused.has_value()) {
+            for (const auto &sentence : refused.error().sentences) {
+                CHECK(coreText(sentence) != QString::fromStdString(sentence));
+            }
+        }
+        const auto upgraded = convertRevision(eggbert::test::blankWorld(eggbert::test::fxRevision10),
+                                              FormatRevision::v1_3, false);
+        CHECK(upgraded.has_value() && !upgraded->notes.empty());
+        if (upgraded.has_value()) {
+            for (const auto &note : upgraded->notes) {
+                CHECK(coreText(note) != QString::fromStdString(note));
+            }
+        }
+        // Merge, stamp and recording refusals.
+        const eggbert::test::Bytes whole = eggbert::test::blankWorld(eggbert::test::fxRevision13);
+        const eggbert::test::Bytes other = eggbert::test::blankWorld(eggbert::test::fxRevision12);
+        auto longer = whole;
+        longer.push_back(std::byte{0});
+        for (const auto &error :
+             {mergeWorlds(whole, whole, eggbert::test::Bytes(10), MergePreference::none).error(),
+              mergeWorlds(whole, other, whole, MergePreference::none).error(),
+              mergeWorlds(whole, longer, whole, MergePreference::none).error()}) {
+            CHECK(coreText(error) != QString::fromStdString(error));
+        }
+        for (const auto *text :
+             {"The stamp is empty or damaged.", "This world has no object records.",
+              "The stamp has 3 object(s) but only 2 object slot(s) are free.",
+              "An object of the stamp would lie outside the world here. Place the stamp further "
+              "from the edge."}) {
+            CHECK(coreText(text) != QString(text));
+        }
+        for (const auto &bad : {eggbert::test::Bytes(10), eggbert::test::Bytes(205)}) {
+            const auto parsed = DemoRecording::parse(bad);
+            CHECK(!parsed.has_value());
+            if (!parsed.has_value()) {
+                CHECK(coreText(parsed.error()) != QString::fromStdString(parsed.error()));
+            }
+        }
+        const auto scenarioError = checkScenario("nonsense\n", {}).error();
+        CHECK(coreText(scenarioError) != QString::fromStdString(scenarioError));
+    }
+    for (const auto &entry : encyclopedia(GameProfile::speedyBlupi1)) {
+        const auto facts = encyclopediaFactsText(entry);
+        CHECK(facts != QString::fromStdString(entry.facts));
+        CHECK(!facts.contains('%') && facts.endsWith('.'));
+    }
     CHECK(catalogText("group hub") != QString("group hub"));
     CHECK(catalogText("first world") != QString("first world"));
     for (const auto &note : notes) {

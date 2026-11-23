@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
+#include "world/doctor.hpp"
 #include "world/encyclopedia.hpp"
 
 #include <algorithm>
@@ -32,6 +33,29 @@ std::string numberList(const std::vector<std::int16_t> &values) {
     return result;
 }
 
+// The sentences of the facts, as patterns; a part is added with `say`.
+constexpr std::string_view factPatterns[] = {
+    "Foreground tile %1",
+    "Foreground tiles %1",
+    "Back layer (bigDecor) tile %1",
+    "Back layer (bigDecor) tiles %1",
+    "; the game's editor cycles through them in this order",
+    "; reshaped to fit its neighbours (adaptive family %1)",
+    ".",
+    "Object type %1 (%2); channel %3, icon %4; placed %5, %6 pixels into its cell",
+    "; travels between its start and its end, %1 tick(s) per cell out and %2 back",
+    ", waiting %1 tick(s) at the start and %2 at the end",
+    "; the stored icon is a tile number of your choice",
+    "Border family painted from tile %1; its own cells keep their value and border tiles are "
+    "written into the empty cells around them.",
+    "Border family painted from tile %1; each cell takes the form that fits its four neighbours.",
+};
+
+void say(EncyclopediaEntry &entry, std::string_view pattern, std::vector<std::string> arguments = {}) {
+    entry.facts += fillPattern(pattern, arguments);
+    entry.factParts.push_back({pattern, std::move(arguments)});
+}
+
 EncyclopediaEntry tileEntry(const EditorGroup &group, const TileEntry &tile) {
     EncyclopediaEntry entry;
     entry.kind = EntryKind::tile;
@@ -39,19 +63,21 @@ EncyclopediaEntry tileEntry(const EditorGroup &group, const TileEntry &tile) {
     entry.group = std::string(group.name);
     entry.layer = tile.layer;
     entry.values.assign(tile.values.begin(), tile.values.end());
-    entry.facts = tile.layer == SectionKind::bigDecor ? "Back layer (bigDecor) " : "Foreground ";
-    entry.facts += entry.values.size() == 1 ? "tile " : "tiles ";
-    entry.facts += numberList(entry.values);
-    if (entry.values.size() > 1) {
-        entry.facts += "; the game's editor cycles through them in this order";
+    const bool back = tile.layer == SectionKind::bigDecor;
+    const bool several = entry.values.size() > 1;
+    say(entry,
+        back ? (several ? "Back layer (bigDecor) tiles %1" : "Back layer (bigDecor) tile %1")
+             : (several ? "Foreground tiles %1" : "Foreground tile %1"),
+        {numberList(entry.values)});
+    if (several) {
+        say(entry, "; the game's editor cycles through them in this order");
     }
     if (!tile.brushes.empty()) {
         entry.brush = std::string(tile.brushes.front());
-        entry.facts += "; reshaped to fit its neighbours (adaptive family ";
-        entry.facts += std::string(tile.brushes.front());
-        entry.facts += ")";
+        say(entry, "; reshaped to fit its neighbours (adaptive family %1)",
+            {std::string(tile.brushes.front())});
     }
-    entry.facts += ".";
+    say(entry, ".");
     entry.provenance = std::string(tile.provenance);
     return entry;
 }
@@ -65,30 +91,31 @@ EncyclopediaEntry objectEntry(const EditorGroup &group, const ObjectPreset &pres
     entry.type = preset.type;
     entry.channel = preset.channel;
     entry.icon = preset.icon;
-    entry.facts = "Object type " + std::to_string(preset.type) + " (" +
-                  std::string(preset.sourceName) + "); channel " +
-                  std::to_string(preset.channel) + ", icon " + std::to_string(preset.icon) +
-                  "; placed " + std::to_string(preset.offsetX) + ", " +
-                  std::to_string(preset.offsetY) + " pixels into its cell";
+    say(entry, "Object type %1 (%2); channel %3, icon %4; placed %5, %6 pixels into its cell",
+        {std::to_string(preset.type), std::string(preset.sourceName),
+         std::to_string(preset.channel), std::to_string(preset.icon),
+         std::to_string(preset.offsetX), std::to_string(preset.offsetY)});
     if (preset.hasPath) {
-        entry.facts += "; travels between its start and its end, " +
-                       std::to_string(preset.stepAdvance) + " tick(s) per cell out and " +
-                       std::to_string(preset.stepRecede) + " back";
+        say(entry, "; travels between its start and its end, %1 tick(s) per cell out and %2 back",
+            {std::to_string(preset.stepAdvance), std::to_string(preset.stepRecede)});
         if (preset.timeStopStart != 0 || preset.timeStopEnd != 0) {
-            entry.facts += ", waiting " + std::to_string(preset.timeStopStart) +
-                           " tick(s) at the start and " + std::to_string(preset.timeStopEnd) +
-                           " at the end";
+            say(entry, ", waiting %1 tick(s) at the start and %2 at the end",
+                {std::to_string(preset.timeStopStart), std::to_string(preset.timeStopEnd)});
         }
     }
     if (preset.iconIsChoice) {
-        entry.facts += "; the stored icon is a tile number of your choice";
+        say(entry, "; the stored icon is a tile number of your choice");
     }
-    entry.facts += ".";
+    say(entry, ".");
     entry.provenance = std::string(preset.provenance);
     return entry;
 }
 
 } // namespace
+
+std::span<const std::string_view> encyclopediaFactPatterns() {
+    return factPatterns;
+}
 
 std::vector<EncyclopediaEntry> encyclopedia(GameProfile profile) {
     std::vector<EncyclopediaEntry> entries;
@@ -109,11 +136,13 @@ std::vector<EncyclopediaEntry> encyclopedia(GameProfile profile) {
         entry.group = "Adaptive borders";
         entry.id = std::string(family.id);
         entry.values.assign(1, family.seed);
-        entry.facts = "Border family painted from tile " + std::to_string(family.seed) +
-                      (family.bordersEmptyNeighbours
-                           ? "; its own cells keep their value and border tiles are written "
-                             "into the empty cells around them."
-                           : "; each cell takes the form that fits its four neighbours.");
+        say(entry,
+            family.bordersEmptyNeighbours
+                ? "Border family painted from tile %1; its own cells keep their value and "
+                  "border tiles are written into the empty cells around them."
+                : "Border family painted from tile %1; each cell takes the form that fits its "
+                  "four neighbours.",
+            {std::to_string(family.seed)});
         entry.provenance = std::string(family.provenance);
         entries.push_back(std::move(entry));
     }

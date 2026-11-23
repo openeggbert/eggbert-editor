@@ -5,12 +5,14 @@
 #include "world/encyclopedia.hpp"
 
 #include "world/adaptive.hpp"
+#include "world/doctor.hpp"
 #include "world/editor_groups.hpp"
 #include "world/object_catalog.hpp"
 
 #include "check.hpp"
 
 #include <algorithm>
+#include <cstdio>
 #include <set>
 
 using namespace eggbert;
@@ -99,6 +101,31 @@ int main() {
                       : std::ranges::find(entry.values, std::int16_t{5}) != entry.values.end());
         }
         CHECK(!searchEncyclopedia(entries, "5").empty());
+    }
+    // The facts are the filled parts in order, every part is a listed
+    // pattern, and every listed pattern occurs in one of the two games.
+    {
+        const auto listed = encyclopediaFactPatterns();
+        std::set<std::string_view> used;
+        for (const auto profile : {GameProfile::speedyBlupi1, GameProfile::speedyBlupi2}) {
+            for (const auto &entry : encyclopedia(profile)) {
+                std::string rebuilt;
+                for (const auto &part : entry.factParts) {
+                    CHECK(std::ranges::find(listed, part.pattern) != listed.end());
+                    rebuilt += fillPattern(part.pattern, part.arguments);
+                    used.insert(part.pattern);
+                }
+                CHECK(rebuilt == entry.facts);
+                CHECK(!entry.factParts.empty());
+            }
+        }
+        for (const auto pattern : listed) {
+            if (!used.contains(pattern)) {
+                std::fprintf(stderr, "fact pattern never used: %.*s\n",
+                             static_cast<int>(pattern.size()), pattern.data());
+            }
+            CHECK(used.contains(pattern));
+        }
     }
     // The second game knows more.
     CHECK(encyclopedia(GameProfile::speedyBlupi2).size() >

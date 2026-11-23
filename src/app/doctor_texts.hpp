@@ -6,6 +6,7 @@
 #include <span>
 
 #include "world/doctor.hpp"
+#include "world/encyclopedia.hpp"
 
 namespace eggbert {
 
@@ -21,5 +22,10 @@ namespace eggbert {
 // Every pattern, marked for the translation tools. A test checks that none
 // the core can produce is missing here.
 [[nodiscard]] std::span<const char *const> doctorTexts();
+
+// The facts of an encyclopedia entry ("what is stored") in the interface's
+// language: each part's pattern translated and filled, in order.
+[[nodiscard]] QString encyclopediaFactsText(const EncyclopediaEntry &entry);
+[[nodiscard]] std::span<const char *const> encyclopediaTexts();
 
 } // namespace eggbert

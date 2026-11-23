@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "inflate.hpp"
 
+#include <QCoreApplication>
+
 #include <array>
 #include <optional>
 
@@ -131,9 +133,16 @@ int decode(BitReader &reader, const Code &code) {
     return -2;
 }
 
-const QString truncated = QStringLiteral("The compressed data ends too early.");
-const QString damaged = QStringLiteral("The compressed data is damaged.");
-const QString tooLong = QStringLiteral("The compressed data holds more than its stated size.");
+// Looked up when used, so that a translator installed after start applies.
+struct Message {
+    const char *text;
+    operator QString() const { return QCoreApplication::translate("eggbert::Files", text); }
+};
+constexpr Message truncated{
+    QT_TRANSLATE_NOOP("eggbert::Files", "The compressed data ends too early.")};
+constexpr Message damaged{QT_TRANSLATE_NOOP("eggbert::Files", "The compressed data is damaged.")};
+constexpr Message tooLong{
+    QT_TRANSLATE_NOOP("eggbert::Files", "The compressed data holds more than its stated size.")};
 
 // Literals, lengths and distances until the end-of-block symbol.
 std::optional<QString> codedBlock(BitReader &reader, QByteArray &out, qint64 size,
@@ -337,10 +346,10 @@ std::expected<QByteArray, QString> inflateRaw(const QByteArray &packed, qint64 s
     }
     if (out.size() != size) {
         return std::unexpected(
-            QStringLiteral("The compressed data holds less than its stated size."));
+            QCoreApplication::translate("eggbert::Files", "The compressed data holds less than its stated size."));
     }
     if (reader.remaining() != 0) {
-        return std::unexpected(QStringLiteral("Bytes follow the end of the compressed data."));
+        return std::unexpected(QCoreApplication::translate("eggbert::Files", "Bytes follow the end of the compressed data."));
     }
     return out;
 }

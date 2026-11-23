@@ -244,9 +244,13 @@ int main(int argc, char **argv) {
         exportOptions.render = options;
         const auto path = dir.filePath("artwork.png");
         CHECK(exportWorldPng(world, GameProfile::speedyBlupi1, exportOptions, path).ok);
-        QImageReader reader(path);
-        CHECK_EQ(reader.text("EggbertRenderer"), QString("artwork-1"));
-        CHECK(reader.read().pixelColor(3 * 16 + 8, 70 * 16 + 8) == tile(9));
+        {
+            // Closed again before the file is written anew (a file that is
+            // open cannot be replaced on every system).
+            QImageReader reader(path);
+            CHECK_EQ(reader.text("EggbertRenderer"), QString("artwork-1"));
+            CHECK(reader.read().pixelColor(3 * 16 + 8, 70 * 16 + 8) == tile(9));
+        }
         exportOptions.render.artwork.reset();
         CHECK(exportWorldPng(world, GameProfile::speedyBlupi1, exportOptions, path).ok);
         CHECK_EQ(QImageReader(path).text("EggbertRenderer"), QString("schematic-1"));

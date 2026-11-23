@@ -67,6 +67,7 @@
 #include "app/encyclopedia_dialog.hpp"
 #include "app/installation_panel.hpp"
 #include "app/conversion_texts.hpp"
+#include "app/core_texts.hpp"
 #include "app/demo_viewer.hpp"
 #include "app/doctor_texts.hpp"
 #include "app/stamp_thumbnail.hpp"
@@ -92,6 +93,29 @@
 namespace eggbert {
 
 namespace {
+
+// What a conversion refuses or loses, sentence by sentence in the
+// interface's language.
+QString conversionFailureText(const ConversionFailure &failure) {
+    if (failure.sentences.empty()) {
+        return coreText(failure.detail);
+    }
+    QStringList sentences;
+    for (const auto &sentence : failure.sentences) {
+        sentences << coreText(sentence);
+    }
+    return sentences.join(QLatin1Char(' '));
+}
+
+// A note of a revision conversion; what was lost is marked "Lost: ".
+QString conversionNoteText(const std::string &note) {
+    constexpr std::string_view lost = "Lost: ";
+    if (note.starts_with(lost)) {
+        return MainWindow::tr("Lost: %1").arg(coreText(std::string_view(note).substr(lost.size())));
+    }
+    return coreText(note);
+}
+
 
 constexpr int maximumRecentFiles = 10;
 const char *const worldFilter =
@@ -978,13 +1002,13 @@ void MainWindow::installDefaultPrompts() {
             bool possible = result.has_value();
             if (result) {
                 for (const auto &note : result->notes) {
-                    lines << QString::fromStdString(note);
+                    lines << conversionNoteText(note);
                 }
                 if (lines.isEmpty()) {
                     lines << tr("Nothing is added or dropped.");
                 }
             } else {
-                lines << QString::fromStdString(result.error().detail);
+                lines << conversionFailureText(result.error());
             }
             const bool lossQuestion =
                 !result && result.error().error == ConversionError::wouldLoseData;
@@ -1426,12 +1450,17 @@ void MainWindow::createActions() {
                 if (!result) {
                     prompts.error(tr("Check Against Scenario"),
                                   tr("%1 is not a scenario. %2")
-                                      .arg(path, QString::fromStdString(result.error())));
+                                      .arg(path, coreText(result.error())));
                     return;
                 }
                 QStringList lines;
-                for (const auto &failure : result->failures) {
-                    lines << QString::fromStdString(failure);
+                for (const auto &failure : result->details) {
+                    lines << tr("Line %1: %2 is %3, expected %4 %5.")
+                                 .arg(failure.line)
+                                 .arg(QString::fromStdString(failure.name))
+                                 .arg(failure.actual)
+                                 .arg(QString::fromStdString(failure.comparison))
+                                 .arg(failure.wanted);
                 }
                 lines << tr("%1 expectation(s) checked, %2 failed.")
                              .arg(result->checked)
@@ -3505,7 +3534,7 @@ bool MainWindow::mergeInto(DocumentTab *tab) {
     const std::vector<std::byte> mine(mineBytes.begin(), mineBytes.end());
     const auto merged = mergeWorlds(span(*base), mine, span(*theirs), MergePreference::none);
     if (!merged) {
-        prompts.error(tr("Merge Changes"), QString::fromStdString(merged.error()));
+        prompts.error(tr("Merge Changes"), coreText(merged.error()));
         return false;
     }
     if (merged->fromTheirs == 0 && merged->conflicts.empty()) {
@@ -3897,13 +3926,11 @@ QString MainWindow::campaignOverview() const {
         lines << QStringLiteral("[%1] %2")
                      .arg(finding.severity == CampaignSeverity::warning ? tr("warning")
                                                                          : tr("note"),
-                          QString::fromStdString(finding.text));
+                          coreText(finding.text));
     }
     if (!findings.empty()) {
         lines << QString()
-              << tr("Basis: %1.")
-                     .arg(QString::fromUtf8(findings.front().basis.data(),
-                                            static_cast<qsizetype>(findings.front().basis.size())));
+              << tr("Basis: %1.").arg(coreText(findings.front().basis));
     }
     // Doors: which worlds the door tiles of the official worlds lead to.
     std::map<int, QByteArray> contents;
@@ -4128,8 +4155,7 @@ DocumentTab *MainWindow::convertGameOf(DocumentTab *tab) {
     // Everything there is to say, before anything is decided.
     const auto preview = convertGame(current, from, to, UnknownPolicy::keep);
     if (!preview) {
-        prompts.error(tr("Convert for Other Game"),
-                      QString::fromStdString(preview.error().detail));
+        prompts.error(tr("Convert for Other Game"), conversionFailureText(preview.error()));
         return nullptr;
     }
     const auto policy = prompts.convertGame(tab, to, preview->notes);
@@ -4138,8 +4164,7 @@ DocumentTab *MainWindow::convertGameOf(DocumentTab *tab) {
     }
     const auto converted = convertGame(current, from, to, *policy);
     if (!converted) {
-        prompts.error(tr("Convert for Other Game"),
-                      QString::fromStdString(converted.error().detail));
+        prompts.error(tr("Convert for Other Game"), conversionFailureText(converted.error()));
         return nullptr;
     }
     const QFileInfo source(tab->file().path());
@@ -4198,7 +4223,7 @@ DocumentTab *MainWindow::convertRevisionOf(DocumentTab *tab) {
     const auto converted =
         convertRevision(tab->document().currentBytes(), choice->first, choice->second);
     if (!converted) {
-        prompts.error(tr("Convert Revision"), QString::fromStdString(converted.error().detail));
+        prompts.error(tr("Convert Revision"), conversionFailureText(converted.error()));
         return nullptr;
     }
     const auto *descriptor = findRevision(choice->first);

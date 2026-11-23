@@ -898,6 +898,269 @@
   </message>
  </context>
  <context>
+  <name>eggbert::Core</name>
+  <message>
+   <source>world%1.blp is used by more than one entry.</source>
+   <translation>Soubor world%1.blp používá více než jedna položka.</translation>
+  </message>
+  <message>
+   <source>u%1-%2.blp is used by more than one entry.</source>
+   <translation>Soubor u%1-%2.blp používá více než jedna položka.</translation>
+  </message>
+  <message>
+   <source>World %1 is missing: the game always starts a campaign there.</source>
+   <translation>Svět %1 chybí: hra v něm kampaň vždy začíná.</translation>
+  </message>
+  <message>
+   <source>World %1 is outside the campaign numbering; the game reaches it only by its number.</source>
+   <translation>Svět %1 je mimo číslování kampaně; hra se do něj dostane jen podle jeho čísla.</translation>
+  </message>
+  <message>
+   <source>Hub %1 is missing, but missions of its group (%2 to %3) are present.</source>
+   <translation>Rozcestník %1 chybí, ale mise jeho skupiny (%2 až %3) jsou přítomny.</translation>
+  </message>
+  <message>
+   <source>Hub %1 has none of its missions (%2 to %3).</source>
+   <translation>Rozcestník %1 nemá žádnou ze svých misí (%2 až %3).</translation>
+  </message>
+  <message>
+   <source>World %1, which the game enters after world %2 is won, is missing.</source>
+   <translation>Svět %1, do kterého hra vstoupí po vyhrání světa %2, chybí.</translation>
+  </message>
+  <message>
+   <source>numbering rules of the games (hubs are world %1 and multiples of ten, a group has missions hub+%2 to hub+%3)</source>
+   <translation>pravidla číslování her (rozcestníky jsou svět %1 a násobky deseti, skupina má mise rozcestník+%2 až rozcestník+%3)</translation>
+  </message>
+  <message>
+   <source>The stamp is empty or damaged.</source>
+   <translation>Razítko je prázdné nebo poškozené.</translation>
+  </message>
+  <message>
+   <source>An object of the stamp would lie outside the world here. Place the stamp further from the edge.</source>
+   <translation>Některý objekt razítka by zde ležel mimo svět. Umístěte razítko dál od okraje.</translation>
+  </message>
+  <message>
+   <source>This world has no object records.</source>
+   <translation>Tento svět nemá záznamy objektů.</translation>
+  </message>
+  <message>
+   <source>The stamp has %1 object(s) but only %2 object slot(s) are free.</source>
+   <translation>Razítko má objektů: %1, ale volných slotů objektů je jen %2.</translation>
+  </message>
+  <message>
+   <source>There is no DescFile line.</source>
+   <translation>Chybí řádek DescFile.</translation>
+  </message>
+  <message>
+   <source>Line %1: the field dimDecor is missing or is not two numbers followed by a space.</source>
+   <translation>Řádek %1: pole dimDecor chybí nebo to nejsou dvě čísla následovaná mezerou.</translation>
+  </message>
+  <message>
+   <source>Line %1: the field posDecor is missing or is not two numbers followed by a space.</source>
+   <translation>Řádek %1: pole posDecor chybí nebo to nejsou dvě čísla následovaná mezerou.</translation>
+  </message>
+  <message>
+   <source>Line %1: the field blupiPos is missing or is not two numbers followed by a space.</source>
+   <translation>Řádek %1: pole blupiPos chybí nebo to nejsou dvě čísla následovaná mezerou.</translation>
+  </message>
+  <message>
+   <source>Line %1: the field music is missing or is not a number followed by a space.</source>
+   <translation>Řádek %1: pole music chybí nebo to není číslo následované mezerou.</translation>
+  </message>
+  <message>
+   <source>Line %1: the field region is missing or is not a number followed by a space.</source>
+   <translation>Řádek %1: pole region chybí nebo to není číslo následované mezerou.</translation>
+  </message>
+  <message>
+   <source>Line %1: the field blupiDir is missing or is not a number followed by a space.</source>
+   <translation>Řádek %1: pole blupiDir chybí nebo to není číslo následované mezerou.</translation>
+  </message>
+  <message>
+   <source>There is no Decor block.</source>
+   <translation>Chybí blok Decor.</translation>
+  </message>
+  <message>
+   <source>There is no BigDecor block.</source>
+   <translation>Chybí blok BigDecor.</translation>
+  </message>
+  <message>
+   <source>The Decor block ends after %1 of %2 lines.</source>
+   <translation>Blok Decor končí po %1 z %2 řádků.</translation>
+  </message>
+  <message>
+   <source>The BigDecor block ends after %1 of %2 lines.</source>
+   <translation>Blok BigDecor končí po %1 z %2 řádků.</translation>
+  </message>
+  <message>
+   <source>Line %1: the Decor block has only %2 of %3 lines before the next section.</source>
+   <translation>Řádek %1: blok Decor má před další sekcí jen %2 z %3 řádků.</translation>
+  </message>
+  <message>
+   <source>Line %1: the BigDecor block has only %2 of %3 lines before the next section.</source>
+   <translation>Řádek %1: blok BigDecor má před další sekcí jen %2 z %3 řádků.</translation>
+  </message>
+  <message>
+   <source>Line %1: the line has %2 entries; a column has %3 cells.</source>
+   <translation>Řádek %1: řádek má položek: %2; sloupec má %3 buněk.</translation>
+  </message>
+  <message>
+   <source>Line %1: entry %2 is not a number.</source>
+   <translation>Řádek %1: položka %2 není číslo.</translation>
+  </message>
+  <message>
+   <source>Line %1: the object field type is missing or is not a number followed by a space.</source>
+   <translation>Řádek %1: pole objektu type chybí nebo to není číslo následované mezerou.</translation>
+  </message>
+  <message>
+   <source>Line %1: the object field channel is missing or is not a number followed by a space.</source>
+   <translation>Řádek %1: pole objektu channel chybí nebo to není číslo následované mezerou.</translation>
+  </message>
+  <message>
+   <source>Line %1: the object field icon is missing or is not a number followed by a space.</source>
+   <translation>Řádek %1: pole objektu icon chybí nebo to není číslo následované mezerou.</translation>
+  </message>
+  <message>
+   <source>Line %1: the object field posStart is missing or is not two numbers followed by a space.</source>
+   <translation>Řádek %1: pole objektu posStart chybí nebo to nejsou dvě čísla následovaná mezerou.</translation>
+  </message>
+  <message>
+   <source>Line %1: the object field posEnd is missing or is not two numbers followed by a space.</source>
+   <translation>Řádek %1: pole objektu posEnd chybí nebo to nejsou dvě čísla následovaná mezerou.</translation>
+  </message>
+  <message>
+   <source>Line %1: the object field posCurrent is missing or is not two numbers followed by a space.</source>
+   <translation>Řádek %1: pole objektu posCurrent chybí nebo to nejsou dvě čísla následovaná mezerou.</translation>
+  </message>
+  <message>
+   <source>Line %1: the object's type is %2 or not readable; the game stops reading objects here and ignores the %3 object line(s) after it.</source>
+   <translation>Řádek %1: typ objektu je %2 nebo jej nelze přečíst; hra zde přestane objekty číst a ignoruje další řádky objektů (počet: %3).</translation>
+  </message>
+  <message>
+   <source>There are %1 object lines; the game reads the first %2.</source>
+   <translation>Řádků objektů je %1; hra čte prvních %2.</translation>
+  </message>
+  <message>
+   <source>Only a complete world of revision %1.%2 to %3.%4 can be converted.</source>
+   <translation>Převést lze jen úplný svět revize %1.%2 až %3.%4.</translation>
+  </message>
+  <message>
+   <source>Choose a revision other than the world's own.</source>
+   <translation>Zvolte jinou revizi, než jakou svět má.</translation>
+  </message>
+  <message>
+   <source>The title is kept in the file, but the games read it only from revision %1.%2.</source>
+   <translation>Název v souboru zůstává, ale hry jej čtou až od revize %1.%2.</translation>
+  </message>
+  <message>
+   <source>An empty bigDecor layer was added.</source>
+   <translation>Byla přidána prázdná vrstva bigDecor.</translation>
+  </message>
+  <message>
+   <source>%1 bigDecor cell(s) are not empty; revision %2.%3 has no bigDecor layer.</source>
+   <translation>Neprázdných buněk bigDecor: %1; revize %2.%3 vrstvu bigDecor nemá.</translation>
+  </message>
+  <message>
+   <source>The empty bigDecor layer was left out.</source>
+   <translation>Prázdná vrstva bigDecor byla vynechána.</translation>
+  </message>
+  <message>
+   <source>%1 free object slots were added.</source>
+   <translation>Bylo přidáno %1 volných slotů objektů.</translation>
+  </message>
+  <message>
+   <source>%1 object(s) are stored in slots %2 to %3; the target revision stores only %4 slots.</source>
+   <translation>Ve slotech %2 až %3 jsou uloženy objekty (počet: %1); cílová revize ukládá jen %4 slotů.</translation>
+  </message>
+  <message>
+   <source>%1 free slot(s) beyond the target's %2 hold leftover bytes that would be dropped.</source>
+   <translation>Volné sloty za hranicí %2 slotů cílové revize, které obsahují zbylé bajty a byly by zahozeny: %1.</translation>
+  </message>
+  <message>
+   <source>%1 empty object slots were left out.</source>
+   <translation>Bylo vynecháno %1 prázdných slotů objektů.</translation>
+  </message>
+  <message>
+   <source>%1 byte(s) after the layout were carried over.</source>
+   <translation>Bajty za rozložením byly přeneseny (počet: %1).</translation>
+  </message>
+  <message>
+   <source>All three files must be complete worlds of a known revision.</source>
+   <translation>Všechny tři soubory musí být úplné světy známé revize.</translation>
+  </message>
+  <message>
+   <source>The three files are not of the same revision. Convert them to one revision first.</source>
+   <translation>Tři soubory nejsou stejné revize. Nejprve je převeďte na jednu revizi.</translation>
+  </message>
+  <message>
+   <source>The three files differ in length (bytes after the world); they cannot be merged position by position.</source>
+   <translation>Tři soubory se liší délkou (bajty za světem); nelze je sloučit pozici po pozici.</translation>
+  </message>
+  <message>
+   <source>Choose the two different games to convert between.</source>
+   <translation>Zvolte dvě různé hry, mezi kterými se má převádět.</translation>
+  </message>
+  <message>
+   <source>%1 stored value(s) in %2 place(s) are unknown to the target game.</source>
+   <translation>Uložené hodnoty, které cílová hra nezná: %1 (počet míst: %2).</translation>
+  </message>
+  <message>
+   <source>The values unknown to the target game could not be removed.</source>
+   <translation>Hodnoty, které cílová hra nezná, se nepodařilo odstranit.</translation>
+  </message>
+  <message>
+   <source>The file is shorter than a recording's %1-byte header.</source>
+   <translation>Soubor je kratší než %1bajtová hlavička záznamu.</translation>
+  </message>
+  <message>
+   <source>The header does not carry revision %1.%2.</source>
+   <translation>Hlavička neobsahuje revizi %1.%2.</translation>
+  </message>
+  <message>
+   <source>The reserved part of the header is not zero.</source>
+   <translation>Rezervovaná část hlavičky není nulová.</translation>
+  </message>
+  <message>
+   <source>The events do not fill whole four-byte records.</source>
+   <translation>Události nevyplňují celé čtyřbajtové záznamy.</translation>
+  </message>
+  <message>
+   <source>There are more than the %1,%2 events the games record.</source>
+   <translation>Událostí je víc než %1 %2, které hry zaznamenávají.</translation>
+  </message>
+  <message>
+   <source>Event %1 is earlier than the one before it.</source>
+   <translation>Událost %1 je dřívější než ta před ní.</translation>
+  </message>
+  <message>
+   <source>Event %1 holds keys the games do not have.</source>
+   <translation>Událost %1 obsahuje klávesy, které hry nemají.</translation>
+  </message>
+  <message>
+   <source>Line %1: expected a name, one of =, &gt;= or &lt;=, and a number.</source>
+   <translation>Řádek %1: očekává se název, jedno z =, &gt;= nebo &lt;= a číslo.</translation>
+  </message>
+  <message>
+   <source>Decor (%1, %2)</source>
+   <translation>Decor (%1, %2)</translation>
+  </message>
+  <message>
+   <source>BigDecor (%1, %2)</source>
+   <translation>BigDecor (%1, %2)</translation>
+  </message>
+  <message>
+   <source>Remove object %1</source>
+   <translation>Odebrat objekt %1</translation>
+  </message>
+  <message>
+   <source>Duplicate object %1</source>
+   <translation>Duplikovat objekt %1</translation>
+  </message>
+  <message>
+   <source>Add object</source>
+   <translation>Přidat objekt</translation>
+  </message>
+ </context>
+ <context>
   <name>eggbert::DemoTimeline</name>
   <message>
    <source>Timeline of the keys held</source>
@@ -1642,6 +1905,61 @@ Posuzováno pro: %1</translation>
   </message>
  </context>
  <context>
+  <name>eggbert::Encyclopedia</name>
+  <message>
+   <source>Foreground tile %1</source>
+   <translation>Dlaždice popředí %1</translation>
+  </message>
+  <message>
+   <source>Foreground tiles %1</source>
+   <translation>Dlaždice popředí %1</translation>
+  </message>
+  <message>
+   <source>Back layer (bigDecor) tile %1</source>
+   <translation>Dlaždice zadní vrstvy (bigDecor) %1</translation>
+  </message>
+  <message>
+   <source>Back layer (bigDecor) tiles %1</source>
+   <translation>Dlaždice zadní vrstvy (bigDecor) %1</translation>
+  </message>
+  <message>
+   <source>; the game's editor cycles through them in this order</source>
+   <translation>; editor hry je střídá v tomto pořadí</translation>
+  </message>
+  <message>
+   <source>; reshaped to fit its neighbours (adaptive family %1)</source>
+   <translation>; tvar se přizpůsobuje sousedům (adaptivní rodina %1)</translation>
+  </message>
+  <message>
+   <source>.</source>
+   <translation>.</translation>
+  </message>
+  <message>
+   <source>Object type %1 (%2); channel %3, icon %4; placed %5, %6 pixels into its cell</source>
+   <translation>Typ objektu %1 (%2); kanál %3, ikona %4; umístěn %5, %6 pixelů od rohu své buňky</translation>
+  </message>
+  <message>
+   <source>; travels between its start and its end, %1 tick(s) per cell out and %2 back</source>
+   <translation>; pohybuje se mezi svým začátkem a koncem, tiků na buňku tam: %1, zpět: %2</translation>
+  </message>
+  <message>
+   <source>, waiting %1 tick(s) at the start and %2 at the end</source>
+   <translation>, čeká tiků na začátku: %1, na konci: %2</translation>
+  </message>
+  <message>
+   <source>; the stored icon is a tile number of your choice</source>
+   <translation>; uložená ikona je číslo dlaždice podle vaší volby</translation>
+  </message>
+  <message>
+   <source>Border family painted from tile %1; its own cells keep their value and border tiles are written into the empty cells around them.</source>
+   <translation>Rodina okrajů malovaná z dlaždice %1; její vlastní buňky si hodnotu ponechají a dlaždice okraje se zapisují do prázdných buněk kolem nich.</translation>
+  </message>
+  <message>
+   <source>Border family painted from tile %1; each cell takes the form that fits its four neighbours.</source>
+   <translation>Rodina okrajů malovaná z dlaždice %1; každá buňka dostane tvar, který odpovídá jejím čtyřem sousedům.</translation>
+  </message>
+ </context>
+ <context>
   <name>eggbert::EncyclopediaDialog</name>
   <message>
    <source>Element Encyclopedia</source>
@@ -1690,6 +2008,241 @@ Posuzováno pro: %1</translation>
   <message>
    <source>Evidence</source>
    <translation>Doklad</translation>
+  </message>
+ </context>
+ <context>
+  <name>eggbert::Files</name>
+  <message>
+   <source>The manifest is not valid JSON (%1).</source>
+   <translation>Manifest není platný JSON (%1).</translation>
+  </message>
+  <message>
+   <source>The manifest is not a campaign manifest.</source>
+   <translation>Manifest není manifest kampaně.</translation>
+  </message>
+  <message>
+   <source>The manifest has format version %1; this editor reads version %2.</source>
+   <translation>Manifest má verzi formátu %1; tento editor čte verzi %2.</translation>
+  </message>
+  <message>
+   <source>The manifest does not say which game the campaign is for.</source>
+   <translation>Manifest neuvádí, pro kterou hru kampaň je.</translation>
+  </message>
+  <message>
+   <source>The manifest lists no worlds.</source>
+   <translation>Manifest neuvádí žádné světy.</translation>
+  </message>
+  <message>
+   <source>The manifest lists more worlds than a game can hold.</source>
+   <translation>Manifest uvádí víc světů, než kolik hra pojme.</translation>
+  </message>
+  <message>
+   <source>A world in the manifest has no valid kind.</source>
+   <translation>Některý svět v manifestu nemá platný druh.</translation>
+  </message>
+  <message>
+   <source>%1 is not in a slot the games use.</source>
+   <translation>%1 není ve slotu, který hry používají.</translation>
+  </message>
+  <message>
+   <source>%1 is listed under a name that is not its slot's (%2).</source>
+   <translation>%1 je uveden pod názvem, který neodpovídá jeho slotu (%2).</translation>
+  </message>
+  <message>
+   <source>%1 has no valid size or checksum in the manifest.</source>
+   <translation>%1 nemá v manifestu platnou velikost nebo kontrolní součet.</translation>
+  </message>
+  <message>
+   <source>Too many files for one pack.</source>
+   <translation>Příliš mnoho souborů pro jeden balíček.</translation>
+  </message>
+  <message>
+   <source>%1 cannot be a member of a pack.</source>
+   <translation>%1 nemůže být součástí balíčku.</translation>
+  </message>
+  <message>
+   <source>%1 is too large for a pack.</source>
+   <translation>%1 je pro balíček příliš velký.</translation>
+  </message>
+  <message>
+   <source>This is not a ZIP archive (no end record).</source>
+   <translation>Toto není archiv ZIP (chybí koncový záznam).</translation>
+  </message>
+  <message>
+   <source>Split ZIP archives are not supported.</source>
+   <translation>Rozdělené archivy ZIP nejsou podporovány.</translation>
+  </message>
+  <message>
+   <source>ZIP64 archives are not supported.</source>
+   <translation>Archivy ZIP64 nejsou podporovány.</translation>
+  </message>
+  <message>
+   <source>The archive has more members than a pack can have.</source>
+   <translation>Archiv má víc položek, než kolik může mít balíček.</translation>
+  </message>
+  <message>
+   <source>The archive's directory lies outside the archive.</source>
+   <translation>Adresář archivu leží mimo archiv.</translation>
+  </message>
+  <message>
+   <source>The archive's directory is damaged.</source>
+   <translation>Adresář archivu je poškozen.</translation>
+  </message>
+  <message>
+   <source>The archive contains a member whose name is not allowed in a pack: "%1".</source>
+   <translation>Archiv obsahuje položku, jejíž název není v balíčku povolen: „%1“.</translation>
+  </message>
+  <message>
+   <source>The archive contains %1 more than once.</source>
+   <translation>Archiv obsahuje %1 víc než jednou.</translation>
+  </message>
+  <message>
+   <source>%1 is encrypted.</source>
+   <translation>%1 je šifrovaný.</translation>
+  </message>
+  <message>
+   <source>%1 is compressed with a method other than Deflate, which is the only one read.</source>
+   <translation>%1 je komprimován jinou metodou než Deflate, která se jako jediná čte.</translation>
+  </message>
+  <message>
+   <source>%1 has a damaged header.</source>
+   <translation>%1 má poškozenou hlavičku.</translation>
+  </message>
+  <message>
+   <source>%1 does not lie inside the archive.</source>
+   <translation>%1 neleží uvnitř archivu.</translation>
+  </message>
+  <message>
+   <source>%1 cannot be decompressed. %2</source>
+   <translation>%1 nelze rozbalit. %2</translation>
+  </message>
+  <message>
+   <source>%1 does not match its checksum.</source>
+   <translation>%1 neodpovídá svému kontrolnímu součtu.</translation>
+  </message>
+  <message>
+   <source>A pack needs at least one world.</source>
+   <translation>Balíček potřebuje alespoň jeden svět.</translation>
+  </message>
+  <message>
+   <source>"%1" is not a name a pack may contain.</source>
+   <translation>„%1“ není název, který balíček smí obsahovat.</translation>
+  </message>
+  <message>
+   <source>The pack contains %1 more than once.</source>
+   <translation>Balíček obsahuje %1 víc než jednou.</translation>
+  </message>
+  <message>
+   <source>The pack has no manifest (%1).</source>
+   <translation>Balíček nemá manifest (%1).</translation>
+  </message>
+  <message>
+   <source>The manifest lists %1 more than once.</source>
+   <translation>Manifest uvádí %1 víc než jednou.</translation>
+  </message>
+  <message>
+   <source>%1 is listed in the manifest but not in the pack.</source>
+   <translation>%1 je uveden v manifestu, ale v balíčku není.</translation>
+  </message>
+  <message>
+   <source>%1 is not the file the manifest describes (size or checksum differs).</source>
+   <translation>%1 není soubor, který manifest popisuje (liší se velikost nebo kontrolní součet).</translation>
+  </message>
+  <message>
+   <source>%1 is not a complete world of a known revision.</source>
+   <translation>%1 není úplný svět známé revize.</translation>
+  </message>
+  <message>
+   <source>The pack contains %1, which the manifest does not list.</source>
+   <translation>Balíček obsahuje %1, který manifest neuvádí.</translation>
+  </message>
+  <message>
+   <source>%1 exists already or cannot be written.</source>
+   <translation>%1 už existuje nebo jej nelze zapsat.</translation>
+  </message>
+  <message>
+   <source>%1 exists already or cannot be created.</source>
+   <translation>%1 už existuje nebo jej nelze vytvořit.</translation>
+  </message>
+  <message>
+   <source>%1 could not be written.</source>
+   <translation>%1 se nepodařilo zapsat.</translation>
+  </message>
+  <message>
+   <source>%1 holds more files than a pack can have.</source>
+   <translation>%1 obsahuje víc souborů, než kolik může mít balíček.</translation>
+  </message>
+  <message>
+   <source>%1 cannot be part of a pack (a link, too large or unreadable).</source>
+   <translation>%1 nemůže být součástí balíčku (odkaz, příliš velký nebo nečitelný).</translation>
+  </message>
+  <message>
+   <source>%1 cannot be read.</source>
+   <translation>%1 nelze přečíst.</translation>
+  </message>
+  <message>
+   <source>%1 is not a file name in an existing directory.</source>
+   <translation>%1 není název souboru v existujícím adresáři.</translation>
+  </message>
+  <message>
+   <source>The backup directory %1 cannot be created.</source>
+   <translation>Adresář záloh %1 nelze vytvořit.</translation>
+  </message>
+  <message>
+   <source>%1 cannot be read, so it cannot be backed up.</source>
+   <translation>%1 nelze přečíst, takže jej nelze zálohovat.</translation>
+  </message>
+  <message>
+   <source>The backup of %1 could not be written and verified.</source>
+   <translation>Zálohu souboru %1 se nepodařilo zapsat a ověřit.</translation>
+  </message>
+  <message>
+   <source>%1 did not read back as written; the previous file was restored.</source>
+   <translation>%1 se po zápisu nepřečetl shodně; byl obnoven předchozí soubor.</translation>
+  </message>
+  <message>
+   <source>The deploy could not be recorded, so %1 was put back as it was.</source>
+   <translation>Nasazení se nepodařilo zaznamenat, takže %1 byl vrácen do původního stavu.</translation>
+  </message>
+  <message>
+   <source>%1 no longer holds what was deployed (it was changed or removed since), so it was left alone.</source>
+   <translation>%1 už neobsahuje to, co bylo nasazeno (mezitím byl změněn nebo odstraněn), takže zůstal beze změny.</translation>
+  </message>
+  <message>
+   <source>The kept copy of %1 is missing or damaged; nothing was changed.</source>
+   <translation>Uschovaná kopie souboru %1 chybí nebo je poškozená; nic se nezměnilo.</translation>
+  </message>
+  <message>
+   <source>%1 could not be written; it is as it was.</source>
+   <translation>%1 se nepodařilo zapsat; je ve stavu, v jakém byl.</translation>
+  </message>
+  <message>
+   <source>%1 did not read back as restored.</source>
+   <translation>%1 se po obnovení nepřečetl shodně.</translation>
+  </message>
+  <message>
+   <source>%1 could not be removed; it is as it was.</source>
+   <translation>%1 se nepodařilo odstranit; je ve stavu, v jakém byl.</translation>
+  </message>
+  <message>
+   <source>The compressed data ends too early.</source>
+   <translation>Komprimovaná data končí příliš brzy.</translation>
+  </message>
+  <message>
+   <source>The compressed data is damaged.</source>
+   <translation>Komprimovaná data jsou poškozená.</translation>
+  </message>
+  <message>
+   <source>The compressed data holds more than its stated size.</source>
+   <translation>Komprimovaná data obsahují víc, než je jejich uvedená velikost.</translation>
+  </message>
+  <message>
+   <source>The compressed data holds less than its stated size.</source>
+   <translation>Komprimovaná data obsahují méně, než je jejich uvedená velikost.</translation>
+  </message>
+  <message>
+   <source>Bytes follow the end of the compressed data.</source>
+   <translation>Za koncem komprimovaných dat následují další bajty.</translation>
   </message>
  </context>
  <context>
@@ -3951,6 +4504,14 @@ jinde: %5</translation>
   <message>
    <source>Stored stamps</source>
    <translation>Uložená razítka</translation>
+  </message>
+  <message>
+   <source>Lost: %1</source>
+   <translation>Ztraceno: %1</translation>
+  </message>
+  <message>
+   <source>Line %1: %2 is %3, expected %4 %5.</source>
+   <translation>Řádek %1: %2 je %3, očekáváno %4 %5.</translation>
   </message>
  </context>
  <context>

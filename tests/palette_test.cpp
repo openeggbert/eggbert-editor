@@ -506,7 +506,7 @@ int main(int argc, char **argv) {
         // Music: choosing stores the number and plays it with the system's
         // player (a stand-in here).
         window.musicPlayer()->setBackend(
-            MusicPlayer::Backend{"/bin/sh", {"-c", "exec sleep 30", "%f"}, "Stand-in"});
+            MusicPlayer::Backend{EGGBERT_STANDIN_PLAYER, {"%f"}, "Stand-in"});
         CHECK(palette->playWhenChosen());
         click(palette->musicList(), itemWith(palette->musicList(), 1));
         CHECK_EQ(get8(headerOf(), 222), 1u);

@@ -38,11 +38,23 @@ struct WorldFact {
 
 [[nodiscard]] std::string recordScenario(const std::vector<WorldFact> &facts);
 
+// An expectation that does not hold.
+struct ScenarioFailure {
+    std::size_t line = 0;
+    std::string name;
+    long long actual = 0;
+    // "=", ">=" or "<=".
+    std::string comparison;
+    long long wanted = 0;
+};
+
 struct ScenarioResult {
     // Expectations read.
     std::size_t checked = 0;
     // One sentence per expectation that does not hold, with its line.
     std::vector<std::string> failures;
+    // The same failures as numbers, for interfaces in other languages.
+    std::vector<ScenarioFailure> details;
 };
 
 // The parse error names its line. A fact a scenario names but the world

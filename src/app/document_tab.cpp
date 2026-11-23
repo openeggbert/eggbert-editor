@@ -2,6 +2,7 @@
 #include "document_tab.hpp"
 
 #include "app/catalog_texts.hpp"
+#include "app/core_texts.hpp"
 
 #include <QFileInfo>
 #include <QKeyEvent>
@@ -1023,7 +1024,7 @@ bool DocumentTab::placeStampAt(const Stamp &stamp, CellPos at) {
     EditBuilder builder(document());
     const auto placed = placeStamp(builder, stamp, at);
     if (!placed) {
-        emit statusMessage(QString::fromStdString(placed.error()));
+        emit statusMessage(coreText(placed.error()));
         return false;
     }
     if (!builder.hasChanges()) {

@@ -407,9 +407,15 @@ int main(int argc, char **argv) {
         CHECK(errorOf(readPack(folder)).contains("does not list"));
         stray.remove();
         CHECK(readPack(folder).has_value());
-        if (QFile::link(zipPath, QDir(folder).filePath("link.blp"))) {
-            CHECK(errorOf(readPack(folder)).contains("a link"));
-            QFile::remove(QDir(folder).filePath("link.blp"));
+        // A link is refused as a link where the system has symbolic links;
+        // elsewhere what QFile::link makes is at least not accepted.
+        const auto linkPath = QDir(folder).filePath("link.blp");
+        if (QFile::link(zipPath, linkPath)) {
+            CHECK(!readPack(folder).has_value());
+            if (QFileInfo(linkPath).isSymLink()) {
+                CHECK(errorOf(readPack(folder)).contains("a link"));
+            }
+            QFile::remove(linkPath);
         }
         CHECK(!readPack(dir.filePath("missing.zip")).has_value());
         CHECK(!readPack(dir.filePath("missing-folder")).has_value());

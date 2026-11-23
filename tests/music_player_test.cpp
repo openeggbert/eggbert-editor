@@ -64,10 +64,8 @@ int main(int argc, char **argv) {
     // A stand-in player that keeps running until it is stopped. It receives
     // a copy with a .mid name, never the game's own file.
     const auto log = dir.filePath("played.txt");
-    player.setBackend(MusicPlayer::Backend{
-        "/bin/sh",
-        {"-c", QString("echo \"$0\" > '%1'; exec sleep 30").arg(log), "%f"},
-        "Stand-in"});
+    player.setBackend(
+        MusicPlayer::Backend{EGGBERT_STANDIN_PLAYER, {"--log", log, "%f"}, "Stand-in"});
     CHECK(player.available());
     CHECK(player.play(midi, 1));
     CHECK(player.isPlaying());
@@ -78,7 +76,7 @@ int main(int argc, char **argv) {
     CHECK(played.open(QIODevice::ReadOnly));
     const auto playedPath = QString::fromLocal8Bit(played.readAll()).trimmed();
     CHECK(playedPath.endsWith(".mid"));
-    CHECK(playedPath != midi);
+    CHECK(QFileInfo(playedPath) != QFileInfo(midi));
     CHECK(QFile::exists(playedPath));
 
     // Starting another one stops the first; stopping ends it.
@@ -99,8 +97,7 @@ int main(int argc, char **argv) {
     CHECK(!player.isPlaying());
 
     // A player that fails at once reports what it said.
-    player.setBackend(MusicPlayer::Backend{"/bin/sh", {"-c", "echo no sound set >&2; exit 3", "%f"},
-                                           "Broken"});
+    player.setBackend(MusicPlayer::Backend{EGGBERT_STANDIN_PLAYER, {"--fail", "%f"}, "Broken"});
     CHECK(player.play(midi, 1));
     CHECK(QTest::qWaitFor([&] { return !player.isPlaying(); }, 3000));
     CHECK(player.statusText().contains("Broken stopped with an error"));

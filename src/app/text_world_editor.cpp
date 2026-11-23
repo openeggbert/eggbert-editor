@@ -23,6 +23,7 @@
 #include <QTableWidget>
 #include <QVBoxLayout>
 
+#include "app/core_texts.hpp"
 namespace eggbert {
 
 namespace {
@@ -490,7 +491,7 @@ void TextWorldEditor::refresh() {
     save_->setEnabled(document_->isModified());
     undo_->setEnabled(document_->canUndo());
     redo_->setEnabled(document_->canRedo());
-    undo_->setToolTip(QString::fromStdString(document_->undoLabel()));
+    undo_->setToolTip(coreText(document_->undoLabel()));
     const auto show = [&](QSpinBox *box, std::optional<long long> value) {
         box->setEnabled(value.has_value());
         box->setValue(value ? static_cast<int>(*value) : 0);
@@ -531,7 +532,7 @@ void TextWorldEditor::refresh() {
     problems_->clear();
     const auto found = world.problems();
     for (const auto &problem : found) {
-        problems_->addItem(QString::fromStdString(problem));
+        problems_->addItem(coreText(problem));
     }
     if (found.empty()) {
         problems_->addItem(tr("The file has the expected shape."));

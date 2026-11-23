@@ -12,6 +12,11 @@ if(BUILD_TESTING OR NOT DEFINED BUILD_TESTING)
 endif()
 
 option(EGGBERT_SANITIZE "Build with address and undefined-behavior sanitizers" OFF)
+if(MSVC)
+    # The sources are UTF-8; without this MSVC reads them in the system's
+    # code page and non-ASCII literals come out wrong.
+    add_compile_options(/utf-8)
+endif()
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     add_compile_options(-Wall -Wextra -Wpedantic)
     if(EGGBERT_SANITIZE)
@@ -105,6 +110,7 @@ qt_add_library(eggbert_app STATIC
     src/app/catalog_translator.cpp
     src/app/catalog_texts.cpp
     src/app/doctor_texts.cpp
+    src/app/core_texts.cpp
     src/app/conversion_texts.cpp
     src/app/campaign_pack.cpp
     src/app/recovery_store.hpp
@@ -241,6 +247,14 @@ if(BUILD_TESTING)
         set_tests_properties(${name} PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     endforeach()
 
+    # A stand-in MIDI player for the two tests that start one.
+    add_executable(standin-player tests/standin_player.cpp)
+    foreach(name palette music_player)
+        add_dependencies(${name}-test standin-player)
+        target_compile_definitions(${name}-test PRIVATE
+            EGGBERT_STANDIN_PLAYER="$<TARGET_FILE:standin-player>")
+    endforeach()
+
     # The built program's own self check, then the same from an installed tree.
     # The headless commands of the built program, without any display.
     add_test(NAME cli_usage COMMAND eggbert-editor info)
@@ -252,9 +266,17 @@ if(BUILD_TESTING)
     set_tests_properties(version PROPERTIES
         ENVIRONMENT "QT_QPA_PLATFORM=xcb;DISPLAY=;WAYLAND_DISPLAY="
         PASS_REGULAR_EXPRESSION "Eggbert Editor ${PROJECT_VERSION}")
+    # Where an installation puts the program, relative to its prefix.
+    if(APPLE)
+        set(eggbert_installed_program "eggbert-editor.app/Contents/MacOS/eggbert-editor")
+    else()
+        set(eggbert_installed_program
+            "${CMAKE_INSTALL_BINDIR}/eggbert-editor${CMAKE_EXECUTABLE_SUFFIX}")
+    endif()
     add_test(NAME install_smoke
         COMMAND "${CMAKE_COMMAND}" -DBUILD_DIR=${CMAKE_BINARY_DIR}
-                -DPREFIX=${CMAKE_BINARY_DIR}/install-smoke -P
+                -DPREFIX=${CMAKE_BINARY_DIR}/install-smoke
+                -DPROGRAM=${eggbert_installed_program} -DCONFIG=$<CONFIG> -P
                 "${CMAKE_CURRENT_SOURCE_DIR}/tests/install_smoke.cmake")
 
     # A test that waits for input (for example a dialog nobody answers) must

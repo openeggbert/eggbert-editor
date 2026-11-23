@@ -15,6 +15,7 @@
 
 #include <algorithm>
 
+#include "app/core_texts.hpp"
 #include "world/installation.hpp"
 
 namespace eggbert {
@@ -191,7 +192,7 @@ DemoViewer *DemoViewer::open(const QString &path, QWidget *parent, QString *erro
     if (!recording) {
         if (error != nullptr) {
             *error = tr("%1 is not a demo recording. %2")
-                         .arg(path, QString::fromStdString(recording.error()));
+                         .arg(path, coreText(recording.error()));
         }
         return nullptr;
     }

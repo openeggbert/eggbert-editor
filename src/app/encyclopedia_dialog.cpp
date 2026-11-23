@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
+#include "app/doctor_texts.hpp"
 #include "app/encyclopedia_dialog.hpp"
 
 #include <QHBoxLayout>
@@ -138,7 +139,7 @@ void EncyclopediaDialog::showCurrent() {
         QStringLiteral("<h3>%1</h3><p><b>%2</b> &middot; %3</p><p>%4</p><p><b>%5</b><br>%6</p>")
             .arg(catalogText(entry->title).toHtmlEscaped(), kind,
                  catalogText(entry->group).toHtmlEscaped(),
-                 text(entry->facts).toHtmlEscaped(), tr("Evidence"),
+                 encyclopediaFactsText(*entry).toHtmlEscaped(), tr("Evidence"),
                  text(entry->provenance).toHtmlEscaped()));
 }
 

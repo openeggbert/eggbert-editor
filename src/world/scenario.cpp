@@ -132,6 +132,8 @@ checkScenario(std::string_view scenario, const std::vector<WorldFact> &facts) {
                                                 : actual <= wanted;
         ++result.checked;
         if (!holds) {
+            result.details.push_back(
+                {lineNumber, std::string(name), actual, std::string(comparison), wanted});
             result.failures.push_back("Line " + std::to_string(lineNumber) + ": " +
                                       std::string(name) + " is " + std::to_string(actual) +
                                       ", expected " + std::string(comparison) + " " +

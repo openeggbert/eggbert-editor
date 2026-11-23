@@ -102,6 +102,40 @@ constexpr const char *texts[] = {
         "Jumps, falls and lifts are not judged."),
 };
 
+// Keep in step with the fact patterns in src/world/encyclopedia.cpp.
+constexpr const char *factTexts[] = {
+    QT_TRANSLATE_NOOP("eggbert::Encyclopedia",
+        "Foreground tile %1"),
+    QT_TRANSLATE_NOOP("eggbert::Encyclopedia",
+        "Foreground tiles %1"),
+    QT_TRANSLATE_NOOP("eggbert::Encyclopedia",
+        "Back layer (bigDecor) tile %1"),
+    QT_TRANSLATE_NOOP("eggbert::Encyclopedia",
+        "Back layer (bigDecor) tiles %1"),
+    QT_TRANSLATE_NOOP("eggbert::Encyclopedia",
+        "; the game's editor cycles through them in this order"),
+    QT_TRANSLATE_NOOP("eggbert::Encyclopedia",
+        "; reshaped to fit its neighbours (adaptive family %1)"),
+    QT_TRANSLATE_NOOP("eggbert::Encyclopedia",
+        "."),
+    QT_TRANSLATE_NOOP("eggbert::Encyclopedia",
+        "Object type %1 (%2); channel %3, icon %4; placed %5, %6 pixels into its "
+        "cell"),
+    QT_TRANSLATE_NOOP("eggbert::Encyclopedia",
+        "; travels between its start and its end, %1 tick(s) per cell out and %2 "
+        "back"),
+    QT_TRANSLATE_NOOP("eggbert::Encyclopedia",
+        ", waiting %1 tick(s) at the start and %2 at the end"),
+    QT_TRANSLATE_NOOP("eggbert::Encyclopedia",
+        "; the stored icon is a tile number of your choice"),
+    QT_TRANSLATE_NOOP("eggbert::Encyclopedia",
+        "Border family painted from tile %1; its own cells keep their value and "
+        "border tiles are written into the empty cells around them."),
+    QT_TRANSLATE_NOOP("eggbert::Encyclopedia",
+        "Border family painted from tile %1; each cell takes the form that fits its "
+        "four neighbours."),
+};
+
 const char *const slotPrefix = QT_TRANSLATE_NOOP("eggbert::Doctor", "Slot %1: %2");
 
 QString translated(std::string_view text) {
@@ -168,6 +202,27 @@ QString confidenceText(Confidence confidence) {
 
 std::span<const char *const> doctorTexts() {
     return texts;
+}
+
+QString encyclopediaFactsText(const EncyclopediaEntry &entry) {
+    if (entry.factParts.empty()) {
+        return QString::fromStdString(entry.facts);
+    }
+    QString sentence;
+    for (const auto &part : entry.factParts) {
+        QStringList arguments;
+        for (const auto &argument : part.arguments) {
+            arguments << QString::fromStdString(argument);
+        }
+        const std::string pattern(part.pattern);
+        sentence += filled(
+            QCoreApplication::translate("eggbert::Encyclopedia", pattern.c_str()), arguments);
+    }
+    return sentence;
+}
+
+std::span<const char *const> encyclopediaTexts() {
+    return factTexts;
 }
 
 } // namespace eggbert

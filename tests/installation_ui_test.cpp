@@ -219,9 +219,10 @@ int main(int argc, char **argv) {
     CHECK(record.has_value());
     CHECK(record && record->targetPath == data.filePath("WORLD010.BLP") && record->hadPrevious);
     CHECK(readAll(data.filePath("WORLD010.BLP")) == current(tab));
-    CHECK(!QFile::exists(data.filePath("world010.blp")) ||
-          QFileInfo(data.filePath("world010.blp")).canonicalFilePath() ==
-              QFileInfo(data.filePath("WORLD010.BLP")).canonicalFilePath());
+    // No second file under another spelling (on a file system that ignores
+    // case the one file answers to both names).
+    CHECK_EQ(data.entryList({"world010.blp"}, QDir::Files).size(), qsizetype{1});
+    CHECK(data.entryList({"world010.blp"}, QDir::Files).contains("WORLD010.BLP"));
     CHECK(window.rollBackLastDeploy());
     CHECK(readAll(data.filePath("WORLD010.BLP")) == hub);
     CHECK(directoryDigest(game.root) == untouched);

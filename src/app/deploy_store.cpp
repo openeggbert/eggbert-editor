@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "app/deploy_store.hpp"
 
+#include <QCoreApplication>
 #include <QCryptographicHash>
 #include <QDir>
 #include <QFile>
@@ -58,12 +59,12 @@ std::expected<DeployRecord, QString> DeployStore::deploy(const QString &dataDire
                                                          std::span<const std::byte> bytes) {
     const QDir data(dataDirectory);
     if (fileName.isEmpty() || QFileInfo(fileName).fileName() != fileName || !data.exists()) {
-        return std::unexpected(QStringLiteral("%1 is not a file name in an existing directory.")
+        return std::unexpected(QCoreApplication::translate("eggbert::Files", "%1 is not a file name in an existing directory.")
                                    .arg(data.filePath(fileName)));
     }
     if (!QDir().mkpath(directory_)) {
         return std::unexpected(
-            QStringLiteral("The backup directory %1 cannot be created.").arg(directory_));
+            QCoreApplication::translate("eggbert::Files", "The backup directory %1 cannot be created.").arg(directory_));
     }
     // An existing entry keeps its own spelling (WORLD001.BLP stays that).
     QString target = data.filePath(fileName);
@@ -87,7 +88,7 @@ std::expected<DeployRecord, QString> DeployStore::deploy(const QString &dataDire
         const auto read = readAll(target);
         if (!read) {
             return std::unexpected(
-                QStringLiteral("%1 cannot be read, so it cannot be backed up.").arg(target));
+                QCoreApplication::translate("eggbert::Files", "%1 cannot be read, so it cannot be backed up.").arg(target));
         }
         previous = *read;
         record.hadPrevious = true;
@@ -99,7 +100,7 @@ std::expected<DeployRecord, QString> DeployStore::deploy(const QString &dataDire
         if (!check || *check != previous) {
             QFile::remove(backup);
             return std::unexpected(
-                QStringLiteral("The backup of %1 could not be written and verified.").arg(target));
+                QCoreApplication::translate("eggbert::Files", "The backup of %1 could not be written and verified.").arg(target));
         }
     }
     const auto undo = [&] {
@@ -114,13 +115,13 @@ std::expected<DeployRecord, QString> DeployStore::deploy(const QString &dataDire
     };
     if (fails("write") || !writeAtomically(target, payload)) {
         QFile::remove(backupPath(record.id));
-        return std::unexpected(QStringLiteral("%1 could not be written.").arg(target));
+        return std::unexpected(QCoreApplication::translate("eggbert::Files", "%1 could not be written.").arg(target));
     }
     const auto check = fails("verify") ? std::nullopt : readAll(target);
     if (!check || *check != payload) {
         undo();
         return std::unexpected(
-            QStringLiteral("%1 did not read back as written; the previous file was restored.")
+            QCoreApplication::translate("eggbert::Files", "%1 did not read back as written; the previous file was restored.")
                 .arg(target));
     }
     QJsonObject json;
@@ -135,7 +136,7 @@ std::expected<DeployRecord, QString> DeployStore::deploy(const QString &dataDire
     if (fails("record") ||
         !writeAtomically(recordPath(record.id), QJsonDocument(json).toJson())) {
         undo();
-        return std::unexpected(QStringLiteral("The deploy could not be recorded, so %1 was put "
+        return std::unexpected(QCoreApplication::translate("eggbert::Files", "The deploy could not be recorded, so %1 was put "
                                               "back as it was.")
                                    .arg(target));
     }
@@ -184,7 +185,7 @@ std::expected<void, QString> DeployStore::rollBack(const DeployRecord &record,
     const bool unchanged = current && hashOf(*current) == record.deployedSha256;
     if (!unchanged && !evenIfChanged) {
         return std::unexpected(
-            QStringLiteral("%1 no longer holds what was deployed (it was changed or removed "
+            QCoreApplication::translate("eggbert::Files", "%1 no longer holds what was deployed (it was changed or removed "
                            "since), so it was left alone.")
                 .arg(record.targetPath));
     }
@@ -193,22 +194,22 @@ std::expected<void, QString> DeployStore::rollBack(const DeployRecord &record,
         if (!previous || hashOf(*previous) != record.previousSha256 ||
             previous->size() != record.previousSize) {
             return std::unexpected(
-                QStringLiteral("The kept copy of %1 is missing or damaged; nothing was changed.")
+                QCoreApplication::translate("eggbert::Files", "The kept copy of %1 is missing or damaged; nothing was changed.")
                     .arg(record.targetPath));
         }
         if (fails("restore") || !writeAtomically(record.targetPath, *previous)) {
             return std::unexpected(
-                QStringLiteral("%1 could not be written; it is as it was.").arg(record.targetPath));
+                QCoreApplication::translate("eggbert::Files", "%1 could not be written; it is as it was.").arg(record.targetPath));
         }
         const auto check = readAll(record.targetPath);
         if (!check || *check != *previous) {
             return std::unexpected(
-                QStringLiteral("%1 did not read back as restored.").arg(record.targetPath));
+                QCoreApplication::translate("eggbert::Files", "%1 did not read back as restored.").arg(record.targetPath));
         }
     } else if (QFileInfo::exists(record.targetPath) &&
                (fails("restore") || !QFile::remove(record.targetPath))) {
         return std::unexpected(
-            QStringLiteral("%1 could not be removed; it is as it was.").arg(record.targetPath));
+            QCoreApplication::translate("eggbert::Files", "%1 could not be removed; it is as it was.").arg(record.targetPath));
     }
     forget(record);
     return {};

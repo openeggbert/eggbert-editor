@@ -132,7 +132,8 @@ convertRevision(std::span<const std::byte> source, FormatRevision target, bool a
             for (const auto &loss : losses) {
                 detail += (detail.empty() ? "" : " ") + loss;
             }
-            return std::unexpected(ConversionFailure{ConversionError::wouldLoseData, detail});
+            return std::unexpected(
+                ConversionFailure{ConversionError::wouldLoseData, detail, losses});
         }
         result.lossy = true;
         for (auto &loss : losses) {

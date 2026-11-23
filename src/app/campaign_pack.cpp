@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "app/campaign_pack.hpp"
 
+#include <QCoreApplication>
 #include <QCryptographicHash>
 #include <QDir>
 #include <QFile>
@@ -137,14 +138,14 @@ std::expected<Campaign, QString> readPackManifest(const QByteArray &manifest) {
     QJsonParseError error;
     const auto document = QJsonDocument::fromJson(manifest, &error);
     if (error.error != QJsonParseError::NoError || !document.isObject()) {
-        return fail(QStringLiteral("The manifest is not valid JSON (%1).").arg(error.errorString()));
+        return fail(QCoreApplication::translate("eggbert::Files", "The manifest is not valid JSON (%1).").arg(error.errorString()));
     }
     const auto root = document.object();
     if (root[QStringLiteral("format")].toString() != QLatin1String("eggbert-campaign")) {
-        return fail(QStringLiteral("The manifest is not a campaign manifest."));
+        return fail(QCoreApplication::translate("eggbert::Files", "The manifest is not a campaign manifest."));
     }
     if (root[QStringLiteral("version")].toInt(-1) != packFormatVersion) {
-        return fail(QStringLiteral("The manifest has format version %1; this editor reads "
+        return fail(QCoreApplication::translate("eggbert::Files", "The manifest has format version %1; this editor reads "
                                    "version %2.")
                         .arg(root[QStringLiteral("version")].toVariant().toString())
                         .arg(packFormatVersion));
@@ -156,21 +157,21 @@ std::expected<Campaign, QString> readPackManifest(const QByteArray &manifest) {
                     : game == gameKey(GameProfile::speedyBlupi2) ? GameProfile::speedyBlupi2
                                                                  : GameProfile::unknown;
     if (campaign.game == GameProfile::unknown) {
-        return fail(QStringLiteral("The manifest does not say which game the campaign is for."));
+        return fail(QCoreApplication::translate("eggbert::Files", "The manifest does not say which game the campaign is for."));
     }
     const auto worlds = root[QStringLiteral("worlds")];
     if (!worlds.isArray() || worlds.toArray().isEmpty()) {
-        return fail(QStringLiteral("The manifest lists no worlds."));
+        return fail(QCoreApplication::translate("eggbert::Files", "The manifest lists no worlds."));
     }
     if (worlds.toArray().size() >= packMostMembers) {
-        return fail(QStringLiteral("The manifest lists more worlds than a game can hold."));
+        return fail(QCoreApplication::translate("eggbert::Files", "The manifest lists more worlds than a game can hold."));
     }
     for (const auto &value : worlds.toArray()) {
         const auto item = value.toObject();
         CampaignEntry entry;
         const auto kind = item[QStringLiteral("kind")].toString();
         if (kind != QLatin1String("designed") && kind != QLatin1String("official")) {
-            return fail(QStringLiteral("A world in the manifest has no valid kind."));
+            return fail(QCoreApplication::translate("eggbert::Files", "A world in the manifest has no valid kind."));
         }
         entry.slot.user = kind == QLatin1String("designed");
         entry.slot.gamer = entry.slot.user ? item[QStringLiteral("player")].toInt(0) : 1;
@@ -178,10 +179,10 @@ std::expected<Campaign, QString> readPackManifest(const QByteArray &manifest) {
         const auto slotName = worldSlotFileName(entry.slot);
         const auto file = item[QStringLiteral("file")].toString();
         if (slotName.empty()) {
-            return fail(QStringLiteral("%1 is not in a slot the games use.").arg(file));
+            return fail(QCoreApplication::translate("eggbert::Files", "%1 is not in a slot the games use.").arg(file));
         }
         if (file != text(slotName)) {
-            return fail(QStringLiteral("%1 is listed under a name that is not its slot's (%2).")
+            return fail(QCoreApplication::translate("eggbert::Files", "%1 is listed under a name that is not its slot's (%2).")
                             .arg(file, text(slotName)));
         }
         entry.fileName = slotName;
@@ -190,7 +191,7 @@ std::expected<Campaign, QString> readPackManifest(const QByteArray &manifest) {
         static const QRegularExpression hex(QStringLiteral("^[0-9a-f]{64}$"));
         if (size < 0 || size > static_cast<double>(packLargestMember) ||
             !hex.match(hash).hasMatch()) {
-            return fail(QStringLiteral("%1 has no valid size or checksum in the manifest.").arg(file));
+            return fail(QCoreApplication::translate("eggbert::Files", "%1 has no valid size or checksum in the manifest.").arg(file));
         }
         entry.size = static_cast<std::uint64_t>(size);
         entry.sha256 = hash.toStdString();
@@ -205,14 +206,14 @@ std::expected<QByteArray, QString> writeZip(const std::vector<PackFile> &files) 
     QByteArray central;
     QSet<QString> names;
     if (files.size() > static_cast<std::size_t>(packMostMembers)) {
-        return fail(QStringLiteral("Too many files for one pack."));
+        return fail(QCoreApplication::translate("eggbert::Files", "Too many files for one pack."));
     }
     for (const auto &file : files) {
         if (!validPackMemberName(file.name) || names.contains(file.name.toLower())) {
-            return fail(QStringLiteral("%1 cannot be a member of a pack.").arg(file.name));
+            return fail(QCoreApplication::translate("eggbert::Files", "%1 cannot be a member of a pack.").arg(file.name));
         }
         if (file.bytes.size() > packLargestMember) {
-            return fail(QStringLiteral("%1 is too large for a pack.").arg(file.name));
+            return fail(QCoreApplication::translate("eggbert::Files", "%1 is too large for a pack.").arg(file.name));
         }
         names.insert(file.name.toLower());
         const auto name = file.name.toLatin1();
@@ -277,7 +278,7 @@ std::expected<std::vector<PackFile>, QString> readZip(const QByteArray &archive)
         }
     }
     if (end < 0) {
-        return fail(QStringLiteral("This is not a ZIP archive (no end record)."));
+        return fail(QCoreApplication::translate("eggbert::Files", "This is not a ZIP archive (no end record)."));
     }
     const auto disk = *get(archive, end + 4, 2);
     const auto startDisk = *get(archive, end + 6, 2);
@@ -286,23 +287,23 @@ std::expected<std::vector<PackFile>, QString> readZip(const QByteArray &archive)
     const auto centralSize = *get(archive, end + 12, 4);
     const auto centralOffset = *get(archive, end + 16, 4);
     if (disk != 0 || startDisk != 0 || countHere != count) {
-        return fail(QStringLiteral("Split ZIP archives are not supported."));
+        return fail(QCoreApplication::translate("eggbert::Files", "Split ZIP archives are not supported."));
     }
     if (count == 0xFFFF || centralSize == 0xFFFFFFFFu || centralOffset == 0xFFFFFFFFu) {
-        return fail(QStringLiteral("ZIP64 archives are not supported."));
+        return fail(QCoreApplication::translate("eggbert::Files", "ZIP64 archives are not supported."));
     }
     if (count > static_cast<quint32>(packMostMembers)) {
-        return fail(QStringLiteral("The archive has more members than a pack can have."));
+        return fail(QCoreApplication::translate("eggbert::Files", "The archive has more members than a pack can have."));
     }
     if (static_cast<qint64>(centralOffset) + centralSize > end) {
-        return fail(QStringLiteral("The archive's directory lies outside the archive."));
+        return fail(QCoreApplication::translate("eggbert::Files", "The archive's directory lies outside the archive."));
     }
     std::vector<PackFile> files;
     QSet<QString> names;
     qint64 position = centralOffset;
     for (quint32 index = 0; index < count; ++index) {
         if (get(archive, position, 4) != centralSignature || position + 46 > end) {
-            return fail(QStringLiteral("The archive's directory is damaged."));
+            return fail(QCoreApplication::translate("eggbert::Files", "The archive's directory is damaged."));
         }
         const auto flags = *get(archive, position + 8, 2);
         const auto method = *get(archive, position + 10, 2);
@@ -314,34 +315,34 @@ std::expected<std::vector<PackFile>, QString> readZip(const QByteArray &archive)
         const auto commentLength = *get(archive, position + 32, 2);
         const auto localOffset = *get(archive, position + 42, 4);
         if (position + 46 + nameLength + extraLength + commentLength > end) {
-            return fail(QStringLiteral("The archive's directory is damaged."));
+            return fail(QCoreApplication::translate("eggbert::Files", "The archive's directory is damaged."));
         }
         const auto name = QString::fromLatin1(archive.mid(position + 46, nameLength));
         position += 46 + nameLength + extraLength + commentLength;
         if (!validPackMemberName(name)) {
-            return fail(QStringLiteral("The archive contains a member whose name is not allowed "
+            return fail(QCoreApplication::translate("eggbert::Files", "The archive contains a member whose name is not allowed "
                                        "in a pack: \"%1\".")
                             .arg(name.left(80)));
         }
         if (names.contains(name.toLower())) {
-            return fail(QStringLiteral("The archive contains %1 more than once.").arg(name));
+            return fail(QCoreApplication::translate("eggbert::Files", "The archive contains %1 more than once.").arg(name));
         }
         names.insert(name.toLower());
         if ((flags & 0x0001u) != 0) {
-            return fail(QStringLiteral("%1 is encrypted.").arg(name));
+            return fail(QCoreApplication::translate("eggbert::Files", "%1 is encrypted.").arg(name));
         }
         // Stored, or compressed the way ZIP programs do by default.
         if (method != 0 && method != 8) {
-            return fail(QStringLiteral("%1 is compressed with a method other than Deflate, "
+            return fail(QCoreApplication::translate("eggbert::Files", "%1 is compressed with a method other than Deflate, "
                                        "which is the only one read.")
                             .arg(name));
         }
         if (method == 0 && packed != size) {
-            return fail(QStringLiteral("%1 has a damaged header.").arg(name));
+            return fail(QCoreApplication::translate("eggbert::Files", "%1 has a damaged header.").arg(name));
         }
         if (size == 0xFFFFFFFFu || size > static_cast<quint32>(packLargestMember) ||
             packed == 0xFFFFFFFFu || packed > static_cast<quint32>(packLargestMember)) {
-            return fail(QStringLiteral("%1 is too large for a pack.").arg(name));
+            return fail(QCoreApplication::translate("eggbert::Files", "%1 is too large for a pack.").arg(name));
         }
         // The local header must agree and the data must lie before the
         // directory.
@@ -350,24 +351,24 @@ std::expected<std::vector<PackFile>, QString> readZip(const QByteArray &archive)
         if (get(archive, localOffset, 4) != localSignature || !localName || !localExtra ||
             *localName != nameLength ||
             archive.mid(localOffset + 30, nameLength) != name.toLatin1()) {
-            return fail(QStringLiteral("%1 has a damaged header.").arg(name));
+            return fail(QCoreApplication::translate("eggbert::Files", "%1 has a damaged header.").arg(name));
         }
         const qint64 dataOffset = static_cast<qint64>(localOffset) + 30 + *localName + *localExtra;
         if (dataOffset + packed > centralOffset) {
-            return fail(QStringLiteral("%1 does not lie inside the archive.").arg(name));
+            return fail(QCoreApplication::translate("eggbert::Files", "%1 does not lie inside the archive.").arg(name));
         }
         auto bytes = archive.mid(dataOffset, packed);
         if (method == 8) {
             // Never more than the stated size is produced, whatever the data says.
             auto inflated = inflateRaw(bytes, size);
             if (!inflated) {
-                return fail(QStringLiteral("%1 cannot be decompressed. %2")
+                return fail(QCoreApplication::translate("eggbert::Files", "%1 cannot be decompressed. %2")
                                 .arg(name, inflated.error()));
             }
             bytes = std::move(*inflated);
         }
         if (crc32(bytes) != crc) {
-            return fail(QStringLiteral("%1 does not match its checksum.").arg(name));
+            return fail(QCoreApplication::translate("eggbert::Files", "%1 does not match its checksum.").arg(name));
         }
         files.push_back({name, std::move(bytes)});
     }
@@ -378,7 +379,7 @@ std::expected<CampaignPack, QString> makePack(QString name, GameProfile game,
                                               std::vector<WorldSlot> places,
                                               std::vector<QByteArray> worlds) {
     if (places.size() != worlds.size() || places.empty()) {
-        return fail(QStringLiteral("A pack needs at least one world."));
+        return fail(QCoreApplication::translate("eggbert::Files", "A pack needs at least one world."));
     }
     std::vector<PackFile> files;
     Campaign campaign;
@@ -415,22 +416,22 @@ std::expected<CampaignPack, QString> assemblePack(const std::vector<PackFile> &f
     QHash<QString, const PackFile *> byName;
     for (const auto &file : files) {
         if (!validPackMemberName(file.name)) {
-            return fail(QStringLiteral("\"%1\" is not a name a pack may contain.")
+            return fail(QCoreApplication::translate("eggbert::Files", "\"%1\" is not a name a pack may contain.")
                             .arg(file.name.left(80)));
         }
         if (file.bytes.size() > packLargestMember) {
-            return fail(QStringLiteral("%1 is too large for a pack.").arg(file.name));
+            return fail(QCoreApplication::translate("eggbert::Files", "%1 is too large for a pack.").arg(file.name));
         }
         if (file.name == QLatin1String(packManifestName)) {
             manifest = &file;
         } else if (byName.contains(file.name.toLower())) {
-            return fail(QStringLiteral("The pack contains %1 more than once.").arg(file.name));
+            return fail(QCoreApplication::translate("eggbert::Files", "The pack contains %1 more than once.").arg(file.name));
         } else {
             byName.insert(file.name.toLower(), &file);
         }
     }
     if (manifest == nullptr) {
-        return fail(QStringLiteral("The pack has no manifest (%1).")
+        return fail(QCoreApplication::translate("eggbert::Files", "The pack has no manifest (%1).")
                         .arg(QString::fromLatin1(packManifestName)));
     }
     auto campaign = readPackManifest(manifest->bytes);
@@ -442,17 +443,17 @@ std::expected<CampaignPack, QString> assemblePack(const std::vector<PackFile> &f
     for (const auto &entry : campaign->entries) {
         const auto name = text(entry.fileName);
         if (used.contains(name)) {
-            return fail(QStringLiteral("The manifest lists %1 more than once.").arg(name));
+            return fail(QCoreApplication::translate("eggbert::Files", "The manifest lists %1 more than once.").arg(name));
         }
         used.insert(name);
         const auto found = byName.find(name.toLower());
         if (found == byName.end() || (*found)->name != name) {
-            return fail(QStringLiteral("%1 is listed in the manifest but not in the pack.").arg(name));
+            return fail(QCoreApplication::translate("eggbert::Files", "%1 is listed in the manifest but not in the pack.").arg(name));
         }
         const auto &bytes = (*found)->bytes;
         if (static_cast<std::uint64_t>(bytes.size()) != entry.size ||
             sha256Hex(bytes).toStdString() != entry.sha256) {
-            return fail(QStringLiteral("%1 is not the file the manifest describes (size or "
+            return fail(QCoreApplication::translate("eggbert::Files", "%1 is not the file the manifest describes (size or "
                                        "checksum differs).")
                             .arg(name));
         }
@@ -461,14 +462,14 @@ std::expected<CampaignPack, QString> assemblePack(const std::vector<PackFile> &f
             static_cast<std::size_t>(bytes.size())));
         if (probe.descriptor == nullptr || (probe.status != ProbeStatus::sizeMatches &&
                                             probe.status != ProbeStatus::surplus)) {
-            return fail(QStringLiteral("%1 is not a complete world of a known revision.").arg(name));
+            return fail(QCoreApplication::translate("eggbert::Files", "%1 is not a complete world of a known revision.").arg(name));
         }
         pack.worlds.push_back({name, bytes});
     }
     if (used.size() != byName.size()) {
         for (auto item = byName.begin(); item != byName.end(); ++item) {
             if (!used.contains(item.value()->name)) {
-                return fail(QStringLiteral("The pack contains %1, which the manifest does not list.")
+                return fail(QCoreApplication::translate("eggbert::Files", "The pack contains %1, which the manifest does not list.")
                                 .arg(item.value()->name));
             }
         }
@@ -493,17 +494,17 @@ std::expected<void, QString> writePack(const CampaignPack &pack, const QString &
             return std::unexpected(archive.error());
         }
         if (QFileInfo::exists(path) || !save(path, *archive)) {
-            return fail(QStringLiteral("%1 exists already or cannot be written.").arg(path));
+            return fail(QCoreApplication::translate("eggbert::Files", "%1 exists already or cannot be written.").arg(path));
         }
         return {};
     }
     // A new directory only: an existing one may hold something else.
     if (QFileInfo::exists(path) || !QDir().mkpath(path)) {
-        return fail(QStringLiteral("%1 exists already or cannot be created.").arg(path));
+        return fail(QCoreApplication::translate("eggbert::Files", "%1 exists already or cannot be created.").arg(path));
     }
     for (const auto &file : files) {
         if (!save(QDir(path).filePath(file.name), file.bytes)) {
-            return fail(QStringLiteral("%1 could not be written.").arg(file.name));
+            return fail(QCoreApplication::translate("eggbert::Files", "%1 could not be written.").arg(file.name));
         }
     }
     return {};
@@ -516,13 +517,13 @@ std::expected<CampaignPack, QString> readPack(const QString &path) {
         const QDir directory(path);
         const auto names = directory.entryList(QDir::Files | QDir::Hidden | QDir::System);
         if (names.size() > packMostMembers) {
-            return fail(QStringLiteral("%1 holds more files than a pack can have.").arg(path));
+            return fail(QCoreApplication::translate("eggbert::Files", "%1 holds more files than a pack can have.").arg(path));
         }
         for (const auto &name : names) {
             QFile file(directory.filePath(name));
             if (QFileInfo(file).isSymLink() || file.size() > packLargestMember ||
                 !file.open(QIODevice::ReadOnly)) {
-                return fail(QStringLiteral("%1 cannot be part of a pack (a link, too large or "
+                return fail(QCoreApplication::translate("eggbert::Files", "%1 cannot be part of a pack (a link, too large or "
                                            "unreadable).")
                                 .arg(name));
             }
@@ -532,7 +533,7 @@ std::expected<CampaignPack, QString> readPack(const QString &path) {
         QFile file(path);
         if (!file.open(QIODevice::ReadOnly) ||
             file.size() > packLargestMember * static_cast<qint64>(packMostMembers)) {
-            return fail(QStringLiteral("%1 cannot be read.").arg(path));
+            return fail(QCoreApplication::translate("eggbert::Files", "%1 cannot be read.").arg(path));
         }
         auto members = readZip(file.readAll());
         if (!members) {

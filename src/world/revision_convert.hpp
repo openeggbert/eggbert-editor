@@ -32,7 +32,11 @@ enum class ConversionError {
 
 struct ConversionFailure {
     ConversionError error = ConversionError::sourceNotConvertible;
+    // Everything there is to say, in one string.
     std::string detail;
+    // The sentences `detail` is made of, when it has more than one (what
+    // would be lost), for interfaces that show or translate them one by one.
+    std::vector<std::string> sentences = {};
 };
 
 struct RevisionConversion {
