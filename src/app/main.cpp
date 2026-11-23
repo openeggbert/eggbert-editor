@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-only
+#include "app/catalog_translator.hpp"
 #include "app/cli.hpp"
 #include "app/main_window.hpp"
 #include "app/smoke_test.hpp"
 
+#include <QSettings>
+#include <QLocale>
 #include <QApplication>
 #include <QTextStream>
 
@@ -67,6 +70,16 @@ int main(int argc, char **argv) {
         return eggbert::runSmokeTest(option >= 0 ? arguments.at(option + 1) : QString());
     }
 
+    // The interface language: the preference, else the system's, else
+    // English. Untranslated texts stay English.
+    eggbert::CatalogTranslator translator;
+    if (const auto language = eggbert::resolveLanguage(
+            QSettings().value(QStringLiteral("appearance/language"), QStringLiteral("system"))
+                .toString(),
+            QLocale::system().name());
+        language != QLatin1String("en") && translator.loadLanguage(language)) {
+        QCoreApplication::installTranslator(&translator);
+    }
     eggbert::MainWindow mainWindow;
     mainWindow.show();
     // Files named on the command line open in tabs.

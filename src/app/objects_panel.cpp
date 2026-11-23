@@ -71,6 +71,7 @@ ObjectsPanel::ObjectsPanel(QWidget *parent) : QWidget(parent) {
 
     tree_ = new QTreeWidget(this);
     tree_->setObjectName(QStringLiteral("objectsTree"));
+    tree_->setAccessibleName(tr("Object records"));
     tree_->setRootIsDecorated(false);
     tree_->setAlternatingRowColors(true);
     tree_->setHeaderLabels(
@@ -117,7 +118,9 @@ ObjectsPanel::ObjectsPanel(QWidget *parent) : QWidget(parent) {
             pointX_[index] = new QSpinBox(row);
             pointY_[index] = new QSpinBox(row);
             pointX_[index]->setObjectName(QStringLiteral("object_%1_x").arg(name));
+            pointX_[index]->setAccessibleName(tr("%1, x").arg(fieldLabel(descriptor.field)));
             pointY_[index]->setObjectName(QStringLiteral("object_%1_y").arg(name));
+            pointY_[index]->setAccessibleName(tr("%1, y").arg(fieldLabel(descriptor.field)));
             for (auto *spin : {pointX_[index], pointY_[index]}) {
                 spin->setRange(intMin, intMax);
                 spin->setSingleStep(layout::cellPixels);
@@ -128,6 +131,7 @@ ObjectsPanel::ObjectsPanel(QWidget *parent) : QWidget(parent) {
         } else {
             scalar_[index] = new QSpinBox(form_);
             scalar_[index]->setObjectName(QStringLiteral("object_%1").arg(name));
+            scalar_[index]->setAccessibleName(fieldLabel(descriptor.field));
             scalar_[index]->setRange(-32768, 32767);
             connectSpin(scalar_[index]);
             form->addRow(fieldLabel(descriptor.field), scalar_[index]);

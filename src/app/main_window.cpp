@@ -164,6 +164,7 @@ MainWindow::MainWindow() {
         column->addWidget(recentLabel);
         welcomeRecent_ = new QListWidget(welcome_);
         welcomeRecent_->setObjectName(QStringLiteral("welcomeRecent"));
+        welcomeRecent_->setAccessibleName(tr("Recent worlds"));
         welcomeRecent_->setMaximumHeight(220);
         connect(welcomeRecent_, &QListWidget::itemActivated, this,
                 [this](QListWidgetItem *item) { openPath(item->data(Qt::UserRole).toString()); });
@@ -1036,6 +1037,17 @@ void MainWindow::installDefaultPrompts() {
         theme->setCurrentIndex(theme->findData(
             settings.value(QStringLiteral("appearance/theme"), QStringLiteral("system"))));
         form->addRow(tr("Theme"), theme);
+        auto *language = new QComboBox(&dialog);
+        language->setObjectName(QStringLiteral("languageCombo"));
+        language->addItem(tr("Follow the system"), QStringLiteral("system"));
+        language->addItem(QStringLiteral("English"), QStringLiteral("en"));
+        language->addItem(QStringLiteral("Čeština"), QStringLiteral("cs"));
+        language->setCurrentIndex(std::max(
+            0, language->findData(settings.value(QStringLiteral("appearance/language"),
+                                                 QStringLiteral("system")))));
+        language->setToolTip(tr("Takes effect the next time the editor starts. Texts that are "
+                                "not translated yet stay English."));
+        form->addRow(tr("Language"), language);
         auto *grid = new QCheckBox(tr("Show the grid in newly opened worlds"), &dialog);
         grid->setChecked(settings.value(QStringLiteral("view/grid"), false).toBool());
         form->addRow(grid);
@@ -1069,6 +1081,7 @@ void MainWindow::installDefaultPrompts() {
             return false;
         }
         settings.setValue(QStringLiteral("appearance/theme"), theme->currentData());
+        settings.setValue(QStringLiteral("appearance/language"), language->currentData());
         settings.setValue(QStringLiteral("view/grid"), grid->isChecked());
         settings.setValue(QStringLiteral("view/labels"), labels->isChecked());
         settings.setValue(QStringLiteral("inspector/bytesPerRow"), width->currentData());
@@ -1789,6 +1802,7 @@ void MainWindow::createDocks(QMenu *viewMenu) {
     minimapLayout->setContentsMargins(4, 4, 4, 4);
     auto *modeCombo = new QComboBox(minimapHost);
     modeCombo->setObjectName(QStringLiteral("minimapModeCombo"));
+    modeCombo->setAccessibleName(tr("What the minimap shows"));
     modeCombo->addItem(tr("Composite"), static_cast<int>(MinimapWidget::Mode::composite));
     modeCombo->addItem(tr("Foreground only"), static_cast<int>(MinimapWidget::Mode::foreground));
     modeCombo->addItem(tr("bigDecor only"), static_cast<int>(MinimapWidget::Mode::bigDecor));

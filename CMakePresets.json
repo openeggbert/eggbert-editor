@@ -1,0 +1,62 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {"major": 3, "minor": 25, "patch": 0},
+  "configurePresets": [
+    {
+      "name": "linux",
+      "displayName": "Linux, Release",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {"CMAKE_BUILD_TYPE": "Release", "BUILD_TESTING": "ON"}
+    },
+    {
+      "name": "linux-sanitizers",
+      "displayName": "Linux, address and undefined-behavior sanitizers",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-asan",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "BUILD_TESTING": "ON",
+        "EGGBERT_SANITIZE": "ON"
+      }
+    },
+    {
+      "name": "windows-msvc",
+      "displayName": "Windows, MSVC (untested: never built by the project)",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/build-windows",
+      "cacheVariables": {"BUILD_TESTING": "ON"},
+      "condition": {"type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows"}
+    },
+    {
+      "name": "macos",
+      "displayName": "macOS (untested: never built by the project)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-macos",
+      "cacheVariables": {"CMAKE_BUILD_TYPE": "Release", "BUILD_TESTING": "ON"},
+      "condition": {"type": "equals", "lhs": "${hostSystemName}", "rhs": "Darwin"}
+    }
+  ],
+  "buildPresets": [
+    {"name": "linux", "configurePreset": "linux"},
+    {"name": "linux-sanitizers", "configurePreset": "linux-sanitizers"},
+    {"name": "windows-msvc", "configurePreset": "windows-msvc", "configuration": "Release"},
+    {"name": "macos", "configurePreset": "macos"}
+  ],
+  "testPresets": [
+    {"name": "linux", "configurePreset": "linux", "output": {"outputOnFailure": true}},
+    {
+      "name": "linux-sanitizers",
+      "configurePreset": "linux-sanitizers",
+      "output": {"outputOnFailure": true}
+    },
+    {
+      "name": "windows-msvc",
+      "configurePreset": "windows-msvc",
+      "configuration": "Release",
+      "output": {"outputOnFailure": true}
+    },
+    {"name": "macos", "configurePreset": "macos", "output": {"outputOnFailure": true}}
+  ]
+}

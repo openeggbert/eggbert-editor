@@ -153,14 +153,19 @@ PalettePanel::PalettePanel(QWidget *parent) : QWidget(parent) {
     tabs_->setObjectName(QStringLiteral("paletteTabs"));
     tileGroups_ = makeGroupStrip(tabs_);
     tileGroups_->setObjectName(QStringLiteral("paletteTileGroups"));
+    tileGroups_->setAccessibleName(tr("Tile groups"));
     tiles_ = makeGrid(tabs_, tileThumbnailSize, QSize(tileThumbnailSize + 8, tileThumbnailSize + 8));
     tiles_->setObjectName(QStringLiteral("paletteTiles"));
+    tiles_->setAccessibleName(tr("Tiles of the group"));
     objectGroups_ = makeGroupStrip(tabs_);
     objectGroups_->setObjectName(QStringLiteral("paletteObjectGroups"));
+    objectGroups_->setAccessibleName(tr("Object groups"));
     objects_ = makeGrid(tabs_, objectThumbnailSize, QSize(112, objectThumbnailSize + 52));
     objects_->setObjectName(QStringLiteral("paletteObjects"));
+    objects_->setAccessibleName(tr("Objects of the group"));
     brushes_ = makeGrid(tabs_, objectThumbnailSize, QSize(112, objectThumbnailSize + 52));
     brushes_->setObjectName(QStringLiteral("paletteBrushes"));
+    brushes_->setAccessibleName(tr("Border brushes"));
     tabs_->addTab(page(tabs_, tileGroups_, tiles_), tr("Tiles"));
     tabs_->addTab(page(tabs_, objectGroups_, objects_), tr("Objects"));
     tabs_->addTab(brushes_, tr("Borders"));
@@ -210,6 +215,7 @@ PalettePanel::PalettePanel(QWidget *parent) : QWidget(parent) {
                               QSize(backdropThumbnailWidth + 10, backdropThumbnailHeight + 26));
         backdrops_->setIconSize(QSize(backdropThumbnailWidth, backdropThumbnailHeight));
         backdrops_->setObjectName(QStringLiteral("paletteBackdrops"));
+        backdrops_->setAccessibleName(tr("Backdrop pictures"));
         backdropLayout->addWidget(backdrops_);
         world->addWidget(backdropBox, 3);
         const auto onBackdrop = [this](QListWidgetItem *item) {
@@ -222,6 +228,7 @@ PalettePanel::PalettePanel(QWidget *parent) : QWidget(parent) {
         auto *musicLayout = new QVBoxLayout(musicBox);
         music_ = new QListWidget(musicBox);
         music_->setObjectName(QStringLiteral("paletteMusic"));
+        music_->setAccessibleName(tr("Music"));
         musicLayout->addWidget(music_);
         auto *playRow = new QHBoxLayout;
         play_ = new QPushButton(tr("Play"), musicBox);

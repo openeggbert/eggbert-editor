@@ -45,9 +45,9 @@ Verification on 2026-11-22, Ubuntu 24.04, GCC 13.3.0, CMake 3.28.3, Ninja, Qt 6.
 ```sh
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
 cmake --build build --parallel              # no warnings
-ctest --test-dir build --output-on-failure  # 64/64 passed (65 registered): layout, le_reader, world_probe, world_view, world_document, world_stats, offset_map, tile_tools, metadata, object_ops, hex_model, doctor, adaptive, animation, atlas_table, editor_groups, revision_convert, new_world, encyclopedia, expert_edit, custom_border, game_convert, installation, campaign, campaign_doors, reachability, stamp, view_transform, probe_report, document_file, recovery_store, deploy_store, campaign_pack, cli, world_renderer, png_export, game_assets, main_window, docks, tools, metadata_ui, objects_ui, inspector, doctor_ui, adaptive_ui, workspace, artwork_ui, palette, music_player, animation_ui, interface_ui, recovery_ui, convert_ui, new_world_ui, encyclopedia_ui, experimental_ui, convert_game_ui, installation_ui, campaign_ui, stamps_ui, cli_usage, smoke, version, install_smoke; sample_matrix skipped without EGGBERT_SAMPLE_DIRS
+ctest --test-dir build --output-on-failure  # 65/65 passed (66 registered): layout, le_reader, world_probe, world_view, world_document, world_stats, offset_map, tile_tools, metadata, object_ops, hex_model, doctor, adaptive, animation, atlas_table, editor_groups, revision_convert, new_world, encyclopedia, expert_edit, custom_border, game_convert, installation, campaign, campaign_doors, reachability, stamp, view_transform, probe_report, document_file, recovery_store, deploy_store, campaign_pack, cli, world_renderer, png_export, game_assets, main_window, docks, tools, metadata_ui, objects_ui, inspector, doctor_ui, adaptive_ui, workspace, artwork_ui, palette, music_player, animation_ui, interface_ui, recovery_ui, convert_ui, new_world_ui, encyclopedia_ui, experimental_ui, convert_game_ui, installation_ui, campaign_ui, stamps_ui, translation, cli_usage, smoke, version, install_smoke; sample_matrix skipped without EGGBERT_SAMPLE_DIRS
 cmake -S . -B build-asan -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DEGGBERT_SANITIZE=ON
-cmake --build build-asan --parallel && ctest --test-dir build-asan   # 64/64 passed under ASan/UBSan, sample_matrix skipped
+cmake --build build-asan --parallel && ctest --test-dir build-asan   # 65/65 passed under ASan/UBSan, sample_matrix skipped
 ```
 
 Commit `c8f7a77` (binary inspector) was pushed green in Release but with a use-after-free that the sanitizer run reported in `main_window` (the hex views kept a pointer to the document replaced by Revert/Reload); the next commit fixes it with `DocumentTab::documentReplaced` and a regression check in `inspector`. Always run the sanitizer suite to completion before committing.
@@ -82,14 +82,23 @@ Verified and reported observations are recorded with citations in `docs/research
 - **CI steps in a clean system.** A minimal Ubuntu 24.04 system (`debootstrap --variant=minbase`, then `cmake ninja-build g++ dpkg-dev` as a hosted runner has them, then the workflow's `qt6-base-dev`: CMake 3.28.3, GCC 13.3.0, Qt 6.4.2) ran every step of `.github/workflows/ci.yml` on commit `5a5f3d8`: job *build-and-test* — configure, build (0 warnings), `ctest` exit 0 (sample test skipped), `cpack` producing the TGZ and DEB; job *sanitizers* — configure, build (0 warnings), `ctest` exit 0. The sanitizer needs `/proc`, which a bare chroot lacks; with it mounted the job passes. The hosted workflow itself has still not run (no pull request, owner's decision).
 - **Independent documentation audit.** A second reviewer compared `docs/user-guide.md`, `README.md` and `docs/format-notes.md` with the code and reported 23 mismatches (none in the format notes). Six were fixed in the code because the documented behaviour was the better one: second-game tiles 384/385 are now drawn before objects; picking a bigDecor picture while the adaptive tile brush is active switches to the Pencil; music plays from a chosen game directory even when its pictures are unusable (`MainWindow::gameDirectoryFor`); the PNG dialog has a backdrop option recorded in `EggbertSettings`; Save As shows the World Doctor summary like Save; the 1/2 path badges are drawn down to five pixels per cell, so they show when the whole world is in view. The rest were wording corrections in the guide and README. The reviewer could not check statements about the games themselves (it had no access to the research sources); those rest on `docs/research/evidence.md`.
 
-## Next task: slice L of the promoted roadmap (localization, accessibility, other platforms)
+## Next task: slice M of the promoted roadmap (Mobile Eggbert text worlds)
 
-See `plan.md`, **Promotion of the roadmap**: "translations load and fall back cleanly; CI configurations exist; packages for platforms that cannot be built here are marked untested". Design to implement:
+See `plan.md`, **Planned Mobile Eggbert world support** and the promotion table: "a separate document profile; token-preserving round trip on synthetic text fixtures; no conversion to or from BLP". Rules: `mobile-eggbert` is read for research only (never modified, nothing copied from it); fixtures are written fresh here. Design to implement:
 
-1. Translations without a new build dependency (the CI image has no Qt Linguist tools): a small `QTranslator` subclass that reads a `.ts` file from the program's resources at start; language from the settings (**Edit → Preferences**: system, English, Czech) with clean fallback to the English source text for anything untranslated.
-2. A Czech catalogue (`translations/eggbert-editor_cs.ts`) for the menus, tool bar, docks, welcome page and the most used dialogs first; a test that every message in it names an existing context and source text, so stale entries are caught, and a count of covered against total strings recorded here.
-3. Accessibility pass: accessible names for the icon-only and custom-painted controls, tab order of the dialogs added in the promoted slices, and a test that walks the main window for unnamed focusable widgets.
-4. Windows and macOS: CMake presets and CI jobs that configure, build and run the tests; they cannot be run in this environment, so they are marked untested until a hosted run exists.
+1. Research the text world format in `mobile-eggbert` (`Worlds.cpp`, `Worlds.hpp`, the designed-world path of `Decor::Read`) and record the findings with citations in `docs/research/evidence.md`.
+2. Headless `src/world/text_world.hpp` (Qt-free): a tokenizer that keeps every byte (line ends, spacing, unknown lines), a typed view of the fields it understands, and a writer that reproduces an untouched file byte for byte and changes only the tokens of an edited field.
+3. Tests on synthetic fixtures: untouched round trip, single-field edits touching only that token, unknown content preserved, malformed input reported with its line.
+4. Product surface kept small and honest: `eggbert-editor info` recognises and describes such a file; the GUI opens it read-only with the structural report. No conversion in either direction.
+
+### Slice L result (2026-11-23): Czech interface, accessibility, other platforms
+
+- `src/app/catalog_translator.hpp`: a `QTranslator` that reads `.ts` catalogues from the program's resources at run time (no Linguist tools in the build); unfinished or empty translations fall back to English; Czech plural forms. Language preference in **Edit → Preferences** (system, English, Čeština), applied at start.
+- `translations/eggbert-editor_cs.ts`: 831 messages extracted with `lupdate` (command in `translations/README.md`), **439 translated** — the menus, tool bar, docks, welcome page and the most used dialogs. The other 392 (mostly long explanatory sentences, status messages and report texts) are shown in English.
+- Accessibility: 28 controls that had no name for a screen reader (the Palette's picture lists, the Objects panel's fields, the inspector's choosers, the trees) now have accessible names; a test walks the main window and fails on any focusable control without one.
+- `CMakePresets.json` (`linux`, `linux-sanitizers`, `windows-msvc`, `macos`) and two CI jobs, `windows-untested` and `macos-untested`, allowed to fail. **Neither platform has been built or run**: there is no Windows or macOS machine here and no hosted run (the owner asked for no pull request). No package for them is claimed.
+- Tests: `translation` (language choice, plural forms, a catalogue from text including damaged input, the shipped catalogue's placeholders, accelerators and ellipses, the main window's menus in Czech with English fallback, the accessibility walk).
+- Limits: the guide and the other documents are English only; the catalogue is checked for internal consistency, not against the sources (run `lupdate` after changing texts); a language change needs a restart; dialogs opened on demand are not part of the accessibility walk.
 
 ### Slice J result (2026-11-23): stamps, alignment, batch replace
 
@@ -223,7 +232,7 @@ Order and acceptance are in `plan.md`, **Promotion of the roadmap**. Tick a slic
 - [x] I Experimental editing: typed byte edits, unverified music/region numbers, custom border rules
 - [x] J Stamps, alignment, replace in all open worlds
 - [x] K Element encyclopedia and installation gallery (the Installation dock's world list)
-- [ ] L Localization (Czech), accessibility, Windows/macOS build configurations
+- [x] L Czech interface (439 of 831 texts), accessibility names, Windows/macOS configurations (untested)
 - [ ] M Mobile Eggbert text worlds
 - [ ] N Three-way merge, playtest traces
 

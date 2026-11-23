@@ -118,6 +118,7 @@ DiagnosticsPanel::DiagnosticsPanel(QWidget *parent) : QWidget(parent) {
 
     tree_ = new QTreeWidget(this);
     tree_->setObjectName(QStringLiteral("diagnosticsTree"));
+    tree_->setAccessibleName(tr("World Doctor findings"));
     tree_->setRootIsDecorated(false);
     tree_->setAlternatingRowColors(true);
     tree_->setHeaderLabels({tr("Severity"), tr("Rule"), tr("Finding"), tr("Offset")});

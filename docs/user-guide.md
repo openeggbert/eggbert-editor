@@ -238,6 +238,10 @@ Read-only worlds stay read-only.
 
 Panels can be moved, floated, stacked and closed; **View** lists them. **View → Layout** arranges them for mapping, object work or validation, and **Reset Layout** restores the default. **View → Theme** switches between the system, light and dark appearance. Window layout, theme and recent files are remembered.
 
+**Edit → Preferences → Language** chooses the language of the interface: the system's, English or Czech (Čeština). It takes effect the next time the editor starts. The Czech translation covers the menus, tools, panels and the most used dialogs — a little over half of all texts; whatever is not translated yet is shown in English. The guide itself is in English.
+
+Every control that can take the keyboard focus has a name for screen readers, including the picture lists of the Palette and the fields of the Objects panel.
+
 **Help → Diagnostics Bundle** saves a text report to attach to a problem report: program, Qt and platform versions, the structural report of the current document (with its file name but not its folder, and with the decoded title and header values), the World Doctor findings, and the byte ranges changed since opening and since the last save with their old and new bytes. The rest of the world's data is not included.
 
 ## Command line

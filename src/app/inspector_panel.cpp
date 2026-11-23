@@ -27,6 +27,7 @@ InspectorPanel::InspectorPanel(QWidget *parent) : QWidget(parent) {
     jumpRow->addWidget(jumpEdit_, 1);
     sectionCombo_ = new QComboBox(this);
     sectionCombo_->setObjectName(QStringLiteral("inspectorSectionCombo"));
+    sectionCombo_->setAccessibleName(tr("Jump to a section"));
     jumpRow->addWidget(sectionCombo_);
     layout->addLayout(jumpRow);
 
@@ -37,6 +38,7 @@ InspectorPanel::InspectorPanel(QWidget *parent) : QWidget(parent) {
     searchRow->addWidget(searchEdit_, 1);
     searchMode_ = new QComboBox(this);
     searchMode_->setObjectName(QStringLiteral("inspectorSearchMode"));
+    searchMode_->setAccessibleName(tr("Search as hex or text"));
     searchMode_->addItem(tr("Hex"));
     searchMode_->addItem(tr("ASCII"));
     searchRow->addWidget(searchMode_);
@@ -48,6 +50,7 @@ InspectorPanel::InspectorPanel(QWidget *parent) : QWidget(parent) {
     auto *optionRow = new QHBoxLayout;
     widthCombo_ = new QComboBox(this);
     widthCombo_->setObjectName(QStringLiteral("inspectorWidthCombo"));
+    widthCombo_->setAccessibleName(tr("Bytes per row"));
     for (const int width : {8, 16, 24, 32}) {
         widthCombo_->addItem(tr("%1 bytes per row").arg(width), width);
     }
@@ -55,6 +58,7 @@ InspectorPanel::InspectorPanel(QWidget *parent) : QWidget(parent) {
     optionRow->addWidget(widthCombo_);
     compareCombo_ = new QComboBox(this);
     compareCombo_->setObjectName(QStringLiteral("inspectorCompareCombo"));
+    compareCombo_->setAccessibleName(tr("Which bytes are shown"));
     compareCombo_->addItem(tr("Current bytes"), static_cast<int>(Compare::current));
     compareCombo_->addItem(tr("Original bytes"), static_cast<int>(Compare::original));
     compareCombo_->addItem(tr("Original | current"), static_cast<int>(Compare::sideBySide));
@@ -65,6 +69,7 @@ InspectorPanel::InspectorPanel(QWidget *parent) : QWidget(parent) {
     optionRow->addWidget(bookmarkButton);
     bookmarkCombo_ = new QComboBox(this);
     bookmarkCombo_->setObjectName(QStringLiteral("inspectorBookmarkCombo"));
+    bookmarkCombo_->setAccessibleName(tr("Bookmarks"));
     optionRow->addWidget(bookmarkCombo_, 1);
     auto *copyButton = new QPushButton(tr("Copy as Hex"), this);
     copyButton->setObjectName(QStringLiteral("inspectorCopyButton"));

@@ -97,6 +97,7 @@ qt_add_library(eggbert_app STATIC
     src/app/statistics_panel.cpp
     src/app/recovery_store.cpp
     src/app/deploy_store.cpp
+    src/app/catalog_translator.cpp
     src/app/campaign_pack.cpp
     src/app/recovery_store.hpp
     src/app/smoke_test.cpp
@@ -137,6 +138,9 @@ set(eggbert_documents docs/user-guide.md docs/format-notes.md NOTICE.md COPYING)
 set_source_files_properties(docs/user-guide.md PROPERTIES QT_RESOURCE_ALIAS user-guide.md)
 set_source_files_properties(docs/format-notes.md PROPERTIES QT_RESOURCE_ALIAS format-notes.md)
 qt_add_resources(eggbert_app "documents" PREFIX "/docs" FILES ${eggbert_documents})
+# Catalogues are read as `.ts` at run time: no Linguist tools are needed.
+qt_add_resources(eggbert_app "translations" PREFIX "/translations"
+    FILES translations/eggbert-editor_cs.ts)
 
 qt_add_executable(eggbert-editor src/app/main.cpp)
 target_link_libraries(eggbert-editor PRIVATE eggbert_app)
@@ -195,7 +199,7 @@ if(BUILD_TESTING)
     endforeach()
 
     # Application tests run without a display.
-    foreach(name probe_report document_file recovery_store deploy_store campaign_pack cli world_renderer png_export game_assets main_window docks tools metadata_ui objects_ui inspector doctor_ui adaptive_ui workspace artwork_ui palette music_player animation_ui interface_ui recovery_ui convert_ui new_world_ui encyclopedia_ui experimental_ui convert_game_ui installation_ui campaign_ui stamps_ui)
+    foreach(name probe_report document_file recovery_store deploy_store campaign_pack cli world_renderer png_export game_assets main_window docks tools metadata_ui objects_ui inspector doctor_ui adaptive_ui workspace artwork_ui palette music_player animation_ui interface_ui recovery_ui convert_ui new_world_ui encyclopedia_ui experimental_ui convert_game_ui installation_ui campaign_ui stamps_ui translation)
         add_executable(${name}-test tests/${name}_test.cpp)
         target_link_libraries(${name}-test PRIVATE eggbert_app Qt6::Test)
         add_test(NAME ${name} COMMAND ${name}-test)

@@ -61,6 +61,7 @@ StatisticsPanel::StatisticsPanel(QWidget *parent) : QWidget(parent) {
     layout->setContentsMargins(0, 0, 0, 0);
     tree_ = new QTreeWidget(this);
     tree_->setObjectName(QStringLiteral("statisticsTree"));
+    tree_->setAccessibleName(tr("World statistics"));
     tree_->setHeaderLabels({tr("Statistic"), tr("Value")});
     tree_->setRootIsDecorated(true);
     tree_->setAlternatingRowColors(true);

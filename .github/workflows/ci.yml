@@ -67,3 +67,56 @@ jobs:
 
       - name: Test
         run: ctest --test-dir build-asan --output-on-failure
+
+  # The two jobs below configure, build and test on Windows and macOS. They
+  # have never run: the project was developed where only Linux is available
+  # and no hosted run has happened yet. Until one has, they are allowed to
+  # fail without failing the workflow, and no package for these platforms is
+  # claimed to work (see NEXT.md).
+  windows-untested:
+    runs-on: windows-2022
+    timeout-minutes: 40
+    continue-on-error: true
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: "6.5.*"
+
+      - name: Configure
+        run: cmake --preset windows-msvc
+
+      - name: Build
+        run: cmake --build --preset windows-msvc --parallel
+
+      - name: Test
+        run: ctest --preset windows-msvc --output-on-failure
+        env:
+          QT_QPA_PLATFORM: offscreen
+
+  macos-untested:
+    runs-on: macos-14
+    timeout-minutes: 40
+    continue-on-error: true
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Install Qt and Ninja
+        run: brew install qt ninja
+
+      - name: Configure
+        run: cmake --preset macos -DCMAKE_PREFIX_PATH="$(brew --prefix qt)"
+
+      - name: Build
+        run: cmake --build --preset macos --parallel
+
+      - name: Test
+        run: ctest --preset macos --output-on-failure
+        env:
+          QT_QPA_PLATFORM: offscreen
