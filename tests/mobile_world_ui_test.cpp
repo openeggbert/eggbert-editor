@@ -409,11 +409,57 @@ int main(int argc, char **argv) {
         }
         CHECK(panel->summary()->text().contains("2 world(s) of Mobile Eggbert"));
         CHECK(panel->deployButton()->isEnabled());
-        // Campaign packs hold .blp worlds; the overview works for the port.
-        for (const auto *name : {"fileExportPack", "fileImportPack"}) {
-            CHECK(!fourth.findChild<QAction *>(name)->isEnabled());
+        for (const auto *name : {"fileExportPack", "fileImportPack", "fileCampaignOverview"}) {
+            CHECK(fourth.findChild<QAction *>(name)->isEnabled());
         }
-        CHECK(fourth.findChild<QAction *>("fileCampaignOverview")->isEnabled());
+        // A campaign pack of the port's worlds: text files, out and back in.
+        {
+            const auto packPath = dir.filePath("port-pack.zip");
+            fourth.prompts.exportPack = [&](const std::vector<PackCandidate> &candidates) {
+                PackExportChoice choice;
+                choice.name = "Port pack";
+                for (std::size_t index = 0; index < candidates.size(); ++index) {
+                    choice.chosen.push_back(index);
+                }
+                choice.path = packPath;
+                return std::optional(choice);
+            };
+            CHECK(fourth.exportCampaignPack());
+            const auto pack = readPack(packPath);
+            CHECK(pack.has_value() && pack->campaign.game == mobile);
+            CHECK(pack.has_value() && pack->worlds.size() == 2 &&
+                  pack->worlds[0].name == "world011.txt" && pack->worlds[0].bytes == original);
+            // Importing replaces world020 (not open) but not the open world011.
+            fourth.prompts.confirmImportPack = [](const CampaignPack &, const QStringList &) {
+                return true;
+            };
+            CHECK_EQ(fourth.importCampaignPack(packPath), 0);
+            CHECK_EQ(errors.size(), 1);
+            CHECK(errors.value(0).contains("world011.txt is open"));
+            errors.clear();
+            // A pack of the world that is not open goes in, and can be taken
+            // out again.
+            const auto onePath = dir.filePath("port-one.zip");
+            fourth.prompts.exportPack = [&](const std::vector<PackCandidate> &) {
+                PackExportChoice choice;
+                choice.name = "One";
+                choice.chosen.push_back(1); // world020, the one that is not open
+                choice.path = onePath;
+                return std::optional(choice);
+            };
+            CHECK(fourth.exportCampaignPack());
+            auto changed = original;
+            changed.replace("music=3", "music=9");
+            writeFile(port.root + "/worlds/world020.txt", changed);
+            CHECK_EQ(fourth.importCampaignPack(onePath), 1);
+            CHECK(readAll(port.root + "/worlds/world020.txt") == original);
+            fourth.prompts.confirmRollBack = [](const DeployRecord &) { return true; };
+            CHECK(fourth.rollBackLastDeploy());
+            CHECK(readAll(port.root + "/worlds/world020.txt") == changed);
+            writeFile(port.root + "/worlds/world020.txt", original);
+            panel->refresh();
+            CHECK(errors.isEmpty());
+        }
         {
             // World 20 (a hub) holds door tile 160, which stands for 3: it
             // leads to world 23, which is not there. World 1 is missing too.

@@ -2577,6 +2577,10 @@ Posuzováno pro: %1</translation>
    <source>Bytes follow the end of the compressed data.</source>
    <translation>Za koncem komprimovaných dat následují další bajty.</translation>
   </message>
+  <message>
+   <source>%1 is not a Mobile Eggbert world the editor can read.</source>
+   <translation>%1 není svět Mobile Eggbert, který editor umí přečíst.</translation>
+  </message>
  </context>
  <context>
   <name>eggbert::GameAssets</name>
@@ -4928,6 +4932,10 @@ Hra:</translation>
   <message>
    <source>Mobile Eggbert text world</source>
    <translation>Textový svět Mobile Eggbert</translation>
+  </message>
+  <message>
+   <source>The pack is for another game: Mobile Eggbert worlds go into Mobile Eggbert's worlds folder, and worlds of the Windows games into theirs.</source>
+   <translation>Balíček je pro jinou hru: světy Mobile Eggbert patří do složky worlds hry Mobile Eggbert a světy her pro Windows do jejich složek.</translation>
   </message>
  </context>
  <context>

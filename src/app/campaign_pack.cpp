@@ -19,6 +19,7 @@
 #include <span>
 
 #include "app/inflate.hpp"
+#include "world/text_world_image.hpp"
 #include "world/world_probe.hpp"
 #include "world/world_view.hpp"
 
@@ -80,9 +81,35 @@ constexpr quint32 centralSignature = 0x02014B50u;
 constexpr quint32 endSignature = 0x06054B50u;
 
 QString gameKey(GameProfile game) {
-    return game == GameProfile::speedyBlupi1   ? QStringLiteral("speedy-blupi-1")
-           : game == GameProfile::speedyBlupi2 ? QStringLiteral("speedy-blupi-2")
-                                               : QString();
+    return game == GameProfile::speedyBlupi1     ? QStringLiteral("speedy-blupi-1")
+           : game == GameProfile::speedyBlupi2   ? QStringLiteral("speedy-blupi-2")
+           : game == GameProfile::mobileEggbert ? QStringLiteral("mobile-eggbert")
+                                                 : QString();
+}
+
+// The file a slot has in a game: Mobile Eggbert keeps official worlds only,
+// as text files.
+std::string slotFileName(GameProfile game, const WorldSlot &slot) {
+    if (game == GameProfile::mobileEggbert) {
+        return slot.user || !validWorldSlot(slot) ? std::string()
+                                                  : portWorldFileName(slot.number);
+    }
+    return worldSlotFileName(slot);
+}
+
+// True for bytes a pack may carry as a world of the game: a complete world
+// of a known revision, or for Mobile Eggbert a text world the editor can
+// lay out.
+bool completeWorld(GameProfile game, const QByteArray &bytes) {
+    if (game == GameProfile::mobileEggbert) {
+        const std::string_view text(bytes.constData(), static_cast<std::size_t>(bytes.size()));
+        return looksLikeTextWorld(text) && makeTextWorldImage(TextWorld::parse(text)).has_value();
+    }
+    const auto probe = probeWorld(std::span<const std::byte>(
+        reinterpret_cast<const std::byte *>(bytes.constData()),
+        static_cast<std::size_t>(bytes.size())));
+    return probe.descriptor != nullptr &&
+           (probe.status == ProbeStatus::sizeMatches || probe.status == ProbeStatus::surplus);
 }
 
 QByteArray sha256Hex(const QByteArray &bytes) {
@@ -153,9 +180,10 @@ std::expected<Campaign, QString> readPackManifest(const QByteArray &manifest) {
     Campaign campaign;
     campaign.name = root[QStringLiteral("name")].toString().left(200).toStdString();
     const auto game = root[QStringLiteral("game")].toString();
-    campaign.game = game == gameKey(GameProfile::speedyBlupi1)   ? GameProfile::speedyBlupi1
-                    : game == gameKey(GameProfile::speedyBlupi2) ? GameProfile::speedyBlupi2
-                                                                 : GameProfile::unknown;
+    campaign.game = game == gameKey(GameProfile::speedyBlupi1)     ? GameProfile::speedyBlupi1
+                    : game == gameKey(GameProfile::speedyBlupi2)   ? GameProfile::speedyBlupi2
+                    : game == gameKey(GameProfile::mobileEggbert) ? GameProfile::mobileEggbert
+                                                                   : GameProfile::unknown;
     if (campaign.game == GameProfile::unknown) {
         return fail(QCoreApplication::translate("eggbert::Files", "The manifest does not say which game the campaign is for."));
     }
@@ -176,7 +204,7 @@ std::expected<Campaign, QString> readPackManifest(const QByteArray &manifest) {
         entry.slot.user = kind == QLatin1String("designed");
         entry.slot.gamer = entry.slot.user ? item[QStringLiteral("player")].toInt(0) : 1;
         entry.slot.number = item[QStringLiteral("number")].toInt(0);
-        const auto slotName = worldSlotFileName(entry.slot);
+        const auto slotName = slotFileName(campaign.game, entry.slot);
         const auto file = item[QStringLiteral("file")].toString();
         if (slotName.empty()) {
             return fail(QCoreApplication::translate("eggbert::Files", "%1 is not in a slot the games use.").arg(file));
@@ -388,7 +416,7 @@ std::expected<CampaignPack, QString> makePack(QString name, GameProfile game,
     for (std::size_t index = 0; index < places.size(); ++index) {
         CampaignEntry entry;
         entry.slot = places[index];
-        entry.fileName = worldSlotFileName(entry.slot);
+        entry.fileName = slotFileName(game, entry.slot);
         entry.size = static_cast<std::uint64_t>(worlds[index].size());
         entry.sha256 = sha256Hex(worlds[index]).toStdString();
         const std::span<const std::byte> span(
@@ -457,12 +485,16 @@ std::expected<CampaignPack, QString> assemblePack(const std::vector<PackFile> &f
                                        "checksum differs).")
                             .arg(name));
         }
-        const auto probe = probeWorld(std::span<const std::byte>(
-            reinterpret_cast<const std::byte *>(bytes.constData()),
-            static_cast<std::size_t>(bytes.size())));
-        if (probe.descriptor == nullptr || (probe.status != ProbeStatus::sizeMatches &&
-                                            probe.status != ProbeStatus::surplus)) {
-            return fail(QCoreApplication::translate("eggbert::Files", "%1 is not a complete world of a known revision.").arg(name));
+        if (!completeWorld(campaign->game, bytes)) {
+            return fail(campaign->game == GameProfile::mobileEggbert
+                            ? QCoreApplication::translate(
+                                  "eggbert::Files",
+                                  "%1 is not a Mobile Eggbert world the editor can read.")
+                                  .arg(name)
+                            : QCoreApplication::translate(
+                                  "eggbert::Files",
+                                  "%1 is not a complete world of a known revision.")
+                                  .arg(name));
         }
         pack.worlds.push_back({name, bytes});
     }

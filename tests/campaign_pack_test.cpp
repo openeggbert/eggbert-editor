@@ -4,6 +4,7 @@
 // and hostile or damaged input is refused before anything is used.
 
 #include "app/campaign_pack.hpp"
+#include "world/text_world_image.hpp"
 
 #include "check.hpp"
 #include "fixture.hpp"
@@ -419,6 +420,47 @@ int main(int argc, char **argv) {
         }
         CHECK(!readPack(dir.filePath("missing.zip")).has_value());
         CHECK(!readPack(dir.filePath("missing-folder")).has_value());
+    }
+    // A pack of Mobile Eggbert worlds: text files under the port's names.
+    {
+        const auto text = QByteArray::fromStdString(newTextWorld());
+        auto other = text;
+        other.replace("music=1", "music=4");
+        const auto port = makePack("Port", GameProfile::mobileEggbert,
+                                   {{false, 1, 1}, {false, 1, 10}}, {text, other});
+        CHECK(port.has_value());
+        if (port) {
+            CHECK(port->campaign.game == GameProfile::mobileEggbert);
+            CHECK_EQ(port->worlds.size(), std::size_t{2});
+            CHECK_EQ(port->worlds[1].name, QString("world010.txt"));
+            CHECK(port->worlds[1].bytes == other);
+            CHECK(port->campaign.entries[0].title.empty());
+            const auto manifest = writePackManifest(port->campaign);
+            CHECK(manifest.contains("\"mobile-eggbert\""));
+            const auto again = readPackManifest(manifest);
+            CHECK(again.has_value() && *again == port->campaign);
+            // Through a ZIP file and a folder, byte for byte.
+            const auto zipPath = dir.filePath("port.zip");
+            CHECK(writePack(*port, zipPath, true).has_value());
+            const auto fromZip = readPack(zipPath);
+            CHECK(fromZip.has_value() && fromZip->campaign == port->campaign &&
+                  fromZip->worlds == port->worlds);
+            // A .blp world under a text name, or text that is not a world.
+            std::vector<PackFile> files{{packManifestName, manifest},
+                                        {"world001.txt", text},
+                                        {"world010.txt", other}};
+            CHECK(assemblePack(files).has_value());
+        }
+        // The port has no designed worlds, and its worlds are text.
+        CHECK(!makePack("Port", GameProfile::mobileEggbert, {{true, 1, 1}}, {text}).has_value());
+        CHECK(errorOf(makePack("Port", GameProfile::mobileEggbert, {{false, 1, 1}}, {worldA}))
+                  .contains("not a Mobile Eggbert world"));
+        CHECK(errorOf(makePack("Port", GameProfile::mobileEggbert, {{false, 1, 1}},
+                               {QByteArray("DescFile: nothing \n")}))
+                  .contains("not a Mobile Eggbert world"));
+        // And a text world is not a world of the Windows games.
+        CHECK(errorOf(makePack("Two", GameProfile::speedyBlupi2, {{false, 1, 1}}, {text}))
+                  .contains("not a complete world"));
     }
     return test::finish("campaign_pack");
 }

@@ -3934,9 +3934,17 @@ int MainWindow::importCampaignPack(const QString &path) {
         return 0;
     }
     if (pack->campaign.game != installation_->profile()) {
+        // Between the Windows games a world can be converted; a pack of text
+        // worlds and a pack of .blp worlds belong to different kinds of game.
+        const bool text = pack->campaign.game == GameProfile::mobileEggbert ||
+                          installation_->profile() == GameProfile::mobileEggbert;
         prompts.error(tr("Import Campaign Pack"),
-                      tr("The pack is for the other game. Convert its worlds (File > Convert "
-                         "for Other Game) or switch to that game's installation."));
+                      text ? tr("The pack is for another game: Mobile Eggbert worlds go into "
+                                "Mobile Eggbert's worlds folder, and worlds of the Windows "
+                                "games into theirs.")
+                           : tr("The pack is for the other game. Convert its worlds (File > "
+                                "Convert for Other Game) or switch to that game's "
+                                "installation."));
         return 0;
     }
     const auto existing = QDir(dataDirectory).entryList(QDir::Files);
@@ -4746,12 +4754,10 @@ void MainWindow::updateUi() {
     enable("fileDeploy", installation_->deployButton()->isEnabled());
     enable("fileRollBack", haveDeploys_);
     {
-        // Campaign packs hold .blp worlds of the Windows games.
         const bool installed = !installation_->dataDirectory().isEmpty();
-        const bool windowsGame = installation_->profile() != GameProfile::mobileEggbert;
         enable("fileCampaignOverview", installed);
-        enable("fileExportPack", installed && windowsGame);
-        enable("fileImportPack", installed && windowsGame);
+        enable("fileExportPack", installed);
+        enable("fileImportPack", installed);
     }
     enable("filePlaytest", hasTab && gameDirectoryFor(tab->profile()) != nullptr);
     enable("editPlaytestCommand", hasTab && tab->profile() != GameProfile::unknown);
