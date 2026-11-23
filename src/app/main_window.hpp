@@ -97,6 +97,7 @@ class MinimapWidget;
 class ObjectsPanel;
 class MusicPlayer;
 class PalettePanel;
+class EncyclopediaDialog;
 class StatisticsPanel;
 
 class MainWindow final : public QMainWindow {
@@ -140,6 +141,10 @@ public:
     [[nodiscard]] StatisticsPanel *statistics() const { return statistics_; }
     [[nodiscard]] ObjectsPanel *objectsPanel() const { return objects_; }
     [[nodiscard]] PalettePanel *palette() const { return palette_; }
+    // Opens (creating it on first use) the element encyclopedia for the
+    // current tab's game.
+    EncyclopediaDialog *showEncyclopedia();
+    [[nodiscard]] EncyclopediaDialog *encyclopediaDialog() const { return encyclopedia_; }
     [[nodiscard]] MusicPlayer *musicPlayer() const { return music_; }
     // Plays the music file of a stored music number from the current tab's
     // game directory; false when there is no directory, file or player.
@@ -252,6 +257,7 @@ private:
     StatisticsPanel *statistics_ = nullptr;
     ObjectsPanel *objects_ = nullptr;
     PalettePanel *palette_ = nullptr;
+    EncyclopediaDialog *encyclopedia_ = nullptr;
     RecoveryStore recovery_;
     QTimer *autosaveTimer_ = nullptr;
     QStackedWidget *central_ = nullptr;

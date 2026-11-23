@@ -69,6 +69,10 @@ With game artwork loaded and **View → Draw with Game Artwork** switched on, th
 
 The groups are a way to find things, not a limit: the **Tile ID** box in the tool bar remains for typing any raw number. Player starts are placed with the Start tool.
 
+### Element Encyclopedia
+
+**Help → Element Encyclopedia** lists everything the editor's catalogs know about the current world's game: every tile entry and object of the game editor's groups and every adaptive border family. Type in the search box to filter by name or group; a number finds the entries that store exactly that tile value or object type. For the chosen entry the window shows what is stored for it (tile numbers, or the object's type, channel, icon, placement and timing) and the evidence it rests on. **Select in Editor** (or a double click) chooses the entry exactly as a click in the Palette does. Pictures come from your game directory; without one the entries show numbered placeholders. The window stays open while you work and follows the current tab's game.
+
 ## Editing tiles
 
 Tools act on the **active layer** (tool bar, or **Layer → Edit Foreground / Edit bigDecor**) and write stored tile numbers; the Adaptive tool always works on the foreground. The value -1 is an empty cell. Pick the tile in the **Palette** or type its number.

@@ -58,6 +58,7 @@
 #include "app/music_player.hpp"
 #include "app/palette_panel.hpp"
 #include "app/sprite_icons.hpp"
+#include "app/encyclopedia_dialog.hpp"
 #include "app/tool_icons.hpp"
 #include "world/new_world.hpp"
 #include "world/revision_convert.hpp"
@@ -848,6 +849,9 @@ void MainWindow::createActions() {
                 prompts.showDocument(tr("User Guide"),
                                      resourceText(QStringLiteral("user-guide.md")), true);
             });
+    connect(addAction(helpMenu, QStringLiteral("helpEncyclopedia"),
+                      tr("Element &Encyclopedia...")),
+            &QAction::triggered, this, [this] { showEncyclopedia(); });
     connect(addAction(helpMenu, QStringLiteral("helpShortcuts"), tr("&Keyboard Shortcuts")),
             &QAction::triggered, this, [this] {
                 prompts.showDocument(tr("Keyboard Shortcuts"), shortcutsText(), false);
@@ -2347,6 +2351,26 @@ int MainWindow::checkRecovery() {
     return restored;
 }
 
+EncyclopediaDialog *MainWindow::showEncyclopedia() {
+    if (encyclopedia_ == nullptr) {
+        encyclopedia_ = new EncyclopediaDialog(this);
+        // The same choices the Palette makes, through the same handlers.
+        connect(encyclopedia_, &EncyclopediaDialog::tileChosen, palette_,
+                &PalettePanel::tileChosen);
+        connect(encyclopedia_, &EncyclopediaDialog::presetChosen, palette_,
+                &PalettePanel::presetChosen);
+        connect(encyclopedia_, &EncyclopediaDialog::brushChosen, palette_,
+                &PalettePanel::brushChosen);
+    }
+    auto *tab = currentTab();
+    const auto profile = tab != nullptr ? tab->profile() : GameProfile::unknown;
+    encyclopedia_->setGame(profile, artworkFor(profile));
+    encyclopedia_->show();
+    encyclopedia_->raise();
+    encyclopedia_->activateWindow();
+    return encyclopedia_;
+}
+
 DocumentTab *MainWindow::createWorld() {
     auto suggestedGame = GameProfile::speedyBlupi2;
     QString directory;
@@ -2894,6 +2918,10 @@ void MainWindow::updateUi() {
     updating_ = false;
     palette_->setContext(profile, hasTab ? tab->activeLayer() : SectionKind::foreground,
                          currentArtwork);
+    if (encyclopedia_ != nullptr && encyclopedia_->isVisible() &&
+        (encyclopedia_->game() != profile || encyclopedia_->artwork() != currentArtwork)) {
+        encyclopedia_->setGame(profile, currentArtwork);
+    }
     palette_->setEditable(writable);
     {
         PalettePanel::WorldState world;
