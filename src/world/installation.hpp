@@ -81,9 +81,9 @@ enum class WorldRole {
     other,
 };
 
-// Mobile Eggbert numbers its worlds as the first game does but has neither
-// network worlds nor demos, and its last world is 199 (evidence.md, "Mobile
-// Eggbert text worlds").
+// Mobile Eggbert numbers its campaign as the second game does (hubs 10 to
+// 140, missions hub + 1 to 8, last world 199) but has neither network
+// worlds nor demos (evidence.md, "Mobile Eggbert as a game profile").
 [[nodiscard]] WorldRole officialWorldRole(GameProfile profile, int number);
 
 // The number of a Mobile Eggbert world file, `world%.3d.txt` in the port's

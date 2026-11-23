@@ -60,6 +60,18 @@ int main() {
     CHECK_EQ(doorTarget(first, 35, 2), 32);    // from a mission into its own group
     CHECK_EQ(doorTarget(first, 30, 99), 1);    // the exit
     CHECK_EQ(doorTarget(second, 120, 199), 1);
+    // Mobile Eggbert: the second game's door tiles and exit.
+    {
+        const auto port = GameProfile::mobileEggbert;
+        for (const int tile : {157, 158, 165, 166, 173, 174, 181, 182, 184, 309, 310, 411, 415,
+                               416, 420, 421}) {
+            CHECK_EQ(doorCode(port, tile), doorCode(second, tile));
+        }
+        CHECK_EQ(doorCode(port, 184), 199);
+        CHECK_EQ(doorTarget(port, 1, 12), 120);
+        CHECK_EQ(doorTarget(port, 50, 3), 53);
+        CHECK_EQ(doorTarget(port, 53, 199), 1);
+    }
     CHECK_EQ(doorTarget(second, 120, 99), 219); // 99 is no exit code in the second game
 
     // Tiles found in a world.

@@ -78,8 +78,8 @@ int main() {
     CHECK(officialWorldRole(two, 300) == WorldRole::demo);
     CHECK(officialWorldRole(GameProfile::unknown, 1) == WorldRole::other);
     CHECK(officialWorldRole(one, 0) == WorldRole::other);
-    // Mobile Eggbert: the first game's numbering, to 199, no network worlds
-    // and no demos; its files are text.
+    // Mobile Eggbert: the second game's campaign numbering, no network
+    // worlds and no demos; its files are text.
     {
         const auto port = GameProfile::mobileEggbert;
         CHECK(officialWorldRole(port, 1) == WorldRole::start);
@@ -90,6 +90,9 @@ int main() {
         CHECK(officialWorldRole(port, 5) == WorldRole::other);
         CHECK(officialWorldRole(port, 199) == WorldRole::finale);
         CHECK(officialWorldRole(port, 101) == WorldRole::mission); // not a network world
+        CHECK(officialWorldRole(port, 140) == WorldRole::hub);
+        CHECK(officialWorldRole(port, 148) == WorldRole::mission);
+        CHECK(officialWorldRole(port, 150) == WorldRole::other);
         CHECK(officialWorldRole(port, 200) == WorldRole::other);
         CHECK(officialWorldRole(port, 300) == WorldRole::other);
         CHECK(portWorldNumber("world011.txt") == 11);

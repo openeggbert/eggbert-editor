@@ -101,6 +101,33 @@ int main() {
         CHECK_EQ(findings.size(), std::size_t{1});
         CHECK(mentions(findings, "World 199", CampaignSeverity::note));
     }
+    // Mobile Eggbert: the second game's chain to 199, as text files; it has
+    // no designed worlds, network worlds or demos.
+    {
+        const auto port = GameProfile::mobileEggbert;
+        const auto world = [](int number) {
+            return CampaignEntry{{false, 1, number}, portWorldFileName(number), 0, "", ""};
+        };
+        Campaign complete{"Port", port, {world(1), world(10), world(11), world(199)}};
+        CHECK(reviewCampaign(complete).empty());
+        Campaign campaign{"Port", port, {world(1), world(21), world(30), world(201), world(11),
+                                         world(11), designed(1, 1)}};
+        const auto findings = reviewCampaign(campaign);
+        CHECK(mentions(findings, "Hub 20 is missing", CampaignSeverity::warning));
+        CHECK(mentions(findings, "Hub 10 is missing", CampaignSeverity::warning));
+        CHECK(mentions(findings, "Hub 30 has none of its missions", CampaignSeverity::note));
+        CHECK(mentions(findings, "World 201 is outside the campaign numbering",
+                       CampaignSeverity::note));
+        CHECK(mentions(findings, "World 199", CampaignSeverity::note));
+        CHECK(mentions(findings, "world011.txt is used by more than one entry",
+                       CampaignSeverity::warning));
+        CHECK(mentions(findings, "not in a slot the games use", CampaignSeverity::warning));
+        std::vector<int> order;
+        for (const auto &entry : campaignOrder(complete)) {
+            order.push_back(entry.slot.number);
+        }
+        CHECK((order == std::vector<int>{1, 10, 11, 199}));
+    }
     // Designed worlds only, or no game: nothing to say about numbering.
     {
         Campaign campaign{"Mine", GameProfile::speedyBlupi1, {designed(1, 1), designed(1, 2)}};

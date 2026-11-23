@@ -13,8 +13,8 @@ namespace eggbert {
 // docs/research/evidence.md, "Doors between worlds").
 
 // The number a door tile stands for in a game: 1 to 8 (first game) or 1 to
-// 14 (second), the exit code 99 / 199 for tile 184, or -1 for any other
-// tile.
+// 14 (second game and Mobile Eggbert), the exit code 99 / 199 for tile 184,
+// or -1 for any other tile.
 [[nodiscard]] int doorCode(GameProfile profile, int tile);
 
 // The official world a door with `code` leads to from official world

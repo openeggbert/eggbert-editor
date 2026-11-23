@@ -4002,7 +4002,12 @@ QString MainWindow::campaignOverview() const {
     for (const auto &entry : installation_->entries()) {
         if (const auto slot = worldSlotOf(entry.name); slot && entry.complete) {
             campaign.entries.push_back(
-                {*slot, worldSlotFileName(*slot), 0, {}, entry.title.toStdString()});
+                {*slot,
+                 campaign.game == GameProfile::mobileEggbert ? portWorldFileName(slot->number)
+                                                             : worldSlotFileName(*slot),
+                 0,
+                 {},
+                 entry.title.toStdString()});
         }
     }
     if (campaign.entries.empty()) {
@@ -4047,7 +4052,19 @@ QString MainWindow::campaignOverview() const {
         QFile file(entry.path);
         if (entry.complete && entry.name.kind == DataFileKind::officialWorld &&
             file.open(QIODevice::ReadOnly)) {
-            contents[entry.name.number] = file.readAll();
+            auto bytes = file.readAll();
+            // A text world is read for its doors as its tab would hold it.
+            if (const std::string_view text(bytes.constData(),
+                                            static_cast<std::size_t>(bytes.size()));
+                campaign.game == GameProfile::mobileEggbert && looksLikeTextWorld(text)) {
+                const auto image = makeTextWorldImage(TextWorld::parse(text));
+                if (!image) {
+                    continue;
+                }
+                bytes = QByteArray(reinterpret_cast<const char *>(image->bytes.data()),
+                                   static_cast<qsizetype>(image->bytes.size()));
+            }
+            contents[entry.name.number] = bytes;
         }
     }
     std::map<int, WorldView> views;
@@ -4726,13 +4743,12 @@ void MainWindow::updateUi() {
     enable("fileDeploy", installation_->deployButton()->isEnabled());
     enable("fileRollBack", haveDeploys_);
     {
-        // The campaign check and campaign packs are about the Windows
-        // games' door rules and .blp files.
-        const bool installed = !installation_->dataDirectory().isEmpty() &&
-                               installation_->profile() != GameProfile::mobileEggbert;
+        // Campaign packs hold .blp worlds of the Windows games.
+        const bool installed = !installation_->dataDirectory().isEmpty();
+        const bool windowsGame = installation_->profile() != GameProfile::mobileEggbert;
         enable("fileCampaignOverview", installed);
-        enable("fileExportPack", installed);
-        enable("fileImportPack", installed);
+        enable("fileExportPack", installed && windowsGame);
+        enable("fileImportPack", installed && windowsGame);
     }
     enable("filePlaytest", hasTab && gameDirectoryFor(tab->profile()) != nullptr);
     enable("editPlaytestCommand", hasTab && tab->profile() != GameProfile::unknown);

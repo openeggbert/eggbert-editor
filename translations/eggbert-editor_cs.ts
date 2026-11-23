@@ -1456,6 +1456,10 @@
    <source>A value could not be written into the text; nothing was changed.</source>
    <translation>Hodnotu se nepodařilo zapsat do textu; nic se nezměnilo.</translation>
   </message>
+  <message>
+   <source>world%1.txt is used by more than one entry.</source>
+   <translation>Soubor world%1.txt používá více než jedna položka.</translation>
+  </message>
  </context>
  <context>
   <name>eggbert::DemoTimeline</name>

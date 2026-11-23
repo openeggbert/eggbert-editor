@@ -371,8 +371,28 @@ int main(int argc, char **argv) {
         CHECK(!panel->list()->item(0)->icon().isNull());
         CHECK(panel->summary()->text().contains("2 world(s) of Mobile Eggbert"));
         CHECK(panel->deployButton()->isEnabled());
-        for (const auto *name : {"fileCampaignOverview", "fileExportPack", "fileImportPack"}) {
+        // Campaign packs hold .blp worlds; the overview works for the port.
+        for (const auto *name : {"fileExportPack", "fileImportPack"}) {
             CHECK(!fourth.findChild<QAction *>(name)->isEnabled());
+        }
+        CHECK(fourth.findChild<QAction *>("fileCampaignOverview")->isEnabled());
+        {
+            // World 20 (a hub) holds door tile 160, which stands for 3: it
+            // leads to world 23, which is not there. World 1 is missing too.
+            auto hub = original;
+            hub.replace(",,,,40,", ",,,,160,");
+            writeFile(port.root + "/worlds/world020.txt", hub);
+            panel->refresh();
+            const auto overview = fourth.campaignOverview();
+            CHECK(overview.contains("world020.txt  group hub"));
+            CHECK(overview.contains("    world011.txt  mission"));
+            CHECK(overview.contains("World 1 is missing"));
+            CHECK(overview.contains("Hub 10 is missing"));
+            CHECK(overview.contains("World 20 -> 23"));
+            CHECK(overview.contains("World 20 has a door (tile 160 at cell 3, 4) to world 23"));
+            CHECK(!overview.contains(".blp"));
+            writeFile(port.root + "/worlds/world020.txt", original);
+            panel->refresh();
         }
         CHECK(fourth.findChild<QAction *>("fileDeploy")->isEnabled());
         CHECK(fourth.findChild<QAction *>("fileMerge")->isEnabled());

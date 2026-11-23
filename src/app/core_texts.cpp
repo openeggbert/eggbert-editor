@@ -15,6 +15,8 @@ constexpr const char *texts[] = {
     QT_TRANSLATE_NOOP("eggbert::Core",
         "u%1-%2.blp is used by more than one entry."),
     QT_TRANSLATE_NOOP("eggbert::Core",
+        "world%1.txt is used by more than one entry."),
+    QT_TRANSLATE_NOOP("eggbert::Core",
         "World %1 is missing: the game always starts a campaign there."),
     QT_TRANSLATE_NOOP("eggbert::Core",
         "World %1 is outside the campaign numbering; the game reaches it only by its "

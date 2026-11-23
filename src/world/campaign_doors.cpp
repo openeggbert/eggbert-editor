@@ -7,8 +7,10 @@ namespace eggbert {
 
 namespace {
 
+// Mobile Eggbert maps door tiles as the second game does and also leaves
+// through 199 (evidence.md, "Mobile Eggbert as a game profile").
 int exitCode(GameProfile profile) {
-    return profile == GameProfile::speedyBlupi2 ? 199 : 99;
+    return tablesOf(profile) == GameProfile::speedyBlupi2 ? 199 : 99;
 }
 
 bool campaignWorld(GameProfile profile, int number) {
@@ -34,7 +36,7 @@ int doorCode(GameProfile profile, int tile) {
     if (tile == 184) {
         return exitCode(profile);
     }
-    if (profile == GameProfile::speedyBlupi2) {
+    if (tablesOf(profile) == GameProfile::speedyBlupi2) {
         if (tile == 309 || tile == 310) {
             return 9;
         }

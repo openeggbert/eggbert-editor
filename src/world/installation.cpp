@@ -149,10 +149,11 @@ WorldRole officialWorldRole(GameProfile profile, int number) {
         if (number == 199) {
             return WorldRole::finale;
         }
-        if (number < 199 && number % 10 == 0) {
+        // Door tiles stand for 1 to 14, so hubs end at 140.
+        if (number <= 140 && number % 10 == 0) {
             return WorldRole::hub;
         }
-        if (number > 10 && number < 199 && number % 10 <= 8) {
+        if (number > 10 && number <= 148 && number % 10 <= 8) {
             return WorldRole::mission;
         }
         return WorldRole::other;

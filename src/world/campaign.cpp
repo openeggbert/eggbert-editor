@@ -58,7 +58,11 @@ std::vector<CampaignFinding> reviewCampaign(const Campaign &campaign) {
     std::map<std::string, int> names;
     std::set<int> official;
     for (const auto &entry : campaign.entries) {
-        const auto name = worldSlotFileName(entry.slot);
+        // Mobile Eggbert has official worlds only, as text files.
+        const auto name = campaign.game == GameProfile::mobileEggbert
+                              ? (entry.slot.user ? std::string()
+                                                 : portWorldFileName(entry.slot.number))
+                              : worldSlotFileName(entry.slot);
         if (name.empty()) {
             add(CampaignSeverity::warning,
                 "An entry is not in a slot the games use (" + entry.fileName + ").");
@@ -74,8 +78,7 @@ std::vector<CampaignFinding> reviewCampaign(const Campaign &campaign) {
     if (official.empty() || campaign.game == GameProfile::unknown) {
         return findings;
     }
-    const bool second = campaign.game == GameProfile::speedyBlupi2;
-    const int finale = second ? 199 : 99;
+    const int finale = campaign.game == GameProfile::speedyBlupi1 ? 99 : 199;
     if (!official.contains(1)) {
         add(CampaignSeverity::warning,
             "World 1 is missing: the game always starts a campaign there.");
