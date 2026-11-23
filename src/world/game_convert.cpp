@@ -111,10 +111,14 @@ std::vector<GameConversionNote> reviewGameConversion(const WorldView &world, Gam
                                "The first game has no such tile: it draws nothing there and "
                                "nothing is solid.",
                                "src/pixmap.cpp:788-790, src/decblupi.cpp:3805");
-                } else if (!toFirst && between(value, 48, 67)) {
+                } else if (between(value, 48, 67)) {
                     notes.cell(GameItem::foregroundTile, CarryKind::differsInTarget, value, {x, y},
-                               "The second game has no picture for this block: when it loads "
-                               "the world it shows tile 215 instead.",
+                               toFirst ? "The second game shows tile 215 for this number; the "
+                                         "first game draws its own block " +
+                                             std::to_string(value) + " here."
+                                       : std::string(
+                                             "The second game has no picture for this block: "
+                                             "when it loads the world it shows tile 215 instead."),
                                "games/sb2/src/decor.cpp:675-684, games/sb2/src/pixtables.h:154-160");
                 }
             }
@@ -155,10 +159,13 @@ std::vector<GameConversionNote> reviewGameConversion(const WorldView &world, Gam
                            "This lift or crate uses a tile picture the first game does not "
                            "have and would be invisible.",
                            "src/pixmap.cpp:788-790, src/decblock.cpp:1414-1424");
-            } else if (storedPicture && !toFirst && between(record.icon, 48, 67)) {
+            } else if (storedPicture && between(record.icon, 48, 67)) {
                 notes.slot(GameItem::objectIcon, CarryKind::differsInTarget, record.icon, slot,
-                           "This lift or crate uses a block picture the second game does not "
-                           "have (its loader replaces such tiles only in the tile layer).",
+                           toFirst ? "This lift or crate uses a picture number the second game "
+                                     "has no picture for; the first game draws its block there."
+                                   : "This lift or crate uses a block picture the second game "
+                                     "does not have (its loader replaces such tiles only in the "
+                                     "tile layer).",
                            "games/sb2/src/pixtables.h:154-160, games/sb2/src/decor.cpp:675-684");
             }
         }

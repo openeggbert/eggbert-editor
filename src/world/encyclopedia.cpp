@@ -46,6 +46,7 @@ EncyclopediaEntry tileEntry(const EditorGroup &group, const TileEntry &tile) {
         entry.facts += "; the game's editor cycles through them in this order";
     }
     if (!tile.brushes.empty()) {
+        entry.brush = std::string(tile.brushes.front());
         entry.facts += "; reshaped to fit its neighbours (adaptive family ";
         entry.facts += std::string(tile.brushes.front());
         entry.facts += ")";

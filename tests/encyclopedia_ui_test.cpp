@@ -101,9 +101,24 @@ int main(int argc, char **argv) {
     CHECK(tab->tool() == Tool::placeObject);
     CHECK(tab->placePreset() != nullptr && tab->placePreset()->id == object.id);
 
-    // A tile sets the layer, the tile number and a painting tool.
-    const auto tileRow = rowOf(dialog, EntryKind::tile);
-    CHECK(tileRow >= 0);
+    // A plain tile sets the layer, the tile number and a painting tool; a
+    // tile the game reshapes selects its adaptive brush, as the Palette does.
+    int tileRow = -1;
+    int reshapedRow = -1;
+    for (int row = 0; row < dialog->list()->count(); ++row) {
+        dialog->list()->setCurrentRow(row);
+        const auto *entry = dialog->currentEntry();
+        if (entry->kind == EntryKind::tile) {
+            (entry->brush.empty() ? tileRow : reshapedRow) = row;
+        }
+    }
+    CHECK(tileRow >= 0 && reshapedRow >= 0);
+    dialog->list()->setCurrentRow(reshapedRow);
+    const auto reshaped = *dialog->currentEntry();
+    dialog->selectButton()->click();
+    CHECK(tab->tool() == Tool::adaptive);
+    CHECK(tab->adaptiveBrush() == QString::fromStdString(reshaped.brush));
+    dialog->list()->setCurrentRow(tileRow);
     const auto tile = *dialog->currentEntry();
     emit dialog->list()->itemActivated(dialog->list()->currentItem()); // double click / Enter
     CHECK(tab->tool() == Tool::pencil);

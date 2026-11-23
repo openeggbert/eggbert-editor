@@ -215,6 +215,15 @@ int main(int argc, char **argv) {
             CHECK(summary->text().contains("do not fit"));
             offset->setText("nonsense");
             CHECK(!ok->isEnabled());
+            // Decimal or 0x hex only: a leading zero is not octal.
+            offset->setText("0100");
+            value->setText("01");
+            CHECK(ok->isEnabled());
+            CHECK(summary->text().contains("Stored there now"));
+            offset->setText("0b11");
+            CHECK(!ok->isEnabled());
+            offset->setText("-5");
+            CHECK(!ok->isEnabled());
             offset->setText("0xDE");
             value->setText("0a 00");
             CHECK(ok->isEnabled());

@@ -192,6 +192,18 @@ int main(int argc, char **argv) {
     }
     CHECK(a->undo());
     CHECK(current(a) == raw(worldA));
+    // Objects of a type not verified for the chosen game are left as stored.
+    {
+        EditBuilder builder(a->document());
+        builder.setObjectValue(1, ObjectField::type, 77); // no such verified type
+        CHECK(a->applyTransaction(builder.build("Unknown type")));
+        const auto before = current(a);
+        a->setSelection(rectangle(10, 20, 11, 21));
+        CHECK(!a->alignSelectedObjects(AlignMode::top)); // only one alignable object left
+        CHECK(current(a) == before);
+        CHECK(a->undo());
+        CHECK(current(a) == raw(worldA));
+    }
     // One object, or none: nothing to align.
     a->setSelection(rectangle(10, 20, 10, 20));
     CHECK(!a->alignSelectedObjects(AlignMode::left));

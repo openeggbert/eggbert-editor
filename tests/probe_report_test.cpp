@@ -29,8 +29,14 @@ int main(int argc, char **argv) {
     CHECK(exact.contains("50468 bytes"));
     CHECK(exact.contains("Structured inspection: available."));
     CHECK(exact.contains("not proof"));
-    CHECK(exact.contains("Editing and saving are not available."));
+    // A complete 1.2 or 1.3 world can be edited; the report says so, and
+    // says the opposite for a read-only revision or an incomplete file.
+    CHECK(exact.contains("Editing and saving are available for this revision."));
     CHECK(!exact.contains("verified world", Qt::CaseInsensitive));
+    CHECK(formatProbeReport("old.blp", probeWorld(world(0, 25'668)))
+              .contains("Editing and saving are not available."));
+    CHECK(formatProbeReport("cut.blp", probeWorld(world(3, 30'000)))
+              .contains("Editing and saving are not available."));
 
     const auto truncated = formatProbeReport("b.blp", probeWorld(world(2, 20'869)));
     CHECK(truncated.contains("truncated"));

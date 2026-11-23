@@ -597,16 +597,16 @@ QString commandLineUsage() {
         "  eggbert-editor convert-game FILE OUT --from 1|2 --to 2|1\n"
         "      [--unknown refuse|keep|remove]\n"
         "      a copy for the other game, with every value that game does not know or\n"
-        "      treats differently listed; exit 1 when such values exist and neither\n"
-        "      keep nor remove was chosen\n"
+        "      treats differently listed; OUT must not exist; exit 1 when values the\n"
+        "      game does not know exist and neither keep nor remove was chosen\n"
         "  eggbert-editor merge BASE MINE THEIRS OUT [--prefer mine|theirs]\n"
         "      combines the changes two worlds made to a common base, element by\n"
         "      element; exit 1 and nothing written when both changed the same element\n"
         "      differently and no side is preferred\n"
         "  eggbert-editor new OUT --game 1|2\n"
         "      the world the game's own editor starts with; OUT must not exist\n"
-        "Exit codes: 0 success, 1 findings, differences or refused loss, 2 usage or file\n"
-        "error.\n");
+        "Exit codes: 0 success, 1 findings, differences, refused loss or merge\n"
+        "conflicts, 2 usage or file error.\n");
 }
 
 int runCommandLine(const QStringList &arguments, QTextStream &out, QTextStream &err) {

@@ -384,7 +384,14 @@ void MainWindow::installDefaultPrompts() {
         connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
         const auto parsedOffset = [offsetEdit]() -> std::optional<qulonglong> {
             bool ok = false;
-            const auto value = offsetEdit->text().trimmed().toULongLong(&ok, 0);
+            // Decimal, or hexadecimal with 0x; never octal ("010" is ten).
+            const auto text = offsetEdit->text().trimmed();
+            const bool hex = text.startsWith(QLatin1String("0x"), Qt::CaseInsensitive);
+            static const QRegularExpression digits(QStringLiteral("^[0-9]+$"));
+            if (!hex && !digits.match(text).hasMatch()) {
+                return std::nullopt;
+            }
+            const auto value = hex ? text.mid(2).toULongLong(&ok, 16) : text.toULongLong(&ok, 10);
             return ok ? std::optional(value) : std::nullopt;
         };
         const auto parsedBytes = [bytesEdit]() -> std::optional<QByteArray> {
@@ -509,6 +516,7 @@ void MainWindow::installDefaultPrompts() {
         layout->addLayout(form);
         auto *list = new QListWidget(&dialog);
         list->setObjectName(QStringLiteral("packWorlds"));
+        list->setAccessibleName(tr("Worlds to put into the pack"));
         for (const auto &candidate : candidates) {
             auto label = QFileInfo(candidate.path).fileName();
             if (!candidate.title.isEmpty()) {
@@ -728,6 +736,7 @@ void MainWindow::installDefaultPrompts() {
         });
         auto *list = new QListWidget(&dialog);
         list->setObjectName(QStringLiteral("convertGameNotes"));
+        list->setAccessibleName(tr("What the other game does not know or shows differently"));
         list->setWordWrap(true);
         for (const auto &note : notes) {
             auto *item = new QListWidgetItem(describeGameNote(note), list);
@@ -785,6 +794,7 @@ void MainWindow::installDefaultPrompts() {
                 .arg(QFileInfo(tab->file().path()).fileName()),
             &dialog));
         auto *target = new QComboBox(&dialog);
+        target->setAccessibleName(tr("Revision to convert to"));
         const auto *own = tab->document().probe().descriptor;
         for (const auto &revision : knownRevisions) {
             if (own == nullptr || revision.revision != own->revision) {
@@ -853,6 +863,7 @@ void MainWindow::installDefaultPrompts() {
         dialog.setWindowTitle(tr("Snapshots of %1").arg(QFileInfo(tab->file().path()).fileName()));
         auto *layout = new QVBoxLayout(&dialog);
         auto *list = new QListWidget(&dialog);
+        list->setAccessibleName(tr("Snapshots of this world"));
         for (const auto &entry : entries) {
             list->addItem(tr("%1 - %2")
                               .arg(QLocale().toString(entry.saved, QLocale::ShortFormat),
@@ -3053,7 +3064,9 @@ EncyclopediaDialog *MainWindow::showEncyclopedia() {
     }
     auto *tab = currentTab();
     const auto profile = tab != nullptr ? tab->profile() : GameProfile::unknown;
-    encyclopedia_->setGame(profile, artworkFor(profile));
+    // The same pictures as the Palette: the game's, while drawing with game
+    // artwork is on.
+    encyclopedia_->setGame(profile, artworkEnabled_ ? artworkFor(profile) : nullptr);
     encyclopedia_->show();
     encyclopedia_->raise();
     encyclopedia_->activateWindow();
@@ -3261,8 +3274,8 @@ int MainWindow::replaceInAllOpenWorlds() {
         statusBar()->showMessage(tr("No open world holds %1 in that layer.").arg(from), 6000);
         return 0;
     }
-    lines.prepend(tr("Replace %1 with %2 in the %3 layer of every open world of this game "
-                     "(one undo step in each):")
+    lines.prepend(tr("Replace %1 with %2 in the whole %3 layer of every open world of this game, "
+                     "whatever is selected (one undo step in each):")
                       .arg(from)
                       .arg(to)
                       .arg(layer == SectionKind::bigDecor ? tr("bigDecor") : tr("foreground")));
@@ -3473,9 +3486,7 @@ QString MainWindow::campaignOverview() const {
     }
     const auto findings = reviewCampaign(campaign);
     lines << QString()
-          << (findings.empty() ? tr("By their numbers the official worlds form a complete chain. "
-                                    "Whether the doors inside them lead anywhere is not checked "
-                                    "here.")
+          << (findings.empty() ? tr("By their numbers the official worlds form a complete chain.")
                                : tr("What the numbering shows:"));
     for (const auto &finding : findings) {
         lines << QStringLiteral("[%1] %2")
@@ -3778,10 +3789,14 @@ DocumentTab *MainWindow::convertRevisionOf(DocumentTab *tab) {
     if (path.isEmpty()) {
         return nullptr;
     }
-    if (samePathKey(path) == samePathKey(tab->file().path())) {
-        prompts.error(tr("Convert Revision"),
-                      tr("Choose another file: the conversion never replaces its source."));
-        return nullptr;
+    for (int index = 0; index < tabCount(); ++index) {
+        if (samePathKey(tabAt(index)->file().path()) == samePathKey(path)) {
+            prompts.error(tr("Convert Revision"),
+                          tr("%1 is open in the editor. Choose another file: the conversion "
+                             "never replaces its source.")
+                              .arg(path));
+            return nullptr;
+        }
     }
     QSaveFile file(path);
     file.setDirectWriteFallback(false);

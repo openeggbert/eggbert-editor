@@ -30,6 +30,10 @@ struct EncyclopediaEntry {
     SectionKind layer = SectionKind::foreground;
     std::vector<std::int16_t> values;
     std::string id;
+    // Tiles the games' editors reshape to fit their neighbours: the adaptive
+    // family the first value belongs to (empty for plain tiles). Choosing
+    // such an entry selects that brush, as the Palette does.
+    std::string brush;
     // Objects only: what the thumbnail is drawn from.
     std::int16_t type = 0;
     std::int16_t channel = 0;

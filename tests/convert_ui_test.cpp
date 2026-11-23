@@ -137,6 +137,12 @@ int main(int argc, char **argv) {
     CHECK_EQ(errors.size(), qsizetype{1});
     CHECK(errors[0].contains("never replaces its source"));
     CHECK(readAll(newPath) == raw(expected->bytes));
+    // Nor a file open in another tab.
+    window.prompts.saveAsPath = [&](const QString &) { return oldPath; };
+    errors.clear();
+    CHECK(window.convertRevisionOf(newTab) == nullptr);
+    CHECK(errors.size() == 1 && errors[0].contains("is open in the editor"));
+    CHECK(readAll(oldPath) == raw(oldWorld));
 
     // Something the target cannot store: refused, nothing written, unless
     // the loss was accepted in the dialog.

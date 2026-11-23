@@ -104,7 +104,12 @@ QString formatProbeReport(const QString &fileName, const WorldProbe &probe) {
     lines << text(probeStatusReason(probe.status));
     lines << tr("The file extension is not evidence, and the game profile (Speedy Blupi 1 or 2) "
                 "cannot be determined from these bytes.");
-    lines << tr("Editing and saving are not available.");
+    lines << (probe.descriptor != nullptr &&
+                      probe.descriptor->writePolicy == WritePolicy::losslessEdit &&
+                      (probe.status == ProbeStatus::sizeMatches ||
+                       probe.status == ProbeStatus::surplus)
+                  ? tr("Editing and saving are available for this revision.")
+                  : tr("Editing and saving are not available."));
     return lines.join(QLatin1Char('\n'));
 }
 

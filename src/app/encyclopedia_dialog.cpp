@@ -147,7 +147,11 @@ void EncyclopediaDialog::chooseCurrent() {
     }
     switch (entry->kind) {
     case EntryKind::tile:
-        emit tileChosen(static_cast<int>(entry->layer), entry->values.front());
+        if (!entry->brush.empty()) {
+            emit brushChosen(text(entry->brush));
+        } else {
+            emit tileChosen(static_cast<int>(entry->layer), entry->values.front());
+        }
         break;
     case EntryKind::object:
         emit presetChosen(text(entry->id));

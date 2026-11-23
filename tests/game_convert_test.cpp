@@ -137,7 +137,7 @@ int main() {
         put16(source, fxCellOffset(fxForegroundOffset, 2, 1), 246);  // first new tile
         put16(source, fxCellOffset(fxForegroundOffset, 3, 1), 440);  // last new tile
         put16(source, fxCellOffset(fxForegroundOffset, 4, 1), 246);
-        put16(source, fxCellOffset(fxForegroundOffset, 5, 1), 48);   // no note in this direction
+        put16(source, fxCellOffset(fxForegroundOffset, 5, 1), 48);   // shown as 215 there, a block here
         put16(source, fxCellOffset(fxRevision13.bigDecorOffset, 1, 1), 53);
         put16(source, fxCellOffset(fxRevision13.bigDecorOffset, 2, 1), 54);
         put16(source, fxCellOffset(fxRevision13.bigDecorOffset, 3, 1), 99);
@@ -155,7 +155,9 @@ int main() {
         CHECK(tile != nullptr && tile->kind == CarryKind::unknownToTarget && tile->count == 2);
         CHECK(find(notes, GameItem::foregroundTile, 440) != nullptr);
         CHECK(find(notes, GameItem::foregroundTile, 245) == nullptr);
-        CHECK(find(notes, GameItem::foregroundTile, 48) == nullptr);
+        const auto *block = find(notes, GameItem::foregroundTile, 48);
+        CHECK(block != nullptr && block->kind == CarryKind::differsInTarget);
+        CHECK(block != nullptr && block->text.find("draws its own block 48") != std::string::npos);
         CHECK(find(notes, GameItem::bigDecorTile, 54) != nullptr);
         CHECK(find(notes, GameItem::bigDecorTile, 99) != nullptr);
         CHECK(find(notes, GameItem::bigDecorTile, 53) == nullptr);
@@ -200,8 +202,10 @@ int main() {
         }
         put16(expected, 224, 2);
         CHECK(removed->bytes == expected);
-        // The lift with the unknown picture is still there and still noted.
-        CHECK_EQ(removed->notes.size(), std::size_t{1});
+        // The lift with the unknown picture and the block shown differently
+        // are still there and still noted.
+        CHECK_EQ(removed->notes.size(), std::size_t{2});
+        CHECK(find(removed->notes, GameItem::foregroundTile, 48) != nullptr);
         CHECK(find(removed->notes, GameItem::objectIcon, 311) != nullptr);
         // The source was only read.
         CHECK_EQ(get8(source, 2), 3u);

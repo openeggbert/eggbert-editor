@@ -1053,19 +1053,33 @@ bool DocumentTab::alignSelectedObjects(AlignMode mode) {
     if (!requireWritable()) {
         return false;
     }
-    const auto found = objectsInSelection();
+    // Like every other object edit: only records of a type verified for the
+    // chosen game are moved; the others stay exactly as stored.
+    auto found = objectsInSelection();
+    const auto all = found.size();
+    std::erase_if(found, [this](std::size_t slot) { return !canEditObject(slot); });
+    const auto skipped = all - found.size();
     EditBuilder builder(document());
     const auto changed = alignObjects(builder, found, mode);
     if (changed == 0 || !builder.hasChanges()) {
-        emit statusMessage(found.size() < 2
-                               ? tr("Select an area with at least two objects first.")
-                               : tr("The objects are already placed that way."));
+        emit statusMessage(
+            found.size() < 2
+                ? (skipped != 0
+                       ? tr("Select an area with at least two objects of a type verified for the "
+                            "chosen game first.")
+                       : tr("Select an area with at least two objects first."))
+                : tr("The objects are already placed that way."));
         return false;
     }
     if (!applyTransaction(builder.build(tr("Align Objects").toStdString()))) {
         return false;
     }
-    emit statusMessage(tr("%n object(s) moved", nullptr, static_cast<int>(changed)));
+    emit statusMessage(
+        skipped != 0
+            ? tr("%1 object(s) moved; %2 of a type not verified for the chosen game left as stored")
+                  .arg(changed)
+                  .arg(skipped)
+            : tr("%n object(s) moved", nullptr, static_cast<int>(changed)));
     return true;
 }
 
