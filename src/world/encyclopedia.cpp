@@ -107,7 +107,7 @@ std::vector<EncyclopediaEntry> encyclopedia(GameProfile profile) {
         entry.title = std::string(family.name);
         entry.group = "Adaptive borders";
         entry.id = std::string(family.id);
-        entry.values = {family.seed};
+        entry.values.assign(1, family.seed);
         entry.facts = "Border family painted from tile " + std::to_string(family.seed) +
                       (family.bordersEmptyNeighbours
                            ? "; its own cells keep their value and border tiles are written "
