@@ -6,6 +6,8 @@
 #include "check.hpp"
 #include "fixture.hpp"
 
+#include <cstdio>
+
 #include <QAction>
 #include <QApplication>
 #include <QDockWidget>
@@ -275,15 +277,40 @@ int main(int argc, char **argv) {
             }
             return columns <= tree->viewport()->width();
         };
+        // Geometry settles through queued events and timers (the header's
+        // stretch, a scroll bar appearing), so give them time before measuring.
+        const auto describe = [&](const char *when) {
+            std::fprintf(stderr,
+                         "%s: panel %d (minimum %d), viewport %d, columns %d %d %d %d, row %d, "
+                         "one line %d, text %d px\n",
+                         when, own.width(), own.minimumSizeHint().width(),
+                         tree->viewport()->width(), tree->columnWidth(0), tree->columnWidth(1),
+                         tree->columnWidth(2), tree->columnWidth(3), rect().height(), oneLine,
+                         tree->fontMetrics().horizontalAdvance(
+                             tree->topLevelItem(longest)->text(2)));
+        };
+        QTest::qWait(150);
         const auto wide = rect().height();
-        CHECK(fits());
+        const bool wideFits = fits();
+        CHECK(wideFits);
         own.resize(460, 400);
-        QApplication::processEvents();
+        QTest::qWait(150);
         const auto narrow = rect().height();
-        CHECK(narrow > wide);
-        CHECK(narrow >= 2 * oneLine);
+        const auto textWidth =
+            tree->fontMetrics().horizontalAdvance(tree->topLevelItem(longest)->text(2));
+        // The finding no longer fits on one line of its column ...
+        const bool mustWrap = tree->columnWidth(2) < textWidth;
+        CHECK(mustWrap);
+        // ... so its row is taller than one line, and taller than before.
+        const bool taller = narrow >= 2 * oneLine && narrow > wide;
+        CHECK(taller);
         // All four columns fit the table: nothing is pushed out of view.
-        CHECK(fits());
+        const bool narrowFits = fits();
+        CHECK(narrowFits);
+        if (!wideFits || !mustWrap || !taller || !narrowFits) {
+            std::fprintf(stderr, "wide row %d\n", wide);
+            describe("narrow");
+        }
         CHECK(tree->wordWrap());
     }
 

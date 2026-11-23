@@ -161,7 +161,6 @@ DiagnosticsPanel::DiagnosticsPanel(QWidget *parent) : QWidget(parent) {
     tree_->setItemDelegate(new WrappedColumnDelegate(tree_, 2));
     tree_->setTextElideMode(Qt::ElideNone);
     tree_->setUniformRowHeights(false);
-    tree_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     connect(tree_->header(), &QHeaderView::sectionResized, this, [this](int section) {
         if (section == 2) {
             tree_->doItemsLayout(); // row heights follow the new width
