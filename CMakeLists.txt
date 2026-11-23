@@ -125,6 +125,7 @@ qt_add_library(eggbert_app STATIC
     src/app/palette_panel.hpp
     src/app/png_export.cpp
     src/app/svg_export.cpp
+    src/app/stamp_thumbnail.cpp
     src/app/demo_viewer.cpp
     src/app/png_export.hpp
     src/app/png_export_dialog.cpp

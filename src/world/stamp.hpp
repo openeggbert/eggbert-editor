@@ -51,6 +51,11 @@ struct StampPlacement {
 [[nodiscard]] std::expected<StampPlacement, std::string>
 placeStamp(EditBuilder &builder, const Stamp &stamp, CellPos at);
 
+// The map cells a placement at `at` would touch: every cell that receives a
+// tile (holes and cells outside the map excluded) and the cells holding the
+// starts of the stamp's objects; each cell once, in row order.
+[[nodiscard]] std::vector<CellPos> stampFootprint(const Stamp &stamp, CellPos at);
+
 // The editor's own text format (see docs/user-guide.md). Reading validates
 // everything and names the line of an error.
 [[nodiscard]] std::string writeStamp(const Stamp &stamp);

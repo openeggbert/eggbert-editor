@@ -106,6 +106,21 @@ int main() {
               std::string::npos);
     }
 
+    // The footprint of a placement: cells that get a tile and cells holding
+    // an object's start, each once, in row order; holes and cells outside
+    // the map are not part of it.
+    {
+        // tiles at (0,0), (1,0), (2,1), back tile at (0,1); starts in (0,0) and (2,0)
+        CHECK(stampFootprint(stamp, {50, 40}) ==
+              (std::vector<CellPos>{{50, 40}, {51, 40}, {52, 40}, {50, 41}, {52, 41}}));
+        CHECK(stampFootprint(stamp, {98, 99}) == (std::vector<CellPos>{{98, 99}, {99, 99}}));
+        CHECK(stampFootprint(stamp, {99, 99}) == (std::vector<CellPos>{{99, 99}}));
+        CHECK(stampFootprint(Stamp{}, {0, 0}).empty());
+        auto damaged = stamp;
+        damaged.bigDecor.pop_back();
+        CHECK(stampFootprint(damaged, {0, 0}).empty());
+    }
+
     // Placing: an overlay (holes leave what is there), one transaction.
     {
         auto target = blankWorld(fxRevision13);

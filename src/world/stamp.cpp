@@ -160,6 +160,39 @@ std::expected<StampPlacement, std::string> placeStamp(EditBuilder &builder, cons
     return result;
 }
 
+std::vector<CellPos> stampFootprint(const Stamp &stamp, CellPos at) {
+    std::vector<CellPos> cells;
+    if (stamp.foreground.size() != stamp.width * stamp.height ||
+        stamp.bigDecor.size() != stamp.width * stamp.height) {
+        return cells;
+    }
+    for (std::size_t y = 0; y < stamp.height; ++y) {
+        for (std::size_t x = 0; x < stamp.width; ++x) {
+            const auto index = y * stamp.width + x;
+            if ((stamp.foreground[index] != layout::emptyCell ||
+                 stamp.bigDecor[index] != layout::emptyCell) &&
+                TileLayerView::contains(at.x + x, at.y + y)) {
+                cells.push_back({at.x + x, at.y + y});
+            }
+        }
+    }
+    for (const auto &record : stamp.objects) {
+        if (record.posStart.x < 0 || record.posStart.y < 0) {
+            continue;
+        }
+        const CellPos cell{at.x + static_cast<std::size_t>(record.posStart.x) / layout::cellPixels,
+                           at.y + static_cast<std::size_t>(record.posStart.y) / layout::cellPixels};
+        if (TileLayerView::contains(cell.x, cell.y) &&
+            std::ranges::find(cells, cell) == cells.end()) {
+            cells.push_back(cell);
+        }
+    }
+    std::ranges::sort(cells, [](const CellPos &a, const CellPos &b) {
+        return a.y != b.y ? a.y < b.y : a.x < b.x;
+    });
+    return cells;
+}
+
 std::string writeStamp(const Stamp &stamp) {
     std::string out = "eggbert-stamp 1\n";
     out += "name " + stamp.name + "\n";

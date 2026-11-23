@@ -17,6 +17,7 @@
 #include "world/object_ops.hpp"
 #include "world/tile_tools.hpp"
 
+class QKeyEvent;
 class QLabel;
 
 namespace eggbert {
@@ -220,6 +221,15 @@ public:
                                                           bool withObjects) const;
     // Places a stamp with its top-left at a cell as one undo step.
     bool placeStampAt(const Stamp &stamp, CellPos at);
+    // Arms a stamp: the cells it would touch follow the pointer (or the
+    // keyboard cursor) on the canvas, a click or Enter places it there and
+    // Esc gives it up. It stays armed when a placement is refused. False,
+    // with a status message, when this tab cannot take the stamp at all.
+    bool beginStampPlacement(Stamp stamp);
+    void cancelStampPlacement();
+    [[nodiscard]] const Stamp *pendingStamp() const {
+        return pendingStamp_ ? &*pendingStamp_ : nullptr;
+    }
     // Slots of active objects whose start lies in the selection.
     [[nodiscard]] std::vector<std::size_t> objectsInSelection() const;
     // Aligns or distributes them as one undo step.
@@ -249,6 +259,9 @@ signals:
     void objectSelectionChanged();
     void statusMessage(const QString &message);
 
+protected:
+    void keyPressEvent(QKeyEvent *event) override;
+
 private:
     bool applyWithPolicy(Transaction transaction, EditPolicy policy);
     void updateBanner();
@@ -259,6 +272,8 @@ private:
     bool commit(EditBuilder &builder, std::size_t cellsChanged, const QString &label,
                 std::uint64_t mergeKey = 0);
     void onToolPressed(CellPos cell);
+    void showStampGhost();
+    void endStampPlacement();
     void onToolDragged(CellPos cell);
     void onToolReleased();
     bool requireWritable();
@@ -287,6 +302,7 @@ private:
     std::unique_ptr<VariantSource> variants_;
     enum class Grab { none, body, end };
     Grab grab_ = Grab::none;
+    std::optional<Stamp> pendingStamp_;
     QLabel *banner_ = nullptr;
     WorldCanvas *canvas_ = nullptr;
 };

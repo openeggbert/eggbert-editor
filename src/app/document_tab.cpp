@@ -4,6 +4,7 @@
 #include "app/catalog_texts.hpp"
 
 #include <QFileInfo>
+#include <QKeyEvent>
 #include <QLabel>
 #include <QVBoxLayout>
 
@@ -91,8 +92,17 @@ DocumentTab::DocumentTab(std::unique_ptr<DocumentFile> file, QWidget *parent)
     connect(canvas_, &WorldCanvas::toolDragged, this, &DocumentTab::onToolDragged);
     connect(canvas_, &WorldCanvas::toolReleased, this, &DocumentTab::onToolReleased);
 
+    connect(canvas_, &WorldCanvas::cursorCellChanged, this, [this] {
+        if (pendingStamp_) {
+            showStampGhost();
+        }
+    });
     // Hovering with the adaptive brush shows every cell a click would change.
     connect(canvas_, &WorldCanvas::hoveredCellChanged, this, [this] {
+        if (pendingStamp_) {
+            showStampGhost();
+            return;
+        }
         if (tool_ != Tool::adaptive || gestureStart_) {
             return;
         }
@@ -136,6 +146,7 @@ void DocumentTab::setTool(Tool tool) {
     if (tool_ == tool) {
         return;
     }
+    cancelStampPlacement();
     tool_ = tool;
     canvas_->setToolActive(tool != Tool::browse);
     emit toolStateChanged();
@@ -1031,6 +1042,52 @@ bool DocumentTab::placeStampAt(const Stamp &stamp, CellPos at) {
     return true;
 }
 
+bool DocumentTab::beginStampPlacement(Stamp stamp) {
+    if (!requireWritable()) {
+        return false;
+    }
+    if (stamp.game != GameProfile::unknown && stamp.game != profile_) {
+        emit statusMessage(tr("This stamp was made under another game profile; placing it here "
+                              "is not available."));
+        return false;
+    }
+    pendingStamp_ = std::move(stamp);
+    canvas_->setToolActive(true);
+    showStampGhost();
+    emit statusMessage(tr("Stamp \"%1\": click where its top-left corner goes, or move the "
+                          "cursor there and press Enter. Esc gives up.")
+                           .arg(QString::fromStdString(pendingStamp_->name)));
+    return true;
+}
+
+void DocumentTab::cancelStampPlacement() {
+    if (!pendingStamp_) {
+        return;
+    }
+    endStampPlacement();
+    emit statusMessage(tr("The stamp was not placed."));
+}
+
+void DocumentTab::endStampPlacement() {
+    pendingStamp_.reset();
+    canvas_->setToolActive(tool_ != Tool::browse);
+    canvas_->setPreviewCells({});
+}
+
+void DocumentTab::showStampGhost() {
+    const auto at = canvas_->hoveredCell().value_or(canvas_->cursorCell());
+    canvas_->setPreviewCells(stampFootprint(*pendingStamp_, at));
+}
+
+void DocumentTab::keyPressEvent(QKeyEvent *event) {
+    if (event->key() == Qt::Key_Escape && pendingStamp_) {
+        cancelStampPlacement();
+        event->accept();
+        return;
+    }
+    QWidget::keyPressEvent(event);
+}
+
 std::vector<std::size_t> DocumentTab::objectsInSelection() const {
     std::vector<std::size_t> found;
     const auto pool = document().view().objects();
@@ -1112,6 +1169,14 @@ bool DocumentTab::flipSelection(bool horizontally) {
 }
 
 void DocumentTab::onToolPressed(CellPos cell) {
+    if (pendingStamp_) {
+        // A refused placement (an object outside the world, say) keeps the
+        // stamp armed so another place can be tried.
+        if (placeStampAt(*pendingStamp_, cell)) {
+            endStampPlacement();
+        }
+        return;
+    }
     gestureStart_ = cell;
     gestureLast_ = cell;
     switch (tool_) {
@@ -1274,6 +1339,9 @@ void DocumentTab::onToolReleased() {
     gestureKey_ = 0;
     document().endMerge();
     canvas_->setPreviewCells({});
+    if (pendingStamp_) {
+        showStampGhost(); // still armed after a refused placement
+    }
     if (!start || !last) {
         return;
     }

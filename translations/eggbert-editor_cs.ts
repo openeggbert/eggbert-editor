@@ -1358,6 +1358,14 @@ Posuzováno pro: %1</translation>
    <source>%1 object(s) moved; %2 of a type not verified for the chosen game left as stored</source>
    <translation>Přesunuto objektů: %1; ponecháno beze změny (typ neověřený pro zvolenou hru): %2</translation>
   </message>
+  <message>
+   <source>Stamp "%1": click where its top-left corner goes, or move the cursor there and press Enter. Esc gives up.</source>
+   <translation>Razítko „%1“: klikněte tam, kam má přijít jeho levý horní roh, nebo tam přesuňte kurzor a stiskněte Enter. Esc umisťování zruší.</translation>
+  </message>
+  <message>
+   <source>The stamp was not placed.</source>
+   <translation>Razítko nebylo umístěno.</translation>
+  </message>
  </context>
  <context>
   <name>eggbert::EncyclopediaDialog</name>
@@ -1859,10 +1867,6 @@ Otevřete soubor světa nebo jej přetáhněte do tohoto okna.</translation>
   <message>
    <source>Place Stamp</source>
    <translation>Umístit razítko</translation>
-  </message>
-  <message>
-   <source>The stamp is placed with its top-left corner at the cursor cell (%1, %2). Empty cells of a stamp leave what is there.</source>
-   <translation>Razítko se umístí levým horním rohem na buňku kurzoru (%1, %2). Prázdné buňky razítka ponechají, co tam je.</translation>
   </message>
   <message>
    <source>Export Campaign Pack</source>
@@ -3645,6 +3649,14 @@ jinde: %5</translation>
   <message>
    <source>%1 is a demo recording of the games: shown in its own window</source>
    <translation>%1 je herní záznam: zobrazen ve vlastním okně</translation>
+  </message>
+  <message>
+   <source>Choose a stamp. Its outline then follows the pointer on the map: click where its top-left corner goes, Esc gives up. Empty cells of a stamp leave what is there.</source>
+   <translation>Vyberte razítko. Jeho obrys pak na mapě sleduje ukazatel: klikněte tam, kam má přijít jeho levý horní roh, Esc umisťování zruší. Prázdné buňky razítka ponechají to, co na místě je.</translation>
+  </message>
+  <message>
+   <source>Stored stamps</source>
+   <translation>Uložená razítka</translation>
   </message>
  </context>
  <context>

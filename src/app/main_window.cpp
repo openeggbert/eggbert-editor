@@ -67,6 +67,7 @@
 #include "app/encyclopedia_dialog.hpp"
 #include "app/installation_panel.hpp"
 #include "app/demo_viewer.hpp"
+#include "app/stamp_thumbnail.hpp"
 #include "app/svg_export.hpp"
 #include "app/text_world_editor.hpp"
 #include "app/tool_icons.hpp"
@@ -608,30 +609,50 @@ void MainWindow::installDefaultPrompts() {
         }
         return std::make_pair(name->text().trimmed(), objects->isChecked());
     };
-    prompts.chooseStamp = [this](DocumentTab *tab,
+    prompts.chooseStamp = [this](DocumentTab *,
                                  const std::vector<Stamp> &list) -> std::optional<std::size_t> {
-        QStringList names;
+        QDialog dialog(this);
+        dialog.setWindowTitle(tr("Place Stamp"));
+        auto *layout = new QVBoxLayout(&dialog);
+        auto *hint = new QLabel(tr("Choose a stamp. Its outline then follows the pointer on the "
+                                   "map: click where its top-left corner goes, Esc gives up. "
+                                   "Empty cells of a stamp leave what is there."),
+                                &dialog);
+        hint->setWordWrap(true);
+        layout->addWidget(hint);
+        auto *stampList = new QListWidget(&dialog);
+        stampList->setObjectName(QStringLiteral("stampList"));
+        stampList->setAccessibleName(tr("Stored stamps"));
+        stampList->setViewMode(QListView::IconMode);
+        stampList->setIconSize(QSize(stampThumbnailSide, stampThumbnailSide));
+        stampList->setGridSize(QSize(stampThumbnailSide + 56, stampThumbnailSide + 56));
+        stampList->setResizeMode(QListView::Adjust);
+        stampList->setMovement(QListView::Static);
+        stampList->setWordWrap(true);
         for (const auto &stamp : list) {
-            names << tr("%1 (%2 x %3 cells, %4 object(s))")
-                         .arg(QString::fromStdString(stamp.name))
-                         .arg(stamp.width)
-                         .arg(stamp.height)
-                         .arg(stamp.objects.size());
+            auto *item = new QListWidgetItem(
+                QIcon(QPixmap::fromImage(stampThumbnail(stamp, stampThumbnailSide))),
+                QString::fromStdString(stamp.name), stampList);
+            item->setToolTip(tr("%1 (%2 x %3 cells, %4 object(s))")
+                                 .arg(QString::fromStdString(stamp.name))
+                                 .arg(stamp.width)
+                                 .arg(stamp.height)
+                                 .arg(stamp.objects.size()));
+            item->setData(Qt::AccessibleTextRole, item->toolTip());
         }
-        const auto cursor = tab->canvas()->cursorCell();
-        bool accepted = false;
-        const auto chosen = QInputDialog::getItem(
-            this, tr("Place Stamp"),
-            tr("The stamp is placed with its top-left corner at the cursor cell (%1, %2). "
-               "Empty cells of a stamp leave what is there.")
-                .arg(cursor.x)
-                .arg(cursor.y),
-            names, 0, false, &accepted);
-        const auto index = names.indexOf(chosen);
-        if (!accepted || index < 0) {
+        stampList->setCurrentRow(0);
+        layout->addWidget(stampList, 1);
+        auto *buttons =
+            new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+        layout->addWidget(buttons);
+        connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+        connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+        connect(stampList, &QListWidget::itemActivated, &dialog, &QDialog::accept);
+        dialog.resize(560, 420);
+        if (dialog.exec() != QDialog::Accepted || stampList->currentRow() < 0) {
             return std::nullopt;
         }
-        return static_cast<std::size_t>(index);
+        return static_cast<std::size_t>(stampList->currentRow());
     };
     prompts.confirmBatch = [this](const QString &title, const QStringList &lines) {
         return QMessageBox::question(this, title, lines.join(QLatin1Char('\n')),
@@ -3613,7 +3634,13 @@ bool MainWindow::placeStamp(DocumentTab *tab) {
     if (!index || *index >= list.size()) {
         return false;
     }
-    return tab->placeStampAt(list[*index], tab->canvas()->cursorCell());
+    // The stamp is armed, not placed: its outline follows the pointer until
+    // a click (or Enter at the cursor cell) puts it down.
+    if (!tab->beginStampPlacement(list[*index])) {
+        return false;
+    }
+    tab->canvas()->setFocus();
+    return true;
 }
 
 int MainWindow::replaceInAllOpenWorlds() {
