@@ -92,11 +92,20 @@ Verified and reported observations are recorded with citations in `docs/research
 
 Slices A–P are done as far as they could be verified here. Every bullet of `plan.md`, **Post-1.0 roadmap**, now has a slice; the one part without an implementation is the heat map of slice N (see slice P for why). What remains open, in the order it would be worth doing:
 
-1. **A hosted CI run** (needs the owner: a pull request or a push to `main`/`develop`). It would exercise the Linux jobs on GitHub's runners and give the first real result for the `windows-untested` and `macos-untested` jobs.
-2. **Czech for the other texts the core composes** (report details, Campaign Overview findings, stamp refusal reasons, text-world problems, encyclopedia facts, scenario lines) — World Doctor's findings and the conversion notes are done and show the way: patterns with arguments — and a Czech guide.
-3. **More for Mobile Eggbert text worlds**: selections and shapes on the map, and names or pictures for its tiles and objects — the last only with evidence from that project, which was not gathered.
-4. **A reachability estimate with movement** (jumps, falls, lifts), if a bound can be cited from the sources.
-5. Evidence gaps listed under **Original-data evidence**: other editions, original 1.0/1.1 worlds, behaviour in the running games, the 25 eggs stored four pixels higher than the catalog writes.
+1. **Names or pictures for the tiles and objects of Mobile Eggbert text worlds** — only with evidence from that project that its numbers mean what the Windows games' numbers mean, which was not gathered.
+2. **A reachability estimate with movement.** Measured and not adopted: a jump-limited model reports dozens of treasures in original worlds that can in fact be collected (see `docs/research/evidence.md`, **Reachability**); it would need a cited rule for every thing that lifts the player.
+3. **Heat maps of where a player went** — recordings hold keys, not positions (slice P).
+4. Evidence gaps listed under **Original-data evidence**: other editions, original 1.0/1.1 worlds, behaviour in the running games, the 25 eggs stored four pixels higher than the catalog writes.
+5. Still English by design: the Binary Inspector's structural names and arithmetic, citations, the diagnostics file and the command line.
+
+### After the stop review of 2026-11-23: hosted CI, the rest of the Czech, text-world shapes
+
+The review of the finished backlog named what was still open; this is what was done about each.
+
+- **Hosted CI, Windows and macOS.** The workflow now also runs for `claude/**` branches, so the task branch is built on GitHub's runners without a pull request. The first run (commit `667e5c5`) passed both Linux jobs and showed the first real Windows result: the MSVC build succeeded and 68 of 75 tests passed. The seven failures were assumptions of the tests and one missing compiler option, all fixed: `/utf-8` for MSVC (non-ASCII literals were read in the system code page), a small stand-in program instead of `/bin/sh` for the two music tests, the installed program's place per platform in `install_smoke`, a picture no longer kept open while it is rewritten, `QFile::link` not assumed to make a symbolic link, and paths not compared by letter case. The macOS job asked for a runner image GitHub cancelled at once (`macos-14`); it now asks for `macos-latest`. Results of the second run are recorded under **CI evidence** above.
+- **Czech.** Sentences the core composes are now shown in the interface's language. `src/app/core_texts.hpp`: `coreText()` looks a sentence up by its pattern — the sentence with every number replaced by a placeholder — and fills the translated pattern with the same numbers; 67 patterns cover the problems of a text world and its undo labels, the campaign's numbering findings and their basis, the reasons a stamp cannot be placed, the notes, losses and refusals of revision and game conversion (losses are now carried one by one in `ConversionFailure::sentences`), merge refusals, and what is wrong with a recording or a scenario file. Scenario failures are carried as numbers (`ScenarioResult::details`). The encyclopedia's facts are built from listed parts (`EncyclopediaEntry::factParts`, `encyclopediaFactPatterns()`), and the messages of packs, deploys and decompression go through the catalogue. Tests: `translation` (patterns and numbering, every part and pattern marked, sentences produced by the core come out translated), `encyclopedia` (parts rebuild the facts; every pattern used), `game_convert`. The guide exists in Czech (`docs/user-guide.cs.md`) and Help shows it when Czech is chosen.
+- **Mobile Eggbert text worlds: shapes and a selection.** `TextWorldDocument::setTiles` writes several cells as one undo step; the window has the tools Paint, Line, Rectangle and Select, a preview while dragging, and **Fill Selection**. Tests: `text_world_document`, `text_world_editor` (by method and by dragging).
+- **Reachability with movement** was measured on the original worlds and not adopted (see item 2 above).
 
 ### Third audit of the guide against the code (2026-11-23)
 

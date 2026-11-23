@@ -283,6 +283,8 @@ if(BUILD_TESTING)
     # fail instead of blocking the run.
     get_property(eggbert_tests DIRECTORY PROPERTY TESTS)
     set_tests_properties(${eggbert_tests} PROPERTIES TIMEOUT 120)
+    # Gathering Qt into the installed tree takes its time where that is done.
+    set_tests_properties(install_smoke PROPERTIES TIMEOUT 600)
 
     # Opt-in check against real world files kept outside the repository.
     add_executable(sample_matrix-test tests/sample_matrix_test.cpp)

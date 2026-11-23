@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #pragma once
 
+#include <span>
 #include <string>
 #include <vector>
 
 #include "world/text_world.hpp"
+#include "world/tile_tools.hpp"
 
 namespace eggbert {
 
@@ -30,6 +32,10 @@ public:
     // Each edit is one undo step. False, changing nothing, when the token
     // does not exist, the value is out of range, or it is already stored.
     bool setTile(SectionKind layer, std::size_t x, std::size_t y, long long value);
+    // The same number into several cells as one undo step (a line, a
+    // rectangle, a filled selection). Cells whose entry does not exist are
+    // left out; false when nothing changes.
+    bool setTiles(SectionKind layer, std::span<const CellPos> cells, long long value);
     bool setHeaderValue(std::string_view name, long long value);
     bool setHeaderPoint(std::string_view name, Point value);
     bool setObjectValue(std::size_t index, std::string_view name, long long value);

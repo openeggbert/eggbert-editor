@@ -216,6 +216,97 @@ int main(int argc, char **argv) {
         CHECK_EQ(objectTable->rowCount(), rows);
     }
 
+    // Shapes and a selection: each written as one undo step into the chosen
+    // block, by method and by dragging on the map.
+    {
+        const auto before = text(editor);
+        const auto &world = editor->document().world();
+        editor->layerCombo()->setCurrentIndex(0);
+        editor->valueSpin()->setValue(77);
+        CHECK(editor->tool() == TextTool::paint);
+        CHECK(!editor->toolCombo()->accessibleName().isEmpty());
+        CHECK_EQ(editor->toolCombo()->count(), 4);
+        CHECK(editor->drawLine({20, 20}, {23, 20}));
+        for (std::size_t x = 20; x <= 23; ++x) {
+            CHECK_EQ(*world.tile(SectionKind::foreground, x, 20), 77);
+        }
+        CHECK_EQ(*world.tile(SectionKind::foreground, 24, 20), -1);
+        CHECK(!editor->drawLine({20, 20}, {23, 20})); // already there
+        CHECK(editor->drawRectangle({31, 32}, {30, 30}));
+        for (std::size_t x = 30; x <= 31; ++x) {
+            for (std::size_t y = 30; y <= 32; ++y) {
+                CHECK_EQ(*world.tile(SectionKind::foreground, x, y), 77);
+            }
+        }
+        editor->undoButton()->click();
+        editor->undoButton()->click();
+        CHECK(text(editor) == before);
+
+        // The selection and Fill Selection.
+        CHECK(!editor->selection().has_value());
+        CHECK(!editor->fillSelectionButton()->isEnabled());
+        CHECK(!editor->fillSelection());
+        editor->setSelection(CellRect{{40, 40}, {41, 41}});
+        CHECK(editor->fillSelectionButton()->isEnabled());
+        editor->layerCombo()->setCurrentIndex(1);
+        editor->fillSelectionButton()->click();
+        CHECK_EQ(*world.tile(SectionKind::bigDecor, 41, 41), 77);
+        CHECK_EQ(*world.tile(SectionKind::foreground, 41, 41), -1);
+        editor->valueSpin()->setValue(-1); // filling with -1 empties
+        CHECK(editor->fillSelection());
+        CHECK(text(editor) == before);
+        editor->setSelection(std::nullopt);
+        CHECK(!editor->fillSelectionButton()->isEnabled());
+        editor->undoButton()->click();
+        editor->undoButton()->click();
+        CHECK(text(editor) == before);
+        editor->layerCombo()->setCurrentIndex(0);
+        editor->valueSpin()->setValue(77);
+
+        // Dragging: a line shows what it would write and writes on release.
+        auto *canvas = editor->canvas();
+        const auto at = [&](int x, int y) {
+            return QPoint(x * canvas->cellSize() + 2, y * canvas->cellSize() + 2);
+        };
+        editor->setTool(TextTool::line);
+        QTest::mousePress(canvas, Qt::LeftButton, {}, at(50, 50));
+        QTest::mouseMove(canvas, at(53, 50));
+        CHECK_EQ(canvas->preview().size(), std::size_t{4});
+        CHECK(text(editor) == before); // nothing written yet
+        QTest::mouseRelease(canvas, Qt::LeftButton, {}, at(53, 50));
+        CHECK(canvas->preview().empty());
+        CHECK_EQ(*world.tile(SectionKind::foreground, 52, 50), 77);
+        editor->undoButton()->click();
+        CHECK(text(editor) == before); // the whole line is one step
+        editor->setTool(TextTool::rectangle);
+        QTest::mousePress(canvas, Qt::LeftButton, {}, at(50, 50));
+        QTest::mouseMove(canvas, at(51, 52));
+        CHECK_EQ(canvas->preview().size(), std::size_t{6});
+        QTest::mouseRelease(canvas, Qt::LeftButton, {}, at(51, 52));
+        CHECK_EQ(*world.tile(SectionKind::foreground, 51, 52), 77);
+        editor->undoButton()->click();
+        CHECK(text(editor) == before);
+        editor->setTool(TextTool::select);
+        QTest::mousePress(canvas, Qt::LeftButton, {}, at(60, 60));
+        QTest::mouseMove(canvas, at(58, 61));
+        QTest::mouseRelease(canvas, Qt::LeftButton, {}, at(58, 61));
+        CHECK(editor->selection() == std::optional(CellRect{{58, 60}, {60, 61}}));
+        CHECK(text(editor) == before); // selecting writes nothing
+        // Paint still follows the pointer, without gaps on a fast drag.
+        editor->setTool(TextTool::paint);
+        QTest::mousePress(canvas, Qt::LeftButton, {}, at(70, 10));
+        QTest::mouseMove(canvas, at(74, 10));
+        QTest::mouseRelease(canvas, Qt::LeftButton, {}, at(74, 10));
+        for (std::size_t x = 70; x <= 74; ++x) {
+            CHECK_EQ(*world.tile(SectionKind::foreground, x, 10), 77);
+        }
+        while (text(editor) != before && editor->undoButton()->isEnabled()) {
+            editor->undoButton()->click();
+        }
+        CHECK(text(editor) == before);
+        editor->setSelection(std::nullopt);
+    }
+
     // Closing with unsaved changes asks; the main window asks through it.
     CHECK(editor->paintCell(70, 70));
     bool discard = false;

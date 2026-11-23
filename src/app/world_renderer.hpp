@@ -59,6 +59,12 @@ struct RenderOptions {
 [[nodiscard]] QColor schematicOutsideColor();
 // Fill of the numbered badges at the two ends of a motion path.
 [[nodiscard]] QColor pathMarkerColor();
+// The pictures the games' own editors draw at the two ends of a moving
+// object's path: entries 30 ("1", the start) and 31 ("2", the end) of the
+// tile sheet, which stored channel 1 selects.
+inline constexpr int pathMarkerChannel = 1;
+inline constexpr int pathStartIcon = 30;
+inline constexpr int pathEndIcon = 31;
 // Opaque colour of a stored cell value; the same value always gets the same
 // colour. Values below -1 get a warning colour.
 [[nodiscard]] QColor schematicTileColor(SectionKind layer, std::int16_t id);

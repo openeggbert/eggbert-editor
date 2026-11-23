@@ -159,6 +159,10 @@ constexpr const char *texts[] = {
         "Duplicate object %1"),
     QT_TRANSLATE_NOOP("eggbert::Core",
         "Add object"),
+    QT_TRANSLATE_NOOP("eggbert::Core",
+        "Decor: %1 cell(s)"),
+    QT_TRANSLATE_NOOP("eggbert::Core",
+        "BigDecor: %1 cell(s)"),
 };
 
 bool isDigit(QChar character) {

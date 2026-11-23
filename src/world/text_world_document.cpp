@@ -30,6 +30,22 @@ bool TextWorldDocument::setTile(SectionKind layer, std::size_t x, std::size_t y,
                  [&](TextWorld &world) { return world.setTile(layer, x, y, value); });
 }
 
+bool TextWorldDocument::setTiles(SectionKind layer, std::span<const CellPos> cells,
+                                 long long value) {
+    if (value < smallestTile || value > largestTile || cells.empty()) {
+        return false;
+    }
+    return apply(std::string(layer == SectionKind::bigDecor ? "BigDecor" : "Decor") + ": " +
+                     std::to_string(cells.size()) + " cell(s)",
+                 [&](TextWorld &world) {
+                     bool any = false;
+                     for (const auto &cell : cells) {
+                         any = world.setTile(layer, cell.x, cell.y, value) || any;
+                     }
+                     return any;
+                 });
+}
+
 bool TextWorldDocument::setHeaderValue(std::string_view name, long long value) {
     return apply(std::string(name),
                  [&](TextWorld &world) { return world.setHeaderValue(name, value); });

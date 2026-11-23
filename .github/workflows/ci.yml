@@ -112,11 +112,18 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v5
 
-      - name: Install Qt and Ninja
-        run: brew install qt ninja
+      # Qt's own build: its deployment tool cannot gather a Homebrew Qt
+      # (it timed out resolving that layout's frameworks).
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: "6.5.*"
+
+      - name: Install Ninja
+        run: brew install ninja
 
       - name: Configure
-        run: cmake --preset macos -DCMAKE_PREFIX_PATH="$(brew --prefix qt)"
+        run: cmake --preset macos
 
       - name: Build
         run: cmake --build --preset macos --parallel

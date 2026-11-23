@@ -140,6 +140,34 @@ void TextWorldCanvas::paintEvent(QPaintEvent *event) {
     if (const auto start = world_->headerPoint("blupiPos")) {
         mark(*start, QStringLiteral("S"), QColor(120, 220, 255), true);
     }
+    // What a drag in progress would write, and the marked rectangle.
+    painter.setRenderHint(QPainter::Antialiasing, false);
+    for (const auto &cell : preview_) {
+        painter.fillRect(QRect(static_cast<int>(cell.x) * cell_, static_cast<int>(cell.y) * cell_,
+                               cell_, cell_),
+                         QColor(255, 255, 255, 110));
+    }
+    if (selection_) {
+        const QRect box(static_cast<int>(selection_->min.x) * cell_,
+                        static_cast<int>(selection_->min.y) * cell_,
+                        static_cast<int>(selection_->max.x - selection_->min.x + 1) * cell_,
+                        static_cast<int>(selection_->max.y - selection_->min.y + 1) * cell_);
+        painter.setBrush(Qt::NoBrush);
+        painter.setPen(QPen(Qt::black, 3));
+        painter.drawRect(box.adjusted(1, 1, -2, -2));
+        painter.setPen(QPen(Qt::white, 1, Qt::DashLine));
+        painter.drawRect(box.adjusted(1, 1, -2, -2));
+    }
+}
+
+void TextWorldCanvas::setPreview(std::vector<CellPos> cells) {
+    preview_ = std::move(cells);
+    update();
+}
+
+void TextWorldCanvas::setSelection(std::optional<CellRect> selection) {
+    selection_ = selection;
+    update();
 }
 
 void TextWorldCanvas::mousePressEvent(QMouseEvent *event) {
@@ -148,19 +176,31 @@ void TextWorldCanvas::mousePressEvent(QMouseEvent *event) {
     const int y = position.y() / cell_;
     if (x >= 0 && y >= 0 && x < static_cast<int>(layout::mapWidth) &&
         y < static_cast<int>(layout::mapHeight)) {
-        emit cellClicked(x, y, event->button() == Qt::RightButton);
+        lastDragged_ = CellPos{static_cast<std::size_t>(x), static_cast<std::size_t>(y)};
+        emit cellPressed(x, y, event->button() == Qt::RightButton);
+    }
+}
+
+void TextWorldCanvas::mouseReleaseEvent(QMouseEvent *event) {
+    if (event->button() == Qt::LeftButton) {
+        lastDragged_.reset();
+        emit dragReleased();
     }
 }
 
 void TextWorldCanvas::mouseMoveEvent(QMouseEvent *event) {
-    // Dragging with the left button paints along the way.
+    // Each further cell a drag with the left button reaches.
     if ((event->buttons() & Qt::LeftButton) != 0) {
         const auto position = event->position().toPoint();
         const int x = position.x() / cell_;
         const int y = position.y() / cell_;
         if (x >= 0 && y >= 0 && x < static_cast<int>(layout::mapWidth) &&
             y < static_cast<int>(layout::mapHeight)) {
-            emit cellClicked(x, y, false);
+            const CellPos cell{static_cast<std::size_t>(x), static_cast<std::size_t>(y)};
+            if (lastDragged_ != cell) {
+                lastDragged_ = cell;
+                emit cellDragged(x, y);
+            }
         }
     }
 }
@@ -218,9 +258,22 @@ TextWorldEditor::TextWorldEditor(QString path, std::string text, QWidget *parent
     zoom->setAccessibleName(tr("Cell size in pixels"));
     zoom->setRange(4, 48);
     zoom->setSuffix(tr(" px"));
+    tool_ = new QComboBox(this);
+    tool_->setObjectName(QStringLiteral("textWorldTool"));
+    tool_->setAccessibleName(tr("What a drag on the map does"));
+    tool_->addItem(tr("Paint"), static_cast<int>(TextTool::paint));
+    tool_->addItem(tr("Line"), static_cast<int>(TextTool::line));
+    tool_->addItem(tr("Rectangle"), static_cast<int>(TextTool::rectangle));
+    tool_->addItem(tr("Select"), static_cast<int>(TextTool::select));
+    fillSelection_ = new QPushButton(tr("Fill Selection"), this);
+    fillSelection_->setObjectName(QStringLiteral("textWorldFillSelection"));
+    fillSelection_->setToolTip(tr("Writes the tile number into every cell of the marked "
+                                  "rectangle of the chosen block (-1 empties them)."));
+    fillSelection_->setEnabled(false);
     for (auto *widget : {static_cast<QWidget *>(save_), static_cast<QWidget *>(saveAsButton),
                          static_cast<QWidget *>(undo_), static_cast<QWidget *>(redo_),
                          static_cast<QWidget *>(layer_), static_cast<QWidget *>(value_),
+                         static_cast<QWidget *>(tool_), static_cast<QWidget *>(fillSelection_),
                          static_cast<QWidget *>(zoom)}) {
         bar->addWidget(widget);
     }
@@ -228,8 +281,9 @@ TextWorldEditor::TextWorldEditor(QString path, std::string text, QWidget *parent
     layout->addLayout(bar);
     auto *hint = new QLabel(
         tr("Click or drag on the map to write the tile number into the chosen block; right-click "
-           "picks a cell's number. Tiles are shown as numbered colours: no pictures or rules of "
-           "the Windows games are applied, and nothing is converted."),
+           "picks a cell's number. Line and Rectangle write on release; Select marks a "
+           "rectangle for Fill Selection. Tiles are shown as numbered colours: no pictures or "
+           "rules of the Windows games are applied, and nothing is converted."),
         this);
     hint->setWordWrap(true);
     layout->addWidget(hint);
@@ -331,13 +385,67 @@ TextWorldEditor::TextWorldEditor(QString path, std::string text, QWidget *parent
         }
     });
     connect(zoom, &QSpinBox::valueChanged, canvas_, &TextWorldCanvas::setCellSize);
-    connect(canvas_, &TextWorldCanvas::cellClicked, this, [this](int x, int y, bool pick) {
+    connect(canvas_, &TextWorldCanvas::cellPressed, this, [this](int x, int y, bool pick) {
+        const CellPos cell{static_cast<std::size_t>(x), static_cast<std::size_t>(y)};
         if (pick) {
-            pickCell(static_cast<std::size_t>(x), static_cast<std::size_t>(y));
-        } else {
-            paintCell(static_cast<std::size_t>(x), static_cast<std::size_t>(y));
+            pickCell(cell.x, cell.y);
+            return;
+        }
+        dragStart_ = cell;
+        dragLast_ = cell;
+        switch (tool()) {
+        case TextTool::paint:
+            paintCell(cell.x, cell.y);
+            break;
+        case TextTool::line:
+        case TextTool::rectangle:
+            canvas_->setPreview({cell});
+            break;
+        case TextTool::select:
+            setSelection(CellRect{cell, cell});
+            break;
         }
     });
+    connect(canvas_, &TextWorldCanvas::cellDragged, this, [this](int x, int y) {
+        if (!dragStart_) {
+            return;
+        }
+        const CellPos cell{static_cast<std::size_t>(x), static_cast<std::size_t>(y)};
+        switch (tool()) {
+        case TextTool::paint:
+            // Every cell between two samples, so a fast drag leaves no gaps.
+            for (const auto &between : lineCells(dragLast_.value_or(cell), cell)) {
+                paintCell(between.x, between.y);
+            }
+            break;
+        case TextTool::line:
+            canvas_->setPreview(lineCells(*dragStart_, cell));
+            break;
+        case TextTool::rectangle:
+            canvas_->setPreview(CellMask::fromRect(rectFromCorners(*dragStart_, cell)).cells());
+            break;
+        case TextTool::select:
+            setSelection(rectFromCorners(*dragStart_, cell));
+            break;
+        }
+        dragLast_ = cell;
+    });
+    connect(canvas_, &TextWorldCanvas::dragReleased, this, [this] {
+        const auto start = dragStart_;
+        const auto last = dragLast_;
+        dragStart_.reset();
+        dragLast_.reset();
+        canvas_->setPreview({});
+        if (!start || !last) {
+            return;
+        }
+        if (tool() == TextTool::line) {
+            drawLine(*start, *last);
+        } else if (tool() == TextTool::rectangle) {
+            drawRectangle(*start, *last);
+        }
+    });
+    connect(fillSelection_, &QPushButton::clicked, this, [this] { fillSelection(); });
     const auto header = [this](QSpinBox *box, const char *name) {
         connect(box, &QSpinBox::valueChanged, this, [this, name](int value) {
             if (!refreshing_ && document_->setHeaderValue(name, value)) {
@@ -382,6 +490,42 @@ TextWorldEditor::TextWorldEditor(QString path, std::string text, QWidget *parent
 
 SectionKind TextWorldEditor::currentLayer() const {
     return static_cast<SectionKind>(layer_->currentData().toInt());
+}
+
+TextTool TextWorldEditor::tool() const {
+    return static_cast<TextTool>(tool_->currentData().toInt());
+}
+
+void TextWorldEditor::setTool(TextTool tool) {
+    tool_->setCurrentIndex(tool_->findData(static_cast<int>(tool)));
+}
+
+bool TextWorldEditor::drawLine(CellPos from, CellPos to) {
+    const auto cells = lineCells(from, to);
+    if (!document_->setTiles(currentLayer(), cells, value_->value())) {
+        return false;
+    }
+    refresh();
+    return true;
+}
+
+bool TextWorldEditor::drawRectangle(CellPos first, CellPos second) {
+    const auto cells = CellMask::fromRect(rectFromCorners(first, second)).cells();
+    if (!document_->setTiles(currentLayer(), cells, value_->value())) {
+        return false;
+    }
+    refresh();
+    return true;
+}
+
+void TextWorldEditor::setSelection(std::optional<CellRect> selection) {
+    selection_ = selection;
+    canvas_->setSelection(selection_);
+    fillSelection_->setEnabled(selection_.has_value());
+}
+
+bool TextWorldEditor::fillSelection() {
+    return selection_ && drawRectangle(selection_->min, selection_->max);
 }
 
 bool TextWorldEditor::paintCell(std::size_t x, std::size_t y) {

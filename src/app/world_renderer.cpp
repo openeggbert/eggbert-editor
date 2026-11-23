@@ -427,10 +427,24 @@ void renderWorld(QPainter &painter, const WorldView &world, const ViewTransform 
                 painter.drawLine(centre(record.posStart), centre(record.posEnd));
                 painter.setPen(QPen(color, 2));
                 const auto end = objectRect(record, record.posEnd);
-                painter.drawRect(end.adjusted(1, 1, -2, -2));
-                // The two ends, numbered as the games' editors do: 1 where
-                // the object starts, 2 where it turns back.
-                if (cellScreen >= 5.0) {
+                // The two ends, marked as the games' editors do: 1 where the
+                // object starts, 2 where it turns back. With game artwork
+                // these are the games' own two pictures (tile sheet entries
+                // 30 and 31, drawn at the stored positions); without it, or
+                // where a picture is missing, a numbered badge.
+                painter.setRenderHint(QPainter::Antialiasing, false);
+                const bool startPictured =
+                    drawSprite(pathMarkerChannel, pathStartIcon, record.posStart.x,
+                               record.posStart.y);
+                const bool endPictured =
+                    drawSprite(pathMarkerChannel, pathEndIcon, record.posEnd.x, record.posEnd.y);
+                painter.setRenderHint(QPainter::Antialiasing, true);
+                painter.setPen(QPen(color, 2));
+                if (!endPictured) {
+                    painter.setBrush(Qt::NoBrush);
+                    painter.drawRect(end.adjusted(1, 1, -2, -2));
+                }
+                if (cellScreen >= 5.0 && !(startPictured && endPictured)) {
                     const double radius = std::clamp(cellScreen * 0.3, 5.0, 13.0);
                     auto font = painter.font();
                     font.setPixelSize(static_cast<int>(radius * 1.5));
@@ -447,8 +461,12 @@ void renderWorld(QPainter &painter, const WorldView &world, const ViewTransform 
                                                 2 * radius, 2 * radius),
                                          Qt::AlignCenter, number);
                     };
-                    badge(objectRect(record, record.posStart), QStringLiteral("1"));
-                    badge(end, QStringLiteral("2"));
+                    if (!startPictured) {
+                        badge(objectRect(record, record.posStart), QStringLiteral("1"));
+                    }
+                    if (!endPictured) {
+                        badge(end, QStringLiteral("2"));
+                    }
                 }
                 painter.setRenderHint(QPainter::Antialiasing, false);
             }

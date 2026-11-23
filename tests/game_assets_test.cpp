@@ -414,14 +414,19 @@ int main(int argc, char **argv) {
         put16(scene, 224, 1);
         CHECK(window(sceneView, RenderOptions{}, 128, 128).pixelColor(10, 10) == background);
 
-        // The ends of the path carry badges: 1 at the start, 2 at the end.
+        // The ends of the path are marked as in the games' own editors: with
+        // artwork by the games' two pictures (tile sheet entries 30 and 31,
+        // drawn over the object), without it by badges 1 and 2.
         // (Sampled left of the digit, inside the badge.)
         const auto badgeAt = [&](const RenderOptions &with, int cellX) {
             return window(sceneView, with, cellX * 64, 20 * 64).pixelColor(6, 13);
         };
-        CHECK(badgeAt(scenicOptions, 20) == pathMarkerColor());
-        CHECK(badgeAt(scenicOptions, 24) == pathMarkerColor());
-        CHECK(badgeAt(RenderOptions{}, 24) == pathMarkerColor()); // schematic drawing too
+        CHECK_EQ(pathMarkerChannel, 1);
+        CHECK(badgeAt(scenicOptions, 20) == tile(pathStartIcon));
+        CHECK(badgeAt(scenicOptions, 24) == tile(pathEndIcon));
+        CHECK(tile(30) != tile(31));
+        CHECK(badgeAt(RenderOptions{}, 20) == pathMarkerColor()); // schematic drawing
+        CHECK(badgeAt(RenderOptions{}, 24) == pathMarkerColor());
         auto noPaths = scenicOptions;
         noPaths.showPaths = false;
         CHECK(badgeAt(noPaths, 24) != pathMarkerColor());

@@ -5,6 +5,8 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
+#include <vector>
 
 #include "world/text_world_document.hpp"
 
@@ -18,6 +20,18 @@ class QTableWidget;
 namespace eggbert {
 
 class TextWorldCanvas;
+
+// What a drag on the map does.
+enum class TextTool {
+    // Writes the number into every cell the pointer passes.
+    paint,
+    // A straight line of cells, written on release as one undo step.
+    line,
+    // A filled rectangle, written on release as one undo step.
+    rectangle,
+    // Marks a rectangle of cells for Fill Selection.
+    select,
+};
 
 // A window that edits one Mobile Eggbert text world: tiles of both blocks,
 // the header values and the numbers of each object. Every edit replaces one
@@ -50,6 +64,17 @@ public:
     [[nodiscard]] QPushButton *duplicateObjectButton() const { return duplicateObject_; }
     [[nodiscard]] QPushButton *removeObjectButton() const { return removeObject_; }
     [[nodiscard]] QLabel *statusLabel() const { return status_; }
+    [[nodiscard]] QComboBox *toolCombo() const { return tool_; }
+    [[nodiscard]] QPushButton *fillSelectionButton() const { return fillSelection_; }
+    [[nodiscard]] TextTool tool() const;
+    void setTool(TextTool tool);
+    // Shapes in the chosen block with the chosen number, each one undo step.
+    bool drawLine(CellPos from, CellPos to);
+    bool drawRectangle(CellPos first, CellPos second);
+    // The marked rectangle (none at first) and filling it with the number.
+    [[nodiscard]] const std::optional<CellRect> &selection() const { return selection_; }
+    void setSelection(std::optional<CellRect> selection);
+    bool fillSelection();
 
     // What a click on the canvas does: paint the chosen number into a cell
     // of the chosen layer, or (right button) pick the cell's number.
@@ -96,6 +121,11 @@ private:
     QPushButton *addObject_ = nullptr;
     QPushButton *duplicateObject_ = nullptr;
     QPushButton *removeObject_ = nullptr;
+    QComboBox *tool_ = nullptr;
+    QPushButton *fillSelection_ = nullptr;
+    std::optional<CellRect> selection_;
+    std::optional<CellPos> dragStart_;
+    std::optional<CellPos> dragLast_;
     QSpinBox *music_ = nullptr;
     QSpinBox *region_ = nullptr;
     QSpinBox *direction_ = nullptr;
@@ -115,17 +145,30 @@ public:
     void setCellSize(int pixels);
     [[nodiscard]] int cellSize() const { return cell_; }
 
+    // Cells a drag in progress would write, and the marked rectangle.
+    void setPreview(std::vector<CellPos> cells);
+    void setSelection(std::optional<CellRect> selection);
+    [[nodiscard]] const std::vector<CellPos> &preview() const { return preview_; }
+
 signals:
-    void cellClicked(int x, int y, bool pick);
+    // A press on a cell (the right button picks), each further cell a drag
+    // with the left button reaches, and the end of the drag.
+    void cellPressed(int x, int y, bool pick);
+    void cellDragged(int x, int y);
+    void dragReleased();
 
 protected:
     void paintEvent(QPaintEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
+    void mouseReleaseEvent(QMouseEvent *event) override;
 
 private:
     const TextWorld *world_ = nullptr;
     int cell_ = 12;
+    std::vector<CellPos> preview_;
+    std::optional<CellRect> selection_;
+    std::optional<CellPos> lastDragged_;
 };
 
 } // namespace eggbert

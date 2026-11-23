@@ -6,6 +6,7 @@
 #include "check.hpp"
 #include "fixture.hpp"
 
+#include <QKeySequence>
 #include <QAction>
 #include <QApplication>
 #include <QDockWidget>
@@ -93,7 +94,8 @@ int main(int argc, char **argv) {
     CHECK(shownText.contains("no warranty"));
     window.action("helpShortcuts")->trigger();
     CHECK(shownText.contains("Save"));
-    CHECK(shownText.contains("Ctrl+S"));
+    // As the platform writes the key (Ctrl+S, or the command sign on a Mac).
+    CHECK(shownText.contains(QKeySequence(QKeySequence::Save).toString(QKeySequence::NativeText)));
     CHECK(shownText.contains("Validate (World Doctor)"));
 
     // The guide only names commands that exist: each of these is an action

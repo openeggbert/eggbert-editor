@@ -99,6 +99,25 @@ int main() {
         }
         CHECK_EQ(undone, TextWorldDocument::historyLimit);
     }
+    // Several cells at once are one step.
+    {
+        TextWorldDocument shapes(original);
+        const std::vector<CellPos> cells{{10, 10}, {11, 10}, {12, 10}};
+        CHECK(shapes.setTiles(SectionKind::foreground, cells, 55));
+        CHECK_EQ(shapes.undoLabel(), std::string("Decor: 3 cell(s)"));
+        for (const auto &cell : cells) {
+            CHECK_EQ(*shapes.world().tile(SectionKind::foreground, cell.x, cell.y), 55);
+        }
+        CHECK_EQ(*shapes.world().tile(SectionKind::foreground, 13, 10), -1);
+        CHECK(!shapes.setTiles(SectionKind::foreground, cells, 55)); // nothing changes
+        CHECK(!shapes.setTiles(SectionKind::foreground, {}, 55));
+        CHECK(!shapes.setTiles(SectionKind::foreground, cells, 40'000));
+        CHECK(shapes.setTiles(SectionKind::bigDecor, cells, 7));
+        CHECK_EQ(shapes.undoLabel(), std::string("BigDecor: 3 cell(s)"));
+        CHECK(shapes.undo() && shapes.undo());
+        CHECK(shapes.text() == original);
+        CHECK(!shapes.undo());
+    }
     // Whole object lines are steps too, undone to the exact text.
     {
         TextWorldDocument lines(original);

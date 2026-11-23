@@ -1159,6 +1159,14 @@
    <source>Add object</source>
    <translation>Přidat objekt</translation>
   </message>
+  <message>
+   <source>Decor: %1 cell(s)</source>
+   <translation>Decor: počet buněk %1</translation>
+  </message>
+  <message>
+   <source>BigDecor: %1 cell(s)</source>
+   <translation>BigDecor: počet buněk %1</translation>
+  </message>
  </context>
  <context>
   <name>eggbert::DemoTimeline</name>
@@ -5340,10 +5348,6 @@ Maluje dlaždici %2 a přepočítá tvary okrajů kolem ní.</translation>
    <translation> px</translation>
   </message>
   <message>
-   <source>Click or drag on the map to write the tile number into the chosen block; right-click picks a cell's number. Tiles are shown as numbered colours: no pictures or rules of the Windows games are applied, and nothing is converted.</source>
-   <translation>Klepnutím nebo tažením po mapě zapíšete číslo dlaždice do zvoleného bloku; pravým tlačítkem naberete číslo buňky. Dlaždice se zobrazují jako očíslované barvy: nepoužívají se žádné obrázky ani pravidla her pro Windows a nic se nepřevádí.</translation>
-  </message>
-  <message>
    <source>World</source>
    <translation>Svět</translation>
   </message>
@@ -5426,6 +5430,38 @@ Maluje dlaždici %2 a přepočítá tvary okrajů kolem ní.</translation>
   <message>
    <source>Object %1 removed; the objects after it moved up by one.</source>
    <translation>Objekt %1 odebrán; objekty za ním se posunuly o jedno místo výš.</translation>
+  </message>
+  <message>
+   <source>What a drag on the map does</source>
+   <translation>Co dělá tažení po mapě</translation>
+  </message>
+  <message>
+   <source>Paint</source>
+   <translation>Malovat</translation>
+  </message>
+  <message>
+   <source>Line</source>
+   <translation>Čára</translation>
+  </message>
+  <message>
+   <source>Rectangle</source>
+   <translation>Obdélník</translation>
+  </message>
+  <message>
+   <source>Select</source>
+   <translation>Výběr</translation>
+  </message>
+  <message>
+   <source>Fill Selection</source>
+   <translation>Vyplnit výběr</translation>
+  </message>
+  <message>
+   <source>Writes the tile number into every cell of the marked rectangle of the chosen block (-1 empties them).</source>
+   <translation>Zapíše číslo dlaždice do každé buňky označeného obdélníku ve zvoleném bloku (-1 je vyprázdní).</translation>
+  </message>
+  <message>
+   <source>Click or drag on the map to write the tile number into the chosen block; right-click picks a cell's number. Line and Rectangle write on release; Select marks a rectangle for Fill Selection. Tiles are shown as numbered colours: no pictures or rules of the Windows games are applied, and nothing is converted.</source>
+   <translation>Kliknutím nebo tažením po mapě zapíšete číslo dlaždice do zvoleného bloku; pravé tlačítko převezme číslo buňky. Čára a Obdélník zapisují při uvolnění tlačítka; Výběr označí obdélník pro Vyplnit výběr. Dlaždice jsou zobrazeny jako očíslované barvy: nepoužívají se žádné obrázky ani pravidla her pro Windows a nic se nepřevádí.</translation>
   </message>
  </context>
 </TS>

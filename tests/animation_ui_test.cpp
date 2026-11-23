@@ -94,6 +94,17 @@ int main(int argc, char **argv) {
         CHECK(!canvas->isAnimated());
         CHECK(!window.action("viewAnimate")->isChecked());
         CHECK(!QSettings().value("view/animate", true).toBool());
+        // The games' "1" and "2" pictures mark the ends of the fish's path
+        // and are drawn over it, as in the games' editors.
+        CHECK(canvasAt(canvas, 10 * 64 + 45, 72 * 64 + 12) == spriteColor(0, 30));
+        CHECK(canvasAt(canvas, 14 * 64 + 45, 72 * 64 + 12) == spriteColor(0, 31));
+        // What follows looks at the fish itself, so the paths are hidden.
+        {
+            auto withoutPaths = canvas->renderOptions();
+            withoutPaths.showPaths = false;
+            canvas->setRenderOptions(withoutPaths);
+            QApplication::processEvents();
+        }
         // Stored state: lava's first picture, the fish at its stored place.
         CHECK(canvasAt(canvas, 3 * 64 + 30, 70 * 64 + 30) == spriteColor(0, 68));
         // (Sampled away from the path line and the badge at its start.)

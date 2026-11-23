@@ -132,6 +132,8 @@ Basis of World Doctor's `REACH-CUT-OFF` (`src/world/reachability.cpp`), which is
 
 The estimate connects cells that hold no block, horizontally and vertically, starting from the four starts, and reports a treasure (type 5) or goal (type 7) whose cell is not connected. It does not model jumping, falling, vehicles or lifts, so it can only say "cut off", never "reachable"; and the games can change the map while playing (explosions, pushed crates, key doors), which is why it is labelled an estimate and reported as a note. It is not made for a second-game world with teleporters or key doors. Reviewed on the original worlds (2026-11-23, private): without that exception ten second-game worlds are reported, each of which contains teleporters; with it the estimate is made for all 59 worlds of the first game and 72 of 96 of the second and reports nothing.
 
+A model that also limits how far up the player can get was measured and not adopted (2026-11-23, private prototype, original worlds only). The largest upward speed a jump sets is 29 pixels a step, reduced by 2 each step (`src/decblupi.cpp:160-176`, `:249`), which is about 225 pixels, under four cells. A search that lets the player rise four cells from any cell with a tile in or under it — and treats every object's path, with the row above it, as carrying the player — still reports 9 treasures or goals in 7 worlds of the first game and 36 in 4 of the second, all of which can be collected in the games; only a rise of twelve cells reports none. So jumps do not bound where the player gets: helicopters, springs and other things lift it, and each would need its own cited rule. No such rule set could be verified here, and the estimate stays with connectivity.
+
 ## Demo recordings
 
 Basis of `src/world/demo_recording.hpp` and the recording window. Identical in both games.
@@ -189,6 +191,7 @@ Checked against that repository's 78 world files (2026-11-23, private, read only
 | Foreground cell (x, y) is drawn from channel 1 at `(x * 64, y * 64)`; values 107–109 and 157 seven pixels higher; second game value 364 two pixels higher | `src/decblock.cpp:1378-1410`; `games/sb2/src/decblock.cpp:1846` | read |
 | In the games' editors a start is drawn with player sheet 2, 11, 12 or 13 by slot, picture 0 when facing right and 4 otherwise | `src/decblock.cpp:1234-1250` | read |
 | Attract-mode recordings are `data\demo2NN.blp` in the first game and `data\demo3NN.blp` in the second | `src/event.cpp:3723`; `games/sb2/src/event.cpp:4372` | read |
+| In design mode the games draw tile-sheet picture 30 at the start and 31 at the end of a moving object's path, after the object (they are yellow frames holding the digits 1 and 2), for lifts, moving bombs, bulldozers, fish, birds and the helicopter and tank (the second game adds its other lifts, wasps and creatures) | `src/decblock.cpp:1424-1447`; `games/sb2/src/decblock.cpp:1871-1896` | read; pictures looked at (first game) |
 
 Eggbert Editor does not ship the sprite tables. At run time it searches the executable in the user's chosen game directory for a table with the expected count whose every rectangle fits the sprite sheet found there, and uses it only then. The automated tests exercise this with generated sheets and a generated stand-in executable. The results with two original installations are in the next section.
 
