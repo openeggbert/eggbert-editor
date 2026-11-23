@@ -6,8 +6,12 @@
 #include <QHeaderView>
 #include <QLabel>
 #include <QPushButton>
+#include <QStyle>
+#include <QStyledItemDelegate>
 #include <QTreeWidget>
 #include <QVBoxLayout>
+
+#include <algorithm>
 
 #include "app/doctor_texts.hpp"
 #include "world/hex_model.hpp"
@@ -15,6 +19,31 @@
 namespace eggbert {
 
 namespace {
+
+// Qt's tree wraps text but keeps every row one line high. This gives a row
+// the height the wrapped text of one column needs at that column's width.
+class WrappedColumnDelegate final : public QStyledItemDelegate {
+public:
+    WrappedColumnDelegate(QTreeWidget *tree, int column)
+        : QStyledItemDelegate(tree), tree_(tree), column_(column) {}
+
+    QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override {
+        auto size = QStyledItemDelegate::sizeHint(option, index);
+        if (index.column() == column_) {
+            const int margin =
+                tree_->style()->pixelMetric(QStyle::PM_FocusFrameHMargin, nullptr, tree_) + 1;
+            const int width = std::max(40, tree_->columnWidth(column_) - 2 * margin);
+            const auto text = option.fontMetrics.boundingRect(
+                QRect(0, 0, width, 100'000), Qt::TextWordWrap, index.data().toString());
+            size.setHeight(std::max(size.height(), text.height() + 4));
+        }
+        return size;
+    }
+
+private:
+    QTreeWidget *tree_;
+    int column_;
+};
 
 constexpr int indexRole = Qt::UserRole;
 
@@ -123,7 +152,21 @@ DiagnosticsPanel::DiagnosticsPanel(QWidget *parent) : QWidget(parent) {
     tree_->setRootIsDecorated(false);
     tree_->setAlternatingRowColors(true);
     tree_->setHeaderLabels({tr("Severity"), tr("Rule"), tr("Finding"), tr("Offset")});
+    // The finding takes the width that is left and wraps onto as many lines
+    // as it needs, so that it can be read without a tooltip or scrolling.
+    tree_->header()->setStretchLastSection(false);
     tree_->header()->setSectionResizeMode(QHeaderView::ResizeToContents);
+    tree_->header()->setSectionResizeMode(2, QHeaderView::Stretch);
+    tree_->setWordWrap(true);
+    tree_->setItemDelegate(new WrappedColumnDelegate(tree_, 2));
+    tree_->setTextElideMode(Qt::ElideNone);
+    tree_->setUniformRowHeights(false);
+    tree_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    connect(tree_->header(), &QHeaderView::sectionResized, this, [this](int section) {
+        if (section == 2) {
+            tree_->doItemsLayout(); // row heights follow the new width
+        }
+    });
     layout->addWidget(tree_, 1);
 
     detail_ = new QLabel(this);

@@ -152,6 +152,27 @@ int main(int argc, char **argv) {
     // Statistics rows show the headless numbers.
     const auto stats = computeWorldStats(tab->document().view());
     CHECK_EQ(statistics->valueOf("Size"), QString("50468 bytes"));
+    // In a narrow dock the value stays whole and the name gives way; the
+    // tooltip of a row says both in full.
+    {
+        auto *tree = statistics->findChild<QTreeWidget *>("statisticsTree");
+        CHECK(tree != nullptr);
+        const auto width = tree->width();
+        tree->resize(260, 400);
+        QCoreApplication::processEvents();
+        const auto metrics = tree->fontMetrics();
+        QTreeWidgetItem *sizeRow = nullptr;
+        for (QTreeWidgetItemIterator item(tree); *item != nullptr; ++item) {
+            if ((*item)->text(0) == "Size") {
+                sizeRow = *item;
+            }
+            CHECK(tree->columnWidth(1) >= metrics.horizontalAdvance((*item)->text(1)));
+        }
+        CHECK(sizeRow != nullptr && sizeRow->toolTip(0) == "Size: 50468 bytes");
+        CHECK(sizeRow != nullptr && sizeRow->toolTip(1) == "Size: 50468 bytes");
+        CHECK(tree->columnWidth(0) + tree->columnWidth(1) <= 260);
+        tree->resize(width, 400);
+    }
     CHECK_EQ(statistics->valueOf("Revision field"), QString("1.3"));
     CHECK_EQ(statistics->valueOf("Occupied cells"), QString::number(stats.foreground.occupied));
     CHECK_EQ(statistics->valueOf("Occupied cells"), QString("3"));

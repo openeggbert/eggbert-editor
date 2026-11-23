@@ -31,11 +31,15 @@ constexpr int sizeRole = Qt::UserRole + 2;
 QTreeWidgetItem *addRow(QTreeWidgetItem *parent, const QString &label, const QString &value,
                         RowKind kind = plainRow, qlonglong data = 0, qlonglong size = 0) {
     auto *item = new QTreeWidgetItem(parent, {label, value});
+    item->setToolTip(0, value.isEmpty() ? label : QStringLiteral("%1: %2").arg(label, value));
+    item->setToolTip(1, item->toolTip(0));
     item->setData(0, kindRole, static_cast<int>(kind));
     item->setData(0, valueRole, data);
     item->setData(0, sizeRole, size);
     if (kind != plainRow) {
-        item->setToolTip(0, StatisticsPanel::tr("Double-click to locate"));
+        item->setToolTip(0, item->toolTip(0) + QLatin1Char('\n') +
+                                StatisticsPanel::tr("Double-click to locate"));
+        item->setToolTip(1, item->toolTip(0));
     }
     return item;
 }
@@ -65,9 +69,11 @@ StatisticsPanel::StatisticsPanel(QWidget *parent) : QWidget(parent) {
     tree_->setHeaderLabels({tr("Statistic"), tr("Value")});
     tree_->setRootIsDecorated(true);
     tree_->setAlternatingRowColors(true);
-    tree_->header()->setStretchLastSection(true);
-    tree_->header()->setSectionResizeMode(0, QHeaderView::Interactive);
-    tree_->setColumnWidth(0, 230);
+    // The value is always shown whole; when the dock is narrow it is the
+    // name that is shortened, and its tooltip says it in full.
+    tree_->header()->setStretchLastSection(false);
+    tree_->header()->setSectionResizeMode(0, QHeaderView::Stretch);
+    tree_->header()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
     setMinimumWidth(340);
     layout->addWidget(tree_);
     connect(tree_, &QTreeWidget::itemActivated, this,

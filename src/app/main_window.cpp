@@ -76,6 +76,7 @@
 #include "app/tool_icons.hpp"
 #include "world/new_world.hpp"
 #include "world/campaign_doors.hpp"
+#include "world/campaign_plan.hpp"
 #include "world/hex_model.hpp"
 #include "world/demo_recording.hpp"
 #include "world/revision_convert.hpp"
@@ -824,6 +825,15 @@ void MainWindow::installDefaultPrompts() {
                                    .arg(replaced.size()));
         return box.exec() == QMessageBox::Yes;
     };
+    prompts.campaignBuilder =
+        [this](const CampaignPlan &plan,
+               const QStringList &findings) -> std::optional<CampaignRequest> {
+        CampaignDialog dialog(plan, findings, this);
+        if (dialog.exec() != QDialog::Accepted) {
+            return std::nullopt;
+        }
+        return dialog.request();
+    };
     prompts.deployPortNumber = [this](DocumentTab *, int suggested,
                                       const QString &worldsDirectory) -> std::optional<int> {
         bool accepted = false;
@@ -1524,6 +1534,9 @@ void MainWindow::createActions() {
                       tr("Campaign O&verview")),
             &QAction::triggered, this,
             [this] { prompts.showReport(tr("Campaign Overview"), campaignOverview()); });
+    connect(addAction(fileMenu, QStringLiteral("fileBuildCampaign"),
+                      tr("Campaign &Builder...")),
+            &QAction::triggered, this, [this] { buildCampaign(); });
     connect(addAction(fileMenu, QStringLiteral("fileExportPack"),
                       tr("E&xport Campaign Pack...")),
             &QAction::triggered, this, [this] { exportCampaignPack(); });
@@ -4013,6 +4026,249 @@ int MainWindow::importCampaignPack(const QString &path) {
     return static_cast<int>(done.size());
 }
 
+std::map<int, std::vector<std::byte>> MainWindow::campaignWorlds() const {
+    std::map<int, std::vector<std::byte>> worlds;
+    for (const auto &entry : installation_->entries()) {
+        if (!entry.complete || entry.name.kind != DataFileKind::officialWorld) {
+            continue;
+        }
+        // An open tab shows the world as it is being edited.
+        const auto key = samePathKey(entry.path);
+        bool open = false;
+        for (int index = 0; index < tabCount() && !open; ++index) {
+            if (samePathKey(tabAt(index)->file().path()) == key) {
+                const auto bytes = tabAt(index)->document().currentBytes();
+                worlds[entry.name.number].assign(bytes.begin(), bytes.end());
+                open = true;
+            }
+        }
+        QFile file(entry.path);
+        if (open || !file.open(QIODevice::ReadOnly)) {
+            continue;
+        }
+        const auto bytes = file.readAll();
+        const auto *data = reinterpret_cast<const std::byte *>(bytes.constData());
+        // A text world is read as its tab would hold it.
+        if (const std::string_view text(bytes.constData(), static_cast<std::size_t>(bytes.size()));
+            installation_->profile() == GameProfile::mobileEggbert && looksLikeTextWorld(text)) {
+            if (auto image = makeTextWorldImage(TextWorld::parse(text))) {
+                worlds[entry.name.number] = std::move(image->bytes);
+            }
+            continue;
+        }
+        worlds[entry.name.number].assign(data, data + bytes.size());
+    }
+    return worlds;
+}
+
+CampaignPlan MainWindow::campaignPlan() const {
+    const auto contents = campaignWorlds();
+    std::map<int, WorldView> views;
+    for (const auto &[number, bytes] : contents) {
+        views.emplace(number, WorldView(bytes, probeWorld(bytes)));
+    }
+    return planCampaign(installation_->profile(), views);
+}
+
+QStringList MainWindow::campaignFindings() const {
+    const auto game = installation_->profile();
+    const auto contents = campaignWorlds();
+    std::map<int, WorldView> views;
+    Campaign campaign;
+    campaign.game = game;
+    for (const auto &[number, bytes] : contents) {
+        views.emplace(number, WorldView(bytes, probeWorld(bytes)));
+        campaign.entries.push_back(
+            {{false, 1, number},
+             game == GameProfile::mobileEggbert ? portWorldFileName(number)
+                                                : worldSlotFileName({false, 1, number}),
+             0,
+             {},
+             {}});
+    }
+    QStringList lines;
+    const auto line = [&](bool warning, const QString &text) {
+        lines << QStringLiteral("[%1] %2").arg(warning ? tr("warning") : tr("note"), text);
+    };
+    for (const auto &finding : reviewCampaign(campaign)) {
+        line(finding.severity == CampaignSeverity::warning, coreText(finding.text));
+    }
+    const auto doors = reviewDoors(game, views);
+    for (const auto &missing : doors.missingTargets) {
+        line(true, tr("World %1 has a door (tile %2 at cell %3, %4) to world %5, which is not "
+                      "in the installation.")
+                       .arg(missing.world)
+                       .arg(missing.tile)
+                       .arg(missing.cell.x)
+                       .arg(missing.cell.y)
+                       .arg(missing.target));
+    }
+    for (const auto number : doors.unreferenced) {
+        line(false, tr("No door of these worlds leads to world %1.").arg(number));
+    }
+    for (const auto &finding : planCampaign(game, views).findings) {
+        line(finding.severity == PlanSeverity::warning, coreText(finding.text));
+    }
+    return lines;
+}
+
+bool MainWindow::buildCampaign() {
+    if (installation_->dataDirectory().isEmpty() ||
+        !campaignShape(installation_->profile())) {
+        prompts.error(tr("Campaign Builder"),
+                      tr("Open a world of the game and choose that game's directory first "
+                         "(View > Game Artwork Directory)."));
+        return false;
+    }
+    const auto request = prompts.campaignBuilder(campaignPlan(), campaignFindings());
+    if (!request) {
+        return false;
+    }
+    switch (request->kind) {
+    case CampaignRequest::open:
+        for (const auto &entry : installation_->entries()) {
+            if (entry.name.kind == DataFileKind::officialWorld &&
+                entry.name.number == request->number) {
+                return openPath(entry.path) != nullptr;
+            }
+        }
+        return false;
+    case CampaignRequest::create:
+        return createCampaignWorld(request->number, false) != nullptr;
+    case CampaignRequest::createWithKey:
+        return createCampaignWorld(request->number, true) != nullptr;
+    case CampaignRequest::placeSign:
+        return placeCampaignSign(request->number);
+    }
+    return false;
+}
+
+DocumentTab *MainWindow::createCampaignWorld(int number, bool withKey) {
+    const auto game = installation_->profile();
+    const auto dataDirectory = installation_->dataDirectory();
+    const auto role = officialWorldRole(game, number);
+    if (dataDirectory.isEmpty() || (role != WorldRole::hub && role != WorldRole::mission)) {
+        prompts.error(tr("Campaign Builder"),
+                      tr("World %1 is not the number of a hub or a mission of this game.")
+                          .arg(number));
+        return nullptr;
+    }
+    for (const auto &entry : installation_->entries()) {
+        if (entry.name.kind == DataFileKind::officialWorld && entry.name.number == number) {
+            prompts.error(tr("Campaign Builder"), tr("World %1 already exists.").arg(number));
+            return nullptr;
+        }
+    }
+    const auto kind = role == WorldRole::hub ? CampaignWorldKind::hub
+                      : withKey              ? CampaignWorldKind::keyMission
+                                             : CampaignWorldKind::mission;
+    const auto world = newCampaignWorld(game, kind);
+    QByteArray content;
+    QString fileName;
+    if (game == GameProfile::mobileEggbert) {
+        content = QByteArray::fromStdString(newTextWorld(world));
+        fileName = QString::fromStdString(portWorldFileName(number));
+    } else {
+        content = QByteArray(reinterpret_cast<const char *>(world.data()),
+                             static_cast<qsizetype>(world.size()));
+        fileName = QString::fromStdString(worldSlotFileName({false, 1, number}));
+    }
+    if (content.isEmpty() || fileName.isEmpty()) {
+        prompts.error(tr("Campaign Builder"), tr("World %1 could not be made.").arg(number));
+        return nullptr;
+    }
+    // Through the deploy store, so that the new file can be taken out again.
+    const auto result = deployStore_.deploy(dataDirectory, fileName, asBytes(content));
+    if (!result) {
+        prompts.error(tr("Campaign Builder"), result.error());
+        return nullptr;
+    }
+    haveDeploys_ = true;
+    installation_->refresh();
+    auto *created = openPath(result->targetPath);
+    if (created != nullptr) {
+        created->canvas()->fitCells(CellPos{0, 0}, CellPos{12, 8});
+    }
+    updateUi();
+    // The next step: its sign, in the world that leads to it.
+    if (created != nullptr && !placeCampaignSign(number)) {
+        setCurrentTab(created);
+        statusBar()->showMessage(
+            role == WorldRole::hub
+                ? tr("World %1 created. World 1 is not there yet; it needs the sign of this "
+                     "hub (tile %2).")
+                      .arg(number)
+                      .arg(hubSignTile(game, number / 10))
+                : tr("World %1 created. Its hub, world %2, is not there yet; create it too.")
+                      .arg(number)
+                      .arg(number / 10 * 10),
+            15000);
+    }
+    return created;
+}
+
+bool MainWindow::placeCampaignSign(int number) {
+    const auto game = installation_->profile();
+    const auto role = officialWorldRole(game, number);
+    if (role != WorldRole::hub && role != WorldRole::mission) {
+        return false;
+    }
+    const int parent = role == WorldRole::hub ? 1 : number / 10 * 10;
+    const int index = role == WorldRole::hub ? number / 10 : number % 10;
+    QString parentPath;
+    for (const auto &entry : installation_->entries()) {
+        if (entry.name.kind == DataFileKind::officialWorld && entry.name.number == parent &&
+            entry.complete) {
+            parentPath = entry.path;
+        }
+    }
+    if (parentPath.isEmpty()) {
+        return false;
+    }
+    auto *tab = openPath(parentPath);
+    if (tab == nullptr) {
+        return false;
+    }
+    Stamp stamp;
+    stamp.game = tab->profile();
+    stamp.height = 1;
+    if (role == WorldRole::hub) {
+        stamp.name = tr("sign of hub %1").arg(number).toStdString();
+        stamp.width = 1;
+        stamp.foreground = {hubSignTile(game, index)};
+    } else if (index == 1) {
+        // The first mission of a hub is open from the start: no door.
+        stamp.name = tr("sign of mission %1").arg(number).toStdString();
+        stamp.width = 1;
+        stamp.foreground = {missionSignTile(index)};
+    } else {
+        // The door the game opens stands beside the sign.
+        stamp.name = tr("door and sign of mission %1").arg(number).toStdString();
+        stamp.width = 2;
+        stamp.foreground = {missionDoorTile, missionSignTile(index)};
+    }
+    stamp.bigDecor.assign(stamp.width, layout::emptyCell);
+    if (!tab->beginStampPlacement(std::move(stamp))) {
+        return false;
+    }
+    statusBar()->showMessage(
+        role == WorldRole::hub
+            ? tr("World %1: click in world 1 where the sign of this hub goes (where the player "
+                 "walks). A barrier (tile 183) before the next hub is yours to place.")
+                  .arg(number)
+            : index == 1
+                  ? tr("World %1: click in hub %2 where the sign of this mission goes (where "
+                       "the player walks).")
+                        .arg(number)
+                        .arg(parent)
+                  : tr("World %1: click in hub %2 where its door goes; the sign of this mission "
+                       "is placed to the right of it.")
+                        .arg(number)
+                        .arg(parent),
+        20000);
+    return true;
+}
+
 QString MainWindow::campaignOverview() const {
     Campaign campaign;
     campaign.game = installation_->profile();
@@ -4064,32 +4320,10 @@ QString MainWindow::campaignOverview() const {
               << tr("Basis: %1.").arg(coreText(findings.front().basis));
     }
     // Doors: which worlds the door tiles of the official worlds lead to.
-    std::map<int, QByteArray> contents;
-    for (const auto &entry : installation_->entries()) {
-        QFile file(entry.path);
-        if (entry.complete && entry.name.kind == DataFileKind::officialWorld &&
-            file.open(QIODevice::ReadOnly)) {
-            auto bytes = file.readAll();
-            // A text world is read for its doors as its tab would hold it.
-            if (const std::string_view text(bytes.constData(),
-                                            static_cast<std::size_t>(bytes.size()));
-                campaign.game == GameProfile::mobileEggbert && looksLikeTextWorld(text)) {
-                const auto image = makeTextWorldImage(TextWorld::parse(text));
-                if (!image) {
-                    continue;
-                }
-                bytes = QByteArray(reinterpret_cast<const char *>(image->bytes.data()),
-                                   static_cast<qsizetype>(image->bytes.size()));
-            }
-            contents[entry.name.number] = bytes;
-        }
-    }
+    const auto contents = campaignWorlds();
     std::map<int, WorldView> views;
     for (const auto &[number, bytes] : contents) {
-        const std::span<const std::byte> span(
-            reinterpret_cast<const std::byte *>(bytes.constData()),
-            static_cast<std::size_t>(bytes.size()));
-        views.emplace(number, WorldView(span, probeWorld(span)));
+        views.emplace(number, WorldView(bytes, probeWorld(bytes)));
     }
     const auto doors = reviewDoors(campaign.game, views);
     lines << QString() << tr("Doors between the official worlds:");
@@ -4762,6 +4996,7 @@ void MainWindow::updateUi() {
     {
         const bool installed = !installation_->dataDirectory().isEmpty();
         enable("fileCampaignOverview", installed);
+        enable("fileBuildCampaign", installed);
         enable("fileExportPack", installed);
         enable("fileImportPack", installed);
     }

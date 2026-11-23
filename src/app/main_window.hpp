@@ -14,6 +14,7 @@
 #include "app/recovery_store.hpp"
 #include "app/document_tab.hpp"
 #include "app/png_export.hpp"
+#include "app/campaign_dialog.hpp"
 #include "app/campaign_pack.hpp"
 #include "app/deploy_store.hpp"
 #include "world/game_convert.hpp"
@@ -109,6 +110,11 @@ struct Prompts {
     std::function<QString()> importPackPath;
     // Shown with the pack's contents and what they would replace.
     std::function<bool(const CampaignPack &, const QStringList &replaced)> confirmImportPack;
+    // The Campaign Builder: shown with the plan and what the checks found;
+    // what the user asks for, or nothing when it is closed.
+    std::function<std::optional<CampaignRequest>(const CampaignPlan &,
+                                                 const QStringList &findings)>
+        campaignBuilder;
     // Where in the installation the tab's world goes; nullopt cancels.
     // `dataDirectory` is the installation's data directory.
     std::function<std::optional<WorldSlot>(DocumentTab *, WorldSlot suggested,
@@ -343,6 +349,23 @@ public:
     int importCampaignPack(const QString &path);
     // Order and numbering review of the installation's worlds, as text.
     [[nodiscard]] QString campaignOverview() const;
+    // What the current installation's campaign holds and what its worlds
+    // need. Worlds open in tabs are taken as they are there, unsaved edits
+    // included.
+    [[nodiscard]] CampaignPlan campaignPlan() const;
+    // The lines the Campaign Builder lists under the tree: numbering, doors
+    // and structure, each with its severity.
+    [[nodiscard]] QStringList campaignFindings() const;
+    // Shows the Campaign Builder and carries out what was asked for.
+    bool buildCampaign();
+    // Creates a hub or a mission in a free number of the installation (the
+    // file can be taken out again with Roll Back Last Deploy), opens it and
+    // offers its sign for placing. Null, with a message, when the number is
+    // not a free hub or mission.
+    DocumentTab *createCampaignWorld(int number, bool withKey);
+    // Opens the world that leads to `number` (world 1 for a hub, the hub
+    // for a mission) with the sign ready to place.
+    bool placeCampaignSign(int number);
     [[nodiscard]] DeployStore &deployStore() { return deployStore_; }
     // Puts the tab's current bytes into the installation of its game at a
     // slot the user chooses; the replaced file is kept for a rollback.
@@ -422,6 +445,9 @@ private:
     DeployStore deployStore_;
     bool haveDeploys_ = false;
     void refreshInstallationActions();
+    // The complete official worlds of the installation by number, each as a
+    // tab would hold it; from an open tab when there is one.
+    [[nodiscard]] std::map<int, std::vector<std::byte>> campaignWorlds() const;
     bool experimental_ = false;
     std::shared_ptr<const std::vector<CustomBorderRule>> customRules_;
     void shareCustomRules();

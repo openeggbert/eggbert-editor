@@ -66,5 +66,8 @@ void mirrorTextWorldStart(std::span<std::byte> image);
 // a mission with (world/new_world.hpp), since the port has no editor of its
 // own to copy.
 [[nodiscard]] std::string newTextWorld();
+// The text, written the same way, of any world laid out as an image; empty
+// when the image holds something a text world has no place for.
+[[nodiscard]] std::string newTextWorld(std::span<const std::byte> image);
 
 } // namespace eggbert

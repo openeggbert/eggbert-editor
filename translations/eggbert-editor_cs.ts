@@ -421,6 +421,145 @@
   </message>
  </context>
  <context>
+  <name>eggbert::CampaignDialog</name>
+  <message>
+   <source>Campaign Builder</source>
+   <translation>Stavba kampaně</translation>
+  </message>
+  <message>
+   <source>This game's campaign holds up to %1 hubs (worlds 10 to %2) with %3 missions each. Here: %4 hub(s) and %5 mission(s). World 1 has %6 barrier(s); the game opens one for every hub that is won.</source>
+   <translation>Kampaň této hry pojme až %1 rozcestníků (světy 10 až %2), každý s %3 misemi. Zde: rozcestníků %4, misí %5. Svět 1 má zábran: %6; hra otevře jednu za každý dokončený rozcestník.</translation>
+  </message>
+  <message>
+   <source>Worlds of the campaign</source>
+   <translation>Světy kampaně</translation>
+  </message>
+  <message>
+   <source>World</source>
+   <translation>Svět</translation>
+  </message>
+  <message>
+   <source>State</source>
+   <translation>Stav</translation>
+  </message>
+  <message>
+   <source>What it has and needs</source>
+   <translation>Co má a co potřebuje</translation>
+  </message>
+  <message>
+   <source>World %1 - %2</source>
+   <translation>Svět %1 - %2</translation>
+  </message>
+  <message>
+   <source>present</source>
+   <translation>existuje</translation>
+  </message>
+  <message>
+   <source>free</source>
+   <translation>volný</translation>
+  </message>
+  <message>
+   <source>the game starts every campaign here</source>
+   <translation>hra zde začíná každou kampaň</translation>
+  </message>
+  <message>
+   <source>no sign in world 1 leads here</source>
+   <translation>ve světě 1 sem nevede žádná cedule</translation>
+  </message>
+  <message>
+   <source>%1 of %2 missions</source>
+   <translation>misí: %1 z %2</translation>
+  </message>
+  <message>
+   <source>no mission ends with the key</source>
+   <translation>žádná mise nekončí klíčem</translation>
+  </message>
+  <message>
+   <source>world 1 has a sign leading here</source>
+   <translation>ve světě 1 sem vede cedule</translation>
+  </message>
+  <message>
+   <source>hub %1</source>
+   <translation>rozcestník %1</translation>
+  </message>
+  <message>
+   <source>ends with the key (completes the hub)</source>
+   <translation>končí klíčem (dokončí rozcestník)</translation>
+  </message>
+  <message>
+   <source>ends with the goal</source>
+   <translation>končí cílem</translation>
+  </message>
+  <message>
+   <source>has neither goal nor key</source>
+   <translation>nemá cíl ani klíč</translation>
+  </message>
+  <message>
+   <source>no sign in the hub leads here</source>
+   <translation>v rozcestníku sem nevede žádná cedule</translation>
+  </message>
+  <message>
+   <source>its sign has no door: open from the start</source>
+   <translation>její cedule nemá dveře: přístupná od začátku</translation>
+  </message>
+  <message>
+   <source>the hub has a sign leading here</source>
+   <translation>v rozcestníku sem vede cedule</translation>
+  </message>
+  <message>
+   <source>mission %1</source>
+   <translation>mise %1</translation>
+  </message>
+  <message>
+   <source>the game enters it after world 1 is won</source>
+   <translation>hra do něj vstoupí po vítězství ve světě 1</translation>
+  </message>
+  <message>
+   <source>What the checks found</source>
+   <translation>Co našly kontroly</translation>
+  </message>
+  <message>
+   <source>The checks found nothing to report.</source>
+   <translation>Kontroly nenašly nic k nahlášení.</translation>
+  </message>
+  <message>
+   <source>Open</source>
+   <translation>Otevřít</translation>
+  </message>
+  <message>
+   <source>Create World Here</source>
+   <translation>Vytvořit zde svět</translation>
+  </message>
+  <message>
+   <source>Create Mission with the Key</source>
+   <translation>Vytvořit misi s klíčem</translation>
+  </message>
+  <message>
+   <source>The mission that completes its hub: it ends with the key instead of the goal. A hub needs one.</source>
+   <translation>Mise, která dokončí svůj rozcestník: končí klíčem místo cíle. Rozcestník jednu takovou potřebuje.</translation>
+  </message>
+  <message>
+   <source>Place Its Sign...</source>
+   <translation>Umístit jeho ceduli...</translation>
+  </message>
+  <message>
+   <source>Opens the world that leads to this one with the sign ready to place: click where it goes.</source>
+   <translation>Otevře svět, který sem vede, s cedulí připravenou k umístění: klikněte tam, kam patří.</translation>
+  </message>
+  <message>
+   <source>Choose a world: one that is present can be opened, a free number can get a new world.</source>
+   <translation>Zvolte svět: existující lze otevřít, na volném čísle lze vytvořit nový.</translation>
+  </message>
+  <message>
+   <source>A new mission starts as the game's own editor starts one. Its sign for the hub is then offered for placing.</source>
+   <translation>Nová mise začíná tak, jak ji zakládá vlastní editor hry. Její cedule pro rozcestník se pak nabídne k umístění.</translation>
+  </message>
+  <message>
+   <source>A new hub starts as an empty platform. Its sign for world 1 is then offered for placing.</source>
+   <translation>Nový rozcestník začíná jako prázdná plošina. Jeho cedule pro svět 1 se pak nabídne k umístění.</translation>
+  </message>
+ </context>
+ <context>
   <name>eggbert::Catalog</name>
   <message>
    <source>Adaptive borders</source>
@@ -1459,6 +1598,26 @@
   <message>
    <source>world%1.txt is used by more than one entry.</source>
    <translation>Soubor world%1.txt používá více než jedna položka.</translation>
+  </message>
+  <message>
+   <source>Mission %1 has neither a goal nor a key, so it cannot be won.</source>
+   <translation>Mise %1 nemá cíl ani klíč, takže ji nelze vyhrát.</translation>
+  </message>
+  <message>
+   <source>The sign of mission %1 in hub %2 has no door (tile %3) one or two cells beside it, so the mission can be entered from the start.</source>
+   <translation>Cedule mise %1 v rozcestníku %2 nemá dveře (dlaždice %3) jednu nebo dvě buňky vedle sebe, takže do mise lze vstoupit od začátku.</translation>
+  </message>
+  <message>
+   <source>No mission of hub %1 ends with a key (an object of type %2), so the hub can never be completed and no barrier of world %3 opens for it.</source>
+   <translation>Žádná mise rozcestníku %1 nekončí klíčem (objekt typu %2), takže rozcestník nelze nikdy dokončit a žádná zábrana světa %3 se pro něj neotevře.</translation>
+  </message>
+  <message>
+   <source>%1 missions of hub %2 end with a key; winning any one of them completes the hub.</source>
+   <translation>Počet misí rozcestníku %2, které končí klíčem: %1; výhra v kterékoli z nich rozcestník dokončí.</translation>
+  </message>
+  <message>
+   <source>World %1 has %2 barriers (tile %3) but only %4 hubs are present; the game removes one barrier for every hub that is won.</source>
+   <translation>Svět %1 má zábran: %2 (dlaždice %3), ale existuje jen rozcestníků: %4; hra odstraní jednu zábranu za každý dokončený rozcestník.</translation>
   </message>
  </context>
  <context>
@@ -4936,6 +5095,70 @@ Bezztrátový desktopový editor jednotlivých souborů světů her Speedy Blupi
 Licencováno pouze pod GNU General Public License verze 3. Je poskytován bez záruky. Neobsahuje žádnou herní grafiku ani herní data.
 
 Sestaveno s Qt %2, běží na Qt %3.</translation>
+  </message>
+  <message>
+   <source>Campaign &amp;Builder...</source>
+   <translation>Stavba &amp;kampaně...</translation>
+  </message>
+  <message>
+   <source>World %1 has a door (tile %2 at cell %3, %4) to world %5, which is not in the installation.</source>
+   <translation>Svět %1 má dveře (dlaždice %2 na buňce %3, %4) do světa %5, který v instalaci není.</translation>
+  </message>
+  <message>
+   <source>No door of these worlds leads to world %1.</source>
+   <translation>Do světa %1 nevedou žádné dveře těchto světů.</translation>
+  </message>
+  <message>
+   <source>Campaign Builder</source>
+   <translation>Stavba kampaně</translation>
+  </message>
+  <message>
+   <source>Open a world of the game and choose that game's directory first (View &gt; Game Artwork Directory).</source>
+   <translation>Nejprve otevřete svět hry a zvolte adresář této hry (Zobrazení &gt; Adresář s grafikou hry).</translation>
+  </message>
+  <message>
+   <source>World %1 is not the number of a hub or a mission of this game.</source>
+   <translation>Svět %1 není číslem rozcestníku ani mise této hry.</translation>
+  </message>
+  <message>
+   <source>World %1 already exists.</source>
+   <translation>Svět %1 už existuje.</translation>
+  </message>
+  <message>
+   <source>World %1 could not be made.</source>
+   <translation>Svět %1 se nepodařilo vytvořit.</translation>
+  </message>
+  <message>
+   <source>World %1 created. World 1 is not there yet; it needs the sign of this hub (tile %2).</source>
+   <translation>Svět %1 vytvořen. Svět 1 zatím neexistuje; bude potřebovat ceduli tohoto rozcestníku (dlaždice %2).</translation>
+  </message>
+  <message>
+   <source>World %1 created. Its hub, world %2, is not there yet; create it too.</source>
+   <translation>Svět %1 vytvořen. Jeho rozcestník, svět %2, zatím neexistuje; vytvořte i ten.</translation>
+  </message>
+  <message>
+   <source>sign of hub %1</source>
+   <translation>cedule rozcestníku %1</translation>
+  </message>
+  <message>
+   <source>sign of mission %1</source>
+   <translation>cedule mise %1</translation>
+  </message>
+  <message>
+   <source>door and sign of mission %1</source>
+   <translation>dveře a cedule mise %1</translation>
+  </message>
+  <message>
+   <source>World %1: click in world 1 where the sign of this hub goes (where the player walks). A barrier (tile 183) before the next hub is yours to place.</source>
+   <translation>Svět %1: klikněte ve světě 1 tam, kam patří cedule tohoto rozcestníku (kudy hráč chodí). Zábranu (dlaždice 183) před dalším rozcestníkem si umístíte sami.</translation>
+  </message>
+  <message>
+   <source>World %1: click in hub %2 where the sign of this mission goes (where the player walks).</source>
+   <translation>Svět %1: klikněte v rozcestníku %2 tam, kam patří cedule této mise (kudy hráč chodí).</translation>
+  </message>
+  <message>
+   <source>World %1: click in hub %2 where its door goes; the sign of this mission is placed to the right of it.</source>
+   <translation>Svět %1: klikněte v rozcestníku %2 tam, kam patří její dveře; cedule této mise se umístí vpravo od nich.</translation>
   </message>
  </context>
  <context>

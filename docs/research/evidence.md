@@ -120,6 +120,35 @@ Basis of the door part of **Campaign Overview** (`src/world/campaign_doors.cpp`)
 
 Checked against the two original installations (2026-11-23, private, read only): applying these rules to every official world, every door of the first world, the hubs and the missions leads to a world file that exists, and every hub and mission has a door leading to it — 59 worlds of the first game and 96 of the second, no exception.
 
+## Room in a campaign
+
+Basis of `src/world/campaign_plan.cpp` and of **File → Campaign Builder**. Sources: `blupi_recon` at `e05e22b` and `mobile-eggbert` at `dd0a592`, read only.
+
+| Observation | Where | How |
+| --- | --- | --- |
+| The numbers a door tile can stand for are 1 to 8 in the first game and 1 to 14 in the second game and the port; from world 1 the target is the number times ten, so hubs are worlds 10 to 80 or 10 to 140 | `src/decblupi.cpp` `IsWorld` (first game), `games/sb2/src/decblupi.cpp:4804-4818`, `:4185-4199`; port `Decor.cpp:7079-7121` | read |
+| In a hub only the signs 174 to 181 (missions 1 to 8) get a door opened: the game looks for the sign and for tile 182 one or two cells to its left or right | `games/sb2/src/decor.cpp:1059-1107`, `:1183-1203`; port `Decor.cpp:11439-11480` | read |
+| Door state is an array of fixed length indexed by world number: 100 entries in the first game, 200 in the second and in the port, where hub k's completion is stored at 180 + k | `src/decor.h:558`, `games/sb2/src/decor.h:610`, `games/sb2/src/decor.cpp:1252-1260`; port `Decor.hpp:497-508` | read |
+| Winning a mission opens the door of the next mission (`m_doors[mission + 1]`) and returns to the hub; reaching the key object (type 21) instead of the goal (type 7) with all treasures completes the hub and returns to world 1 | `games/sb2/src/decblupi.cpp:3797-3806`, `:4159-4181`, `games/sb2/src/decor.cpp:1252-1260`; port `Decor.cpp:6158-6166` | read |
+| In world 1 one barrier (tile 183) is removed for every completed hub, found from the bottom right each time | `games/sb2/src/decor.cpp:1109-1124`, `:1139-1165` | read |
+| Leaving a hub through the game's menu leads to world 1 as well, so the exit tile 184 is not needed | `games/sb2/src/event.cpp:2724-2734`; port `Game1.cpp:444-451` | read |
+| World 10 has code of its own (the player is held back until treasures are taken) | `games/sb2/src/decblock.cpp:2126-2130` | read |
+
+Checked against the three original campaigns (2026-11-23, private, read only), by `planCampaign`:
+
+| | First game | Second game | Mobile Eggbert |
+| --- | ---: | ---: | ---: |
+| Hubs present / possible | 7 / 8 | 12 / 14 | 12 / 14 |
+| Missions present | 33 | 60 | 64 |
+| Free mission numbers in present hubs | 23 | 36 | 32 |
+| Barriers in world 1 | 7 | 12 | 12 |
+| Hubs without a sign in world 1, missions without a sign in their hub | 0 | 0 | 0 |
+| Missions other than the first of a hub without a door | 0 | 0 | 0 |
+| Hubs without the exit tile | 1 (hub 10) | 1 (hub 10) | 12 (all) |
+| Hubs with missions but none ending with the key | 0 | 0 | 0 |
+
+In all three the mission with the key is the last mission of its hub and the only one, and the first mission of every hub has a sign without a door. Two rules first written from the code alone were wrong and were corrected by this check before anything shipped: that every mission's sign needs a door, and that a hub needs the exit tile.
+
 ## Reachability
 
 Basis of World Doctor's `REACH-CUT-OFF` (`src/world/reachability.cpp`), which is an estimate.

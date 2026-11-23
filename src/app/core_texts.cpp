@@ -31,6 +31,19 @@ constexpr const char *texts[] = {
         "numbering rules of the games (hubs are world %1 and multiples of ten, a "
         "group has missions hub+%2 to hub+%3)"),
     QT_TRANSLATE_NOOP("eggbert::Core",
+        "Mission %1 has neither a goal nor a key, so it cannot be won."),
+    QT_TRANSLATE_NOOP("eggbert::Core",
+        "The sign of mission %1 in hub %2 has no door (tile %3) one or two cells beside "
+        "it, so the mission can be entered from the start."),
+    QT_TRANSLATE_NOOP("eggbert::Core",
+        "No mission of hub %1 ends with a key (an object of type %2), so the hub can never "
+        "be completed and no barrier of world %3 opens for it."),
+    QT_TRANSLATE_NOOP("eggbert::Core",
+        "%1 missions of hub %2 end with a key; winning any one of them completes the hub."),
+    QT_TRANSLATE_NOOP("eggbert::Core",
+        "World %1 has %2 barriers (tile %3) but only %4 hubs are present; the game removes "
+        "one barrier for every hub that is won."),
+    QT_TRANSLATE_NOOP("eggbert::Core",
         "The stamp is empty or damaged."),
     QT_TRANSLATE_NOOP("eggbert::Core",
         "An object of the stamp would lie outside the world here. Place the stamp "

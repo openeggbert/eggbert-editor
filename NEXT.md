@@ -110,6 +110,17 @@ Owner's earlier decisions of 2026-11-23 (asked directly, both answered):
 - **Packages from CI as downloads: yes.** Each run now keeps the Linux packages, the Windows ZIP and the macOS disk image as workflow artifacts for 14 days ("development build"). Nothing is tagged or released.
 - **Interface: "propose and make the adjustments yourself", and show the result in screenshots.** The review and what was changed are in **Interface review** just below.
 
+### Slice R result (2026-11-23): building a campaign in the editor; values and findings shown whole
+
+The owner's request after the backlog was confirmed done ("do this: building a campaign in the editor; the cut texts in the panels"). `plan.md` got row R first.
+
+- **Evidence**: `docs/research/evidence.md`, **Room in a campaign** — what the games' code allows (8 or 14 hubs of 8 missions, fixed door-state arrays, the key that completes a hub, one barrier per hub won) and a table of the three original campaigns under these rules. That table corrected two rules written from the code alone.
+- **Core** (`src/world/campaign_plan.hpp`, no Qt): `campaignShape`, `hubSignTile`, `missionSignTile`, `planCampaign` (every hub and mission place with what is present, signed, doored, ending with goal or key, plus findings), `newCampaignWorld` (mission, mission with the key, hub). `newTextWorld(image)` gives the text form for Mobile Eggbert.
+- **Application**: File → Campaign Builder (`CampaignDialog`, `MainWindow::buildCampaign`, `createCampaignWorld`, `placeCampaignSign`, `campaignPlan`, `campaignFindings`). A world is created through the deploy store (so Roll Back takes it out), opened, and its sign armed as a stamp in the world that leads to it; nothing is placed without a click. The plan reads open tabs as they are, unsaved changes included.
+- **Panels**: World Statistics shows values whole (the name column gives way; tooltips say both); World Doctor findings wrap, with row heights computed by a small delegate because Qt's tree wraps text without making rows taller.
+- **Tests**: `campaign_plan` (limits, signs read back by `doorCode`, a built campaign with every finding, the three starting worlds for all three games), `campaign_builder_ui` (plan and findings of an installation, the dialog's rows and buttons, creating a key mission, a hub and a first mission with the right sign each, placing by keyboard, refusals, roll back, a Mobile Eggbert hub as text), additions to `docks` and `doctor_ui`. 80 tests registered, 79 run.
+- **Not done, on purpose**: nothing is renumbered or moved; the sign is never placed for the user; no barrier is placed; world 1 and the final world are made with New World. Whether a built campaign plays as intended in the games was not tried: no game was run.
+
 ### Music the editor plays itself; background and music chosen by picture and list (2026-11-23, owner's request)
 
 The owner's words: background and music must be selectable visually, not by numbers only, and the editor should be able to play the games' MIDI music files.
@@ -404,6 +415,7 @@ Order and acceptance are in `plan.md`, **Promotion of the roadmap**. Tick a slic
 - [x] N Three-way merge (command and window); playtest traces as slice P; heat maps not built (recordings hold no positions)
 - [x] P Demo recordings: reader, `info`, read-only timeline window
 - [x] Q Mobile Eggbert worlds in the full editor with the port's graphics (text in, text out; no conversion)
+- [x] R Campaign Builder: free hubs and missions, creating worlds in them, signs offered for placing, checks of what a hub needs
 
 ## Explicit non-goals
 

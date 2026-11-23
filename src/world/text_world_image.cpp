@@ -348,6 +348,10 @@ void mirrorTextWorldStart(std::span<std::byte> image) {
 }
 
 std::string newTextWorld() {
+    return newTextWorld(newWorld(GameProfile::mobileEggbert));
+}
+
+std::string newTextWorld(std::span<const std::byte> wanted) {
     std::string blank = "DescFile: posDecor=0;0 dimDecor=100;100 world=0 music=0 region=0 "
                         "blupiPos=0;0 blupiDir=0 \n";
     for (const auto *section : {"Decor: \n", "BigDecor: \n"}) {
@@ -358,8 +362,8 @@ std::string newTextWorld() {
     }
     auto world = TextWorld::parse(blank);
     auto image = makeTextWorldImage(world);
-    if (!image || !storeTextWorldImage(world, *image, newWorld(GameProfile::mobileEggbert))) {
-        return {}; // not reachable: the blank text and the new world fit by construction
+    if (!image || !storeTextWorldImage(world, *image, wanted)) {
+        return {};
     }
     return world.write();
 }

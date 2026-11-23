@@ -243,6 +243,42 @@ int main(int argc, char **argv) {
     CHECK(!window.reviewFix(*panel->findingAtRow(unterminated)));
     CHECK(!old->document().isModified());
 
+    // A finding is read in the table itself: it wraps inside the width the
+    // table has instead of running out of it, and a narrower table makes
+    // its row taller.
+    {
+        auto *tree = panel->tree();
+        const auto longest = [&] {
+            int row = 0;
+            for (int index = 0; index < tree->topLevelItemCount(); ++index) {
+                if (tree->topLevelItem(index)->text(2).size() >
+                    tree->topLevelItem(row)->text(2).size()) {
+                    row = index;
+                }
+            }
+            return row;
+        }();
+        const auto rect = [&] { return tree->visualItemRect(tree->topLevelItem(longest)); };
+        const auto oneLine = tree->fontMetrics().height();
+        const auto text = tree->topLevelItem(longest)->text(2);
+        CHECK(text.size() > 60);
+        tree->resize(1600, 300);
+        QApplication::processEvents();
+        const auto wide = rect().height();
+        tree->resize(420, 300);
+        QApplication::processEvents();
+        const auto narrow = rect().height();
+        CHECK(narrow > wide);
+        CHECK(narrow >= 2 * oneLine);
+        // All four columns fit the table: nothing is pushed out of view.
+        int columns = 0;
+        for (int column = 0; column < 4; ++column) {
+            columns += tree->columnWidth(column);
+        }
+        CHECK(columns <= tree->viewport()->width());
+        CHECK(tree->wordWrap());
+    }
+
     CHECK(window.close());
     return test::finish("doctor_ui");
 }
