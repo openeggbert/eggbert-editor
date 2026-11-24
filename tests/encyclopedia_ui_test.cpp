@@ -163,6 +163,13 @@ int main(int argc, char **argv) {
     CHECK_EQ(variants->count(), 6);
     variants->setCurrentRow(1);
     CHECK(!dialog->selectButton()->isEnabled());
+    dialog->searchBox()->setText("Enemy in a tank");
+    CHECK(variants->count() >= 3);
+    variants->setCurrentRow(0);
+    dialog->selectButton()->click();
+    const auto enemy = tab->createObjectAt({6, 8}, std::nullopt);
+    CHECK(enemy && tab->document().view().objects()->record(*enemy)->channel == 11);
+    CHECK(tab->undo());
     dialog->searchBox()->setText("disguised");
     CHECK_EQ(variants->count(), 441);
     variants->setCurrentRow(32);
@@ -187,6 +194,12 @@ int main(int argc, char **argv) {
     CHECK(!dialog->selectButton()->isEnabled());
     collections->setCurrentIndex(8);
     CHECK(dialog->list()->count() > 0 && !dialog->selectButton()->isEnabled());
+    tab->setProfile(GameProfile::mobileEggbert);
+    dialog->searchBox()->setText("58");
+    CHECK_EQ(dialog->list()->count(), 1);
+    CHECK(dialog->currentEntry() && dialog->currentEntry()->title == "Invisibility trail");
+    CHECK(!dialog->selectButton()->isEnabled());
+    dialog->searchBox()->clear();
     collections->setCurrentIndex(0);
 
     // On a read-only world the choice is not applied.

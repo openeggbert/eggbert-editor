@@ -51,6 +51,7 @@ struct ObjectRequest {
     CellPos cell;
     std::optional<CellPos> pathEnd;
     std::optional<std::int16_t> icon;
+    std::optional<std::int16_t> channel = std::nullopt;
 };
 
 // The record a request produces, exactly as the games' editors fill it:

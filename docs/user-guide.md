@@ -67,6 +67,8 @@ The **Palette** panel on the left (**View → Palette**) is where you pick what 
 
 With game artwork loaded and **View → Draw with Game Artwork** switched on, the pictures are the game's own graphics, and in *Other tiles*, *All tiles* and *All bigDecor* numbers without a visible picture are left out; otherwise each entry is a coloured swatch with its number, in the same colours as the schematic canvas, and, once a game is chosen, the panel offers a **Choose Game Directory** button. The same pictures appear in the object chooser of the tool bar, in **Object → Create Verified Type** and in front of every record in the Objects panel. Choosing a tile, object or brush never changes the world; only the tools and the World tab do.
 
+On the Objects tab, select a crate or a lift and use the appearance list below the grid to choose its tile. Enemy helicopter and tank pilots offer the three player sheets (channels 11–13). Mobile Eggbert uses the same artwork for those three sheets. Choosing an appearance affects the next placement. In the sequel and Mobile Eggbert, foreground tile 347 can be painted directly as a green slime border.
+
 The groups are a way to find things, not a limit: the **Tile ID** box in the tool bar remains for typing any raw number. Player starts are placed with the Start tool.
 
 ### Element Encyclopedia

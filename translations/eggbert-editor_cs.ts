@@ -562,6 +562,18 @@
  <context>
   <name>eggbert::Catalog</name>
   <message>
+   <source>Retractable spike trap</source>
+   <translation>Vysouvací bodce</translation>
+  </message>
+  <message>
+   <source>Dripping trap</source>
+   <translation>Kapající past</translation>
+  </message>
+  <message>
+   <source>Invisibility trail</source>
+   <translation>Stopa neviditelného Blupiho</translation>
+  </message>
+  <message>
    <source>Adaptive borders</source>
    <translation>Adaptivní okraje</translation>
   </message>
@@ -956,10 +968,6 @@
   <message>
    <source>Skateboard</source>
    <translation>Skateboard</translation>
-  </message>
-  <message>
-   <source>Slime trap</source>
-   <translation>Slizová past</translation>
   </message>
   <message>
    <source>Special mechanical blocks</source>
@@ -2497,6 +2505,14 @@ Posuzováno pro: %1</translation>
  </context>
  <context>
   <name>eggbert::EncyclopediaDialog</name>
+  <message>
+   <source>Player %1</source>
+   <translation>Hráč %1</translation>
+  </message>
+  <message>
+   <source>The trail copies Blupi's current pose.</source>
+   <translation>Stopa přebírá aktuální podobu Blupiho.</translation>
+  </message>
   <message>
    <source>Browse collection</source>
    <translation>Procházet sbírku</translation>
@@ -5746,6 +5762,18 @@ Sestaveno s Qt %2, běží na Qt %3.</translation>
  </context>
  <context>
   <name>eggbert::PalettePanel</name>
+  <message>
+   <source>Object appearance</source>
+   <translation>Vzhled objektu</translation>
+  </message>
+  <message>
+   <source>Choose the appearance to use when placing this object.</source>
+   <translation>Vyberte vzhled nově umístěného objektu.</translation>
+  </message>
+  <message>
+   <source>Player %1 (channel %2)</source>
+   <translation>Hráč %1 (kanál %2)</translation>
+  </message>
   <message>
    <source>Choose Game Directory...</source>
    <translation>Vybrat adresář hry...</translation>

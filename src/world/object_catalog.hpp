@@ -47,6 +47,9 @@ struct ObjectPreset {
     // (lifts and crates); otherwise the game redraws the icon itself.
     bool iconIsChoice = false;
     std::string_view provenance;
+
+    // The two enemy pilots cycle through the three multiplayer sheets in both desktop editors.
+    [[nodiscard]] bool hasColourVariants() const { return type == 32 || type == 33; }
 };
 
 // Verified presets of a profile; empty for GameProfile::unknown.

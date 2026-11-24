@@ -324,13 +324,21 @@ int main(int argc, char **argv) {
 
         // The second game has its own objects and brushes.
         panel.setContext(GameProfile::speedyBlupi2, SectionKind::foreground, nullptr);
-        CHECK_EQ(panel.tileList()->count(), 1 + 381);
+        CHECK_EQ(panel.tileList()->count(), 1 + 382);
         for (const auto game : {GameProfile::speedyBlupi2, GameProfile::mobileEggbert}) {
             panel.setContext(game, SectionKind::foreground, nullptr);
             CHECK(itemWith(panel.tileList(), 378) && itemWith(panel.tileList(), 317));
             CHECK(!itemWith(panel.tileList(), 379) && !itemWith(panel.tileList(), 323));
             CHECK(itemWith(panel.tileList(), 410) && itemWith(panel.tileList(), 385));
+            CHECK(itemWith(panel.tileList(), 347));
+            CHECK(panel.showTileGroup(PalettePanel::otherForegroundGroup));
+            CHECK(itemWith(panel.tileList(), 347));
+            CHECK(panel.showTileGroup("devices"));
+            CHECK(itemWith(panel.tileList(), 439));
+            CHECK((itemWith(panel.tileList(), 440) != nullptr) == (game == GameProfile::speedyBlupi2));
             CHECK(panel.showTileGroup("bombs-traps"));
+            CHECK(itemWith(panel.tileList(), 373)->toolTip().contains("Retractable spike trap"));
+            CHECK(itemWith(panel.tileList(), 404)->toolTip().contains("Dripping trap"));
             CHECK(itemWith(panel.tileList(), 384)->toolTip().contains("Floor switch"));
             CHECK(panel.showTileGroup(PalettePanel::allForegroundGroup));
             CHECK(panel.musicList()->parentWidget()->isHidden() == (game == GameProfile::mobileEggbert));
@@ -443,6 +451,31 @@ int main(int argc, char **argv) {
         QApplication::processEvents();
         CHECK_EQ(palette->objectList()->currentItem()->data(Qt::UserRole).toString(),
                  QString("egg"));
+
+        auto *appearance = palette->findChild<QComboBox *>("paletteObjectAppearance");
+        CHECK(appearance && appearance->isHidden());
+        for (const auto id : {"enemy-helicopter", "enemy-tank", "crate", "lift-slow"}) {
+            CHECK(window.choosePreset(id));
+            QApplication::processEvents();
+            CHECK(!appearance->isHidden());
+            const bool enemy = tab->placePreset()->hasColourVariants();
+            CHECK_EQ(appearance->count(), enemy ? 3 : 246);
+            const int value = enemy ? 13 : 72;
+            const auto index = appearance->findData(value);
+            CHECK(index >= 0);
+            appearance->setCurrentIndex(index);
+            emit appearance->activated(index);
+            CHECK(!tab->document().isModified());
+            const auto placed = tab->createObjectAt({6, 7}, std::nullopt);
+            CHECK(placed.has_value());
+            if (placed) {
+                const auto record = *tab->document().view().objects()->record(*placed);
+                CHECK_EQ(record.channel, enemy ? value : 1);
+                CHECK_EQ(record.icon, enemy ? tab->placePreset()->icon : value);
+                CHECK(tab->undo());
+            }
+            CHECK_EQ(appearance->currentData().toInt(), value);
+        }
 
         // Picking a border brush selects it and the Adaptive tool.
         palette->tabs()->setCurrentIndex(2);

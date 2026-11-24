@@ -44,6 +44,7 @@ signals:
     // "Select in Editor": the same choices the Palette makes.
     void tileChosen(int layer, int value);
     void presetPictureChosen(const QString &id, int picture);
+    void presetChannelChosen(const QString &id, int channel);
     void presetChosen(const QString &id);
     void brushChosen(const QString &id);
 

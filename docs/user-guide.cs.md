@@ -67,6 +67,8 @@ Panel **Paleta** vlevo (**Zobrazení → Paleta**) je místo, kde podle obrázku
 
 Je-li načtena grafika hry a zapnuto **Zobrazení → Kreslit grafikou hry**, jsou obrázky vlastní grafikou hry a ve skupinách *Ostatní dlaždice*, *Všechny dlaždice* a *Vše z bigDecor* jsou vynechána čísla bez viditelného obrázku; jinak je každá položka barevný vzorek se svým číslem, ve stejných barvách jako schematické plátno, a jakmile je zvolena hra, panel nabídne tlačítko **Vybrat adresář hry**. Stejné obrázky se objevují ve výběru objektů na panelu nástrojů, v nabídce **Objekt → Vytvořit ověřený typ** a před každým záznamem v panelu Objekty. Výběr dlaždice, objektu nebo štětce svět nikdy nezmění; mění jej pouze nástroje a karta Svět.
 
+Na kartě **Objekty** vyber bednu nebo výtah. V seznamu pod mřížkou zvol dlaždici pro jeho vzhled. U nepřítele ve vrtulníku a v tanku můžeš vybrat jednu ze tří hráčských variant (kanály 11–13). Mobile Eggbert používá pro všechny tři stejnou grafiku. Výběr se použije při dalším umístění objektu. Ve druhém dílu a v Mobile Eggbert můžeš dlaždici 347 přímo malovat jako okraj zeleného slizu.
+
 Skupiny slouží k hledání, nejsou omezením: pole **ID dlaždice** na panelu nástrojů zůstává pro zadání libovolného surového čísla. Starty hráčů se umisťují nástrojem Start.
 
 ### Encyklopedie prvků

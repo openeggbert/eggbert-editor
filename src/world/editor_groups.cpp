@@ -3,6 +3,8 @@
 
 #include <array>
 
+#include "world/profile.hpp"
+
 namespace eggbert {
 
 namespace {
@@ -317,9 +319,9 @@ constexpr TileEntry sb2_bombs_traps_tiles[] = {
      "games/sb2/src/decdesign.cpp:399-404; games/sb2/src/decblock.cpp:228-230"},
     {"Wind", SectionKind::foreground, sb2_bombs_traps_5_values, {},
      "games/sb2/src/decdesign.cpp:405-410; games/sb2/src/decblock.cpp:232-234"},
-    {"Slime trap", SectionKind::foreground, sb2_bombs_traps_6_values, {},
+    {"Retractable spike trap", SectionKind::foreground, sb2_bombs_traps_6_values, {},
      "games/sb2/src/decdesign.cpp:411"},
-    {"Slime trap", SectionKind::foreground, sb2_bombs_traps_7_values, {},
+    {"Dripping trap", SectionKind::foreground, sb2_bombs_traps_7_values, {},
      "games/sb2/src/decdesign.cpp:412"},
     {"Circular saw", SectionKind::foreground, sb2_bombs_traps_8_values, {},
      "games/sb2/src/decdesign.cpp:413-418; games/sb2/src/decblock.cpp:264"},
@@ -397,6 +399,27 @@ constexpr EditorGroup secondGameGroups[] = {
      "games/sb2/src/decdesign.cpp:1228-1318; games/sb2/src/event.cpp:438"},
 };
 
+// Mobile uses the sequel's doors but its tile sheet ends at 439.
+constexpr auto mobileDevices = [] {
+    auto tiles = std::to_array(sb2_devices_tiles);
+    for (auto &tile : tiles) {
+        while (!tile.values.empty() && tile.values.back() > mobileEggbertInfo.foregroundAtlas.maximum) {
+            tile.values = tile.values.first(tile.values.size() - 1);
+        }
+    }
+    return tiles;
+}();
+
+constexpr auto mobileGroups = [] {
+    auto groups = std::to_array(secondGameGroups);
+    for (auto &group : groups) {
+        if (group.id == "devices") {
+            group.tiles = mobileDevices;
+        }
+    }
+    return groups;
+}();
+
 } // namespace
 
 std::span<const EditorGroup> editorGroups(GameProfile profile) {
@@ -404,8 +427,9 @@ std::span<const EditorGroup> editorGroups(GameProfile profile) {
     case GameProfile::speedyBlupi1:
         return firstGameGroups;
     case GameProfile::speedyBlupi2:
-    case GameProfile::mobileEggbert:
         return secondGameGroups;
+    case GameProfile::mobileEggbert:
+        return mobileGroups;
     case GameProfile::unknown:
         break;
     }

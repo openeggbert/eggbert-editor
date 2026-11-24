@@ -250,7 +250,8 @@ public:
     bool reviewFix(const Finding &finding);
     // Chooses a verified preset of the current tab's profile and switches to
     // the place tool. False when the profile has no such preset.
-    bool choosePreset(const QString &id);
+    bool choosePreset(const QString &id, std::optional<std::int16_t> picture = {},
+                      std::optional<std::int16_t> channel = {});
     void resetLayout();
 
     // Help content and reports.

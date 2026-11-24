@@ -2276,6 +2276,16 @@ void MainWindow::createDocks(QMenu *viewMenu) {
             updateUi();
         }
     });
+    connect(palette_, &PalettePanel::presetPictureChosen, this, [this](const QString &id, int picture) {
+        if (auto *tab = currentTab(); tab && tab->document().isWritable()) {
+            choosePreset(id, static_cast<std::int16_t>(picture));
+        }
+    });
+    connect(palette_, &PalettePanel::presetChannelChosen, this, [this](const QString &id, int channel) {
+        if (auto *tab = currentTab(); tab && tab->document().isWritable()) {
+            choosePreset(id, {}, static_cast<std::int16_t>(channel));
+        }
+    });
     connect(palette_, &PalettePanel::brushChosen, this, [this](const QString &id) {
         auto *tab = currentTab();
         if (tab == nullptr || !tab->document().isWritable() ||
@@ -3534,12 +3544,8 @@ EncyclopediaDialog *MainWindow::showEncyclopedia() {
         // The same choices the Palette makes, through the same handlers.
         connect(encyclopedia_, &EncyclopediaDialog::tileChosen, palette_,
                 &PalettePanel::tileChosen);
-        connect(encyclopedia_, &EncyclopediaDialog::presetPictureChosen, this,
-                [this](const QString &id, int picture) {
-                    if (auto *tab = currentTab(); tab && tab->document().isWritable() && choosePreset(id)) {
-                        tab->setPlacePreset(id, static_cast<std::int16_t>(picture));
-                    }
-                });
+        connect(encyclopedia_, &EncyclopediaDialog::presetPictureChosen, palette_, &PalettePanel::presetPictureChosen);
+        connect(encyclopedia_, &EncyclopediaDialog::presetChannelChosen, palette_, &PalettePanel::presetChannelChosen);
         connect(encyclopedia_, &EncyclopediaDialog::presetChosen, palette_,
                 &PalettePanel::presetChosen);
         connect(encyclopedia_, &EncyclopediaDialog::brushChosen, palette_,
@@ -5004,12 +5010,13 @@ void MainWindow::updateMusicStatus() {
     palette_->setMusicStatus(text, music_->playingNumber(), music_->available() && haveGame);
 }
 
-bool MainWindow::choosePreset(const QString &id) {
+bool MainWindow::choosePreset(const QString &id, std::optional<std::int16_t> picture,
+                              std::optional<std::int16_t> channel) {
     auto *tab = currentTab();
     if (tab == nullptr || findObjectPreset(tab->profile(), id.toStdString()) == nullptr) {
         return false;
     }
-    tab->setPlacePreset(id);
+    tab->setPlacePreset(id, picture, channel);
     tab->setTool(Tool::placeObject);
     return true;
 }
@@ -5325,9 +5332,9 @@ void MainWindow::updateUi() {
         palette_->setCurrentTile(tab->tileId());
         palette_->setCurrentBrush(tab->adaptiveBrush());
         if (tab->placePreset() != nullptr) {
-            palette_->setCurrentPreset(QString::fromUtf8(
-                tab->placePreset()->id.data(),
-                static_cast<qsizetype>(tab->placePreset()->id.size())));
+            const auto *preset = tab->placePreset();
+            palette_->setCurrentPreset(QString::fromUtf8(preset->id.data(), qsizetype(preset->id.size())),
+                                       preset->iconIsChoice ? tab->placePicture() : tab->placeChannel());
         }
     }
     minimap_->setTab(tab);

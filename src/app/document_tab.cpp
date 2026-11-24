@@ -148,6 +148,7 @@ void DocumentTab::setProfile(GameProfile profile) {
     // The profile only selects catalogs and previews; bytes are untouched.
     profile_ = profile;
     placePicture_.reset();
+    placeChannel_.reset();
     canvas_->setProfile(profile);
     canvas_->update();
     emit profileChanged();
@@ -652,8 +653,10 @@ const ObjectPreset *DocumentTab::placePreset() const {
     return findObjectPreset(profile_, placePresetId_.toStdString());
 }
 
-void DocumentTab::setPlacePreset(const QString &id, std::optional<std::int16_t> picture) {
-    if (placePresetId_ != id || placePicture_ != picture) {
+void DocumentTab::setPlacePreset(const QString &id, std::optional<std::int16_t> picture,
+                                 std::optional<std::int16_t> channel) {
+    if (placePresetId_ != id || placePicture_ != picture || placeChannel_ != channel) {
+        placeChannel_ = channel;
         placePicture_ = picture;
         placePresetId_ = id;
         emit toolStateChanged();
@@ -724,7 +727,7 @@ std::optional<std::size_t> DocumentTab::createObjectAt(CellPos cell,
                                : tr("Choose an object preset first."));
         return std::nullopt;
     }
-    ObjectRequest request{preset, cell, {}, placePicture_};
+    ObjectRequest request{preset, cell, {}, placePicture_, placeChannel_};
     if (preset->hasPath && pathEnd && *pathEnd != cell) {
         request.pathEnd = pathEnd;
     }

@@ -3,6 +3,7 @@
 
 #include <QButtonGroup>
 #include <QCheckBox>
+#include <QComboBox>
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -171,7 +172,27 @@ PalettePanel::PalettePanel(QWidget *parent) : QWidget(parent) {
     brushes_->setObjectName(QStringLiteral("paletteBrushes"));
     brushes_->setAccessibleName(tr("Border brushes"));
     tabs_->addTab(page(tabs_, tileGroups_, tiles_), tr("Tiles"));
-    tabs_->addTab(page(tabs_, objectGroups_, objects_), tr("Objects"));
+    auto *objectPage = page(tabs_, objectGroups_, objects_);
+    appearance_ = new QComboBox(objectPage);
+    appearance_->setObjectName(QStringLiteral("paletteObjectAppearance"));
+    appearance_->setAccessibleName(tr("Object appearance"));
+    appearance_->setToolTip(tr("Choose the appearance to use when placing this object."));
+    appearance_->setIconSize(QSize(32, 32));
+    appearance_->hide();
+    objectPage->layout()->addWidget(appearance_);
+    connect(appearance_, &QComboBox::activated, this, [this](int row) {
+        const auto *preset = findObjectPreset(profile_, appearanceId_.toStdString());
+        if (!preset || row < 0) {
+            return;
+        }
+        const int value = appearance_->itemData(row).toInt();
+        if (preset->iconIsChoice) {
+            emit presetPictureChosen(appearanceId_, value);
+        } else if (preset->hasColourVariants()) {
+            emit presetChannelChosen(appearanceId_, value);
+        }
+    });
+    tabs_->addTab(objectPage, tr("Objects"));
     tabs_->addTab(brushes_, tr("Borders"));
 
     // World: size, background and music of the whole world.
@@ -342,8 +363,33 @@ void PalettePanel::setCurrentTile(int value) {
     selectByData(tiles_, value);
 }
 
-void PalettePanel::setCurrentPreset(const QString &id) {
+void PalettePanel::setCurrentPreset(const QString &id, std::optional<std::int16_t> appearance) {
+    currentPresetId_ = id;
+    currentAppearance_ = appearance;
     selectByData(objects_, id);
+    const auto *preset = objects_->currentItem() ? findObjectPreset(profile_, id.toStdString()) : nullptr;
+    if (!preset || (!preset->iconIsChoice && !preset->hasColourVariants())) {
+        appearance_->hide();
+        return;
+    }
+    if (appearanceId_ != id) {
+        appearance_->clear();
+        appearanceId_ = id;
+        if (preset->iconIsChoice) {
+            const int last = profileInfo(profile_)->foregroundAtlas.maximum;
+            for (int icon = 0; icon <= last; ++icon) {
+                appearance_->addItem(spriteThumbnail(1, icon, artwork_.get(), 32), tr("Tile %1").arg(icon), icon);
+            }
+        } else {
+            for (int sheet = 11; sheet <= 13; ++sheet) {
+                appearance_->addItem(spriteThumbnail(sheet, preset->icon, artwork_.get(), 32),
+                                     tr("Player %1 (channel %2)").arg(sheet - 9).arg(sheet), sheet);
+            }
+        }
+    }
+    const int value = appearance.value_or(preset->iconIsChoice ? preset->icon : preset->channel);
+    appearance_->setCurrentIndex(appearance_->findData(value));
+    appearance_->show();
 }
 
 void PalettePanel::setCurrentBrush(const QString &id) {
@@ -582,6 +628,10 @@ void PalettePanel::rebuildTiles() {
             if (grouped.contains(value)) {
                 return tileGroup_ == QLatin1String(otherForegroundGroup);
             }
+            // Foreground 347 is both a static slime border and a picture of the spike trap.
+            if (layer == SectionKind::foreground && value == 347) {
+                return false;
+            }
             return isTileAnimationFrame(profile_, layer, static_cast<std::int16_t>(value));
         });
         // With artwork, leave out numbers whose picture is missing or
@@ -671,10 +721,9 @@ void PalettePanel::rebuildObjectGroups() {
 void PalettePanel::rebuildObjects() {
     const auto *artwork = artwork_.get();
     const QSignalBlocker blocker(objects_);
-    const auto current = objects_->currentItem() != nullptr
-                             ? objects_->currentItem()->data(Qt::UserRole)
-                             : QVariant();
     objects_->clear();
+    appearanceId_.clear();
+    appearance_->hide();
     std::vector<const ObjectPreset *> shown;
     bool editorGroup = false;
     for (const auto &group : editorGroups(profile_)) {
@@ -705,9 +754,7 @@ void PalettePanel::rebuildObjects() {
                              .arg(preset->type)
                              .arg(preset->hasPath ? tr("; drag to set its path") : QString()));
     }
-    if (current.isValid()) {
-        selectByData(objects_, current);
-    }
+    setCurrentPreset(currentPresetId_, currentAppearance_);
 }
 
 void PalettePanel::rebuild() {

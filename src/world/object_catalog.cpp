@@ -217,6 +217,14 @@ constexpr ObjectTypeInfo speedyBlupi2Runtime[] = {
     {100, "Slime splash 3", "TYPE_SPLOUTCH3", ObjectTypeStatus::runtimeOnly},
 };
 
+constexpr auto mobileRuntime = [] {
+    std::array<ObjectTypeInfo, std::size(speedyBlupi2Runtime) + 1> types{};
+    std::ranges::copy(speedyBlupi2Runtime, types.begin());
+    types.back() = {58, "Invisibility trail", "Mobile Eggbert: Decor.cpp, ObjectType58 (m_blupiHide)",
+                    ObjectTypeStatus::runtimeOnly};
+    return types;
+}();
+
 } // namespace
 
 std::span<const ObjectTypeInfo> runtimeTypes(GameProfile profile) {
@@ -224,8 +232,9 @@ std::span<const ObjectTypeInfo> runtimeTypes(GameProfile profile) {
     case GameProfile::speedyBlupi1:
         return speedyBlupi1Runtime;
     case GameProfile::speedyBlupi2:
-    case GameProfile::mobileEggbert:
         return speedyBlupi2Runtime;
+    case GameProfile::mobileEggbert:
+        return mobileRuntime;
     case GameProfile::unknown:
         break;
     }

@@ -31,7 +31,7 @@ namespace {
 constexpr int thumbnailSize = 40;
 enum Category { catalog, foreground, backLayer, elements, player1, player2, player3, player4,
                 runtime, backdrops };
-enum VariantAction { frameOnly, paintValue, placePicture };
+enum VariantAction { frameOnly, paintValue, placePicture, placeChannel };
 constexpr int sheetChannels[] = {1, 9, 10, 2, 11, 12, 13};
 
 QString text(const std::string &value) {
@@ -172,6 +172,11 @@ void EncyclopediaDialog::rebuildEntries() {
             e.provenance = type.sourceName;
             e.facts = tr("Runtime object type %1.").arg(type.type).toStdString();
             e.icon = -1;
+            if (profile_ == GameProfile::mobileEggbert && e.type == 58) {
+                e.channel = 2;
+                e.icon = 0;
+                e.facts += " " + tr("The trail copies Blupi's current pose.").toStdString();
+            }
             for (const auto &rule : objectIconRules(profile_)) {
                 if (rule.type == type.type && rule.channel >= 0 && !rule.frames.empty()) {
                     e.channel = rule.channel;
@@ -354,11 +359,12 @@ void EncyclopediaDialog::showVariants(const EncyclopediaEntry &entry) {
         if (id < 0 || !seen.emplace(channel, id, action).second) {
             return;
         }
-        const auto label = action == frameOnly ? tr("Frame %1").arg(id) : tr("Tile %1").arg(id);
+        const auto label = action == placeChannel ? tr("Player %1").arg(channel - 9)
+                         : action == frameOnly ? tr("Frame %1").arg(id) : tr("Tile %1").arg(id);
         const auto image = spriteThumbnail(channel, id, artwork_.get(), 52);
         auto *item = new QListWidgetItem(QIcon(image), label, variants_);
         item->setData(Qt::UserRole, static_cast<int>(action));
-        item->setData(Qt::UserRole + 1, id);
+        item->setData(Qt::UserRole + 1, action == placeChannel ? channel : id);
         item->setToolTip(tr("Sprite channel %1, picture %2.").arg(channel).arg(id));
     };
     if (entry.kind == EntryKind::tile || entry.kind == EntryKind::border) {
@@ -379,6 +385,11 @@ void EncyclopediaDialog::showVariants(const EncyclopediaEntry &entry) {
                 add(1, i, placePicture);
             }
         } else {
+            if (preset && preset->hasColourVariants()) {
+                for (int channel = 11; channel <= 13; ++channel) {
+                    add(channel, preset->icon, placeChannel);
+                }
+            }
             for (const auto &rule : objectIconRules(profile_)) {
                 if (rule.type == entry.type) {
                     for (const auto frame : rule.frames) {
@@ -406,6 +417,7 @@ void EncyclopediaDialog::chooseCurrent() {
         switch (item->data(Qt::UserRole).toInt()) {
         case paintValue: emit tileChosen(static_cast<int>(entry->layer), id); break;
         case placePicture: emit presetPictureChosen(text(entry->id), id); break;
+        case placeChannel: emit presetChannelChosen(text(entry->id), id); break;
         }
         return;
     }

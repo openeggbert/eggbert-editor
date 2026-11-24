@@ -4,12 +4,14 @@
 #include <QWidget>
 
 #include <memory>
+#include <optional>
 
 #include "world/layout.hpp"
 
 class QAbstractButton;
 class QButtonGroup;
 class QCheckBox;
+class QComboBox;
 class QLabel;
 class QGroupBox;
 class QListWidget;
@@ -38,7 +40,7 @@ public:
                     std::shared_ptr<const GameAssets> artwork);
     // Marks the current choices without emitting signals.
     void setCurrentTile(int value);
-    void setCurrentPreset(const QString &id);
+    void setCurrentPreset(const QString &id, std::optional<std::int16_t> appearance = {});
     void setCurrentBrush(const QString &id);
     // What the World tab shows as the document's current settings.
     struct WorldState {
@@ -100,6 +102,8 @@ signals:
     // `layer` is the SectionKind the tile belongs to (a group decides it).
     void tileChosen(int layer, int value);
     void presetChosen(const QString &id);
+    void presetPictureChosen(const QString &id, int picture);
+    void presetChannelChosen(const QString &id, int channel);
     void brushChosen(const QString &id);
     void artworkDirectoryRequested();
     // The World tab: each is a request to change the header.
@@ -134,6 +138,10 @@ private:
     QListWidget *objectGroups_ = nullptr;
     QListWidget *tiles_ = nullptr;
     QListWidget *objects_ = nullptr;
+    QComboBox *appearance_ = nullptr;
+    QString appearanceId_;
+    QString currentPresetId_;
+    std::optional<std::int16_t> currentAppearance_;
     QListWidget *brushes_ = nullptr;
     QListWidget *backdrops_ = nullptr;
     QListWidget *music_ = nullptr;

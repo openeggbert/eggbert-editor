@@ -170,7 +170,10 @@ public:
     // Preset used by the place tool; nullptr until one is chosen or when the
     // profile has no such preset.
     [[nodiscard]] const ObjectPreset *placePreset() const;
-    void setPlacePreset(const QString &id, std::optional<std::int16_t> picture = {});
+    void setPlacePreset(const QString &id, std::optional<std::int16_t> picture = {},
+                        std::optional<std::int16_t> channel = {});
+    [[nodiscard]] auto placePicture() const { return placePicture_; }
+    [[nodiscard]] auto placeChannel() const { return placeChannel_; }
     // True when the record is active and its type has a verified preset for
     // the chosen profile, so its fields may be edited.
     [[nodiscard]] bool canEditObject(std::size_t slot) const;
@@ -311,6 +314,7 @@ private:
     std::optional<CellPos> inspectedObjectCell_;
     QString placePresetId_;
     std::optional<std::int16_t> placePicture_;
+    std::optional<std::int16_t> placeChannel_;
     std::vector<std::size_t> bookmarks_;
     QString adaptiveBrush_ = QString::fromLatin1(adaptiveTileBrush);
     std::shared_ptr<const std::vector<CustomBorderRule>> customRules_;

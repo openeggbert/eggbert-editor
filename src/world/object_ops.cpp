@@ -92,6 +92,9 @@ ObjectOpResult<ObjectRecord> recordForRequest(const ObjectRequest &request) {
     if ((request.pathEnd && !preset.hasPath) || (request.icon && !preset.iconIsChoice)) {
         return std::unexpected(ObjectOpError::notApplicable);
     }
+    if (request.channel && (!preset.hasColourVariants() || *request.channel < 11 || *request.channel > 13)) {
+        return std::unexpected(ObjectOpError::notApplicable);
+    }
     ObjectRecord record; // every field zero
     record.type = preset.type;
     record.stepAdvance = preset.stepAdvance;
@@ -103,7 +106,7 @@ ObjectOpResult<ObjectRecord> recordForRequest(const ObjectRequest &request) {
     record.posEnd = record.posStart;
     record.posCurrent = record.posStart;
     record.step = stepStopStart;
-    record.channel = preset.channel;
+    record.channel = request.channel.value_or(preset.channel);
     record.icon = request.icon.value_or(preset.icon);
     if (request.pathEnd && *request.pathEnd != request.cell) {
         record.posEnd = cellOrigin(*request.pathEnd);
