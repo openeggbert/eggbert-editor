@@ -50,7 +50,7 @@ Both example levels were made for these screenshots. The pictured game artwork i
 - **Convert for Other Game** (and the `convert-game` command) writes a copy of a world for the other game and lists every stored value that game does not know or shows differently; unknown values are kept or removed by your choice, never silently.
 - **Convert Revision** (and the `convert` command) writes a copy of a world in revision 1.0, 1.1, 1.2 or 1.3 to a new file; anything the target cannot store is listed and dropped only on request.
 
-Download the first public release for Windows, Linux or macOS from [Eggbert Editor 0.1.0](https://github.com/openeggbert/eggbert-editor/releases/tag/v0.1.0).
+Download [Eggbert Editor 0.2.0](https://github.com/openeggbert/eggbert-editor/releases/tag/v0.2.0) for Windows, Linux or macOS.
 
 **Verification status.** The automated tests use only independent synthetic worlds and generated sprite sheets. In addition, on 2026-11-22 the editor was checked against original installations of Speedy Eggbert 1 and Speedy Eggbert 2 (kept outside the repository):
 
