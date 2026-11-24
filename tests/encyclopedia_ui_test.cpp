@@ -12,6 +12,7 @@
 #include "fixture.hpp"
 
 #include <QAction>
+#include <QComboBox>
 #include <QApplication>
 #include <QFile>
 #include <QLabel>
@@ -109,7 +110,7 @@ int main(int argc, char **argv) {
         dialog->list()->setCurrentRow(row);
         const auto *entry = dialog->currentEntry();
         if (entry->kind == EntryKind::tile) {
-            (entry->brush.empty() ? tileRow : reshapedRow) = row;
+            (entry->brushes.empty() ? tileRow : reshapedRow) = row;
         }
     }
     CHECK(tileRow >= 0 && reshapedRow >= 0);
@@ -117,7 +118,7 @@ int main(int argc, char **argv) {
     const auto reshaped = *dialog->currentEntry();
     dialog->selectButton()->click();
     CHECK(tab->tool() == Tool::adaptive);
-    CHECK(tab->adaptiveBrush() == QString::fromStdString(reshaped.brush));
+    CHECK(tab->adaptiveBrush() == QString::fromStdString(reshaped.brushes.front()));
     dialog->list()->setCurrentRow(tileRow);
     const auto tile = *dialog->currentEntry();
     emit dialog->list()->itemActivated(dialog->list()->currentItem()); // double click / Enter
@@ -154,6 +155,39 @@ int main(int argc, char **argv) {
     CHECK(dialog->game() == GameProfile::speedyBlupi2);
     CHECK_EQ(dialog->list()->count(),
              static_cast<int>(encyclopedia(GameProfile::speedyBlupi2).size()));
+
+    auto *collections = dialog->findChild<QComboBox *>("encyclopediaCategory");
+    auto *variants = dialog->findChild<QListWidget *>("encyclopediaVariants");
+    dialog->searchBox()->setText("Circular saw");
+    CHECK_EQ(dialog->list()->count(), 1);
+    CHECK_EQ(variants->count(), 6);
+    variants->setCurrentRow(1);
+    CHECK(!dialog->selectButton()->isEnabled());
+    dialog->searchBox()->setText("disguised");
+    CHECK_EQ(variants->count(), 441);
+    variants->setCurrentRow(32);
+    dialog->selectButton()->click();
+    const auto placed = tab->createObjectAt({7,8}, std::nullopt);
+    CHECK(placed && tab->document().view().objects()->record(*placed)->icon == 32);
+    CHECK(tab->undo());
+    dialog->searchBox()->clear();
+    collections->setCurrentIndex(1); // Foreground, including frames absent from the palette
+    CHECK_EQ(dialog->list()->count(), 441);
+    dialog->searchBox()->setText("Circular saw");
+    CHECK_EQ(dialog->list()->count(), 6);
+    dialog->searchBox()->setText("382");
+    CHECK_EQ(dialog->list()->count(), 1);
+    dialog->selectButton()->click();
+    CHECK_EQ(tab->tileId(), 382);
+    dialog->searchBox()->clear();
+    collections->setCurrentIndex(2);
+    CHECK_EQ(dialog->list()->count(), 101); // back atlas and plant 203
+    collections->setCurrentIndex(3);
+    CHECK_EQ(dialog->list()->count(), 289);
+    CHECK(!dialog->selectButton()->isEnabled());
+    collections->setCurrentIndex(8);
+    CHECK(dialog->list()->count() > 0 && !dialog->selectButton()->isEnabled());
+    collections->setCurrentIndex(0);
 
     // On a read-only world the choice is not applied.
     const auto oldPath = dir.filePath("old.blp");

@@ -437,6 +437,33 @@ unsigned adjacencyMask(const WorldView &world, GameProfile profile, CellPos cell
     return field.mask(static_cast<long long>(cell.x), static_cast<long long>(cell.y));
 }
 
+std::vector<std::int16_t> borderVariants(GameProfile profile, const AdaptiveFamily &family) {
+    const MaskRow *row = rowOf(profile, family.seed);
+    if (family.bordersEmptyNeighbours) {
+        // Include the additional random edge pictures used by refreshCell.
+        std::vector<std::int16_t> values{family.seed};
+        const bool cheese = family.id.starts_with("cheese-");
+        for (int id = cheese ? 264 : 285; id <= (cheese ? 282 : 303); ++id) {
+            if (cheese || id != 301) {
+                values.push_back(static_cast<std::int16_t>(id));
+            }
+        }
+        return values;
+    }
+    std::vector<std::int16_t> values{family.seed};
+    if (row) {
+        for (std::int16_t id = 0; id <= 440; ++id) {
+            const auto base = baseBorderForm(profile, id);
+            if (id != family.seed && std::ranges::find(*row, base) != row->end()) {
+                values.push_back(id);
+            }
+        }
+    } else if (family.id == "lightning") {
+        values.push_back(305);
+    }
+    return values;
+}
+
 std::int16_t baseBorderForm(GameProfile profile, std::int16_t value) {
     // 156 is a variant of 35 in both games (sticky in the first, re-drawn
     // in the second).

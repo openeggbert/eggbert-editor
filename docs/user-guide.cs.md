@@ -73,6 +73,14 @@ Skupiny slouží k hledání, nejsou omezením: pole **ID dlaždice** na panelu 
 
 **Nápověda → Encyklopedie prvků** vypíše vše, co katalogy editoru vědí o hře aktuálního světa: každou položku dlaždic a každý objekt ze skupin editoru hry a každou rodinu adaptivních okrajů. Psaním do vyhledávacího pole filtrujete podle názvu nebo skupiny; číslo najde položky, které ukládají právě tuto hodnotu dlaždice nebo typ objektu. U zvolené položky okno ukazuje, co se pro ni ukládá (čísla dlaždic, nebo typ, kanál, ikonu, umístění a časování objektu), a doklad, o který se to opírá. **Vybrat v editoru** (nebo dvojklik) zvolí položku stejně jako kliknutí v Paletě: obyčejnou dlaždici pro Tužku, dlaždici, kterou hra přetváří podle sousedů, jako její Adaptivní štětec, objekt pro nástroj Umístit, rodinu okrajů pro Adaptivní štětec. Obrázky jsou ty, které ukazuje Paleta: vlastní obrázky hry, dokud je zapnuto **Zobrazení → Kreslit grafikou hry** a je zvolen adresář hry, jinak očíslované zástupné obrázky. Okno zůstává při práci otevřené a řídí se hrou aktuální karty.
 
+V rozbalovacím seznamu můžete přepnout na všechny dlaždice popředí nebo zadní vrstvy, obrázky objektů a hráčů, objekty vznikající při hraní a pozadí světů. V každé sadě lze vyhledávat podle názvu nebo čísla obrázku. U pily uvidíte vedle sebe všechny snímky její animace, u adaptivního štětce možné tvary okrajů. Dvojklikem na dlaždici vyberete její přesné ID pro malování. U maskované bedny nebo výtahu lze stejným způsobem vybrat konkrétní vzhled pro umístění. Položky označené **Snímek** slouží k prohlížení. Číslo jednotlivého snímku můžete do popředí zapsat přes sbírku všech dlaždic popředí.
+
+## Co je na tomto místě a jak přesunout část světa
+
+Pravým tlačítkem otevřete seznam viditelných prvků pod ukazatelem. Nahoře je prvek nejblíže k vám. Kliknutím na řádek vyberete konkrétní objekt, start hráče nebo dlaždici. U dekorace, která zasahuje do sousední buňky, jsou uvedeny souřadnice jejího počátku.
+
+Stiskněte **S**, tažením označte část světa a dalším tahem zevnitř výběru ji přesuňte. Přenesou se obě vrstvy včetně prázdných buněk, starty hráčů a objekty, které mají ve výběru počátek. S objektem se posune i jeho aktuální pozice a konec dráhy, i když leží mimo výběr. Nová poloha se může překrývat s původní. Červené buňky upozorňují na kolizi s terénem v cíli a přepsání obsazených buněk vyžaduje potvrzení. Zamčená vrstva nebo přesah přes okraj mapy přesun zastaví. **Esc** tažení zruší, **Shift** s tažením zahájí nový výběr a příkaz **Zpět** vrátí celý přesun najednou.
+
 ## Úpravy dlaždic
 
 Nástroje působí na **aktivní vrstvu** (panel nástrojů nebo **Vrstva → Upravovat popředí / Upravovat bigDecor**) a zapisují uložená čísla dlaždic; nástroj Adaptivní pracuje vždy na popředí. Hodnota -1 je prázdná buňka. Dlaždici vyberte v panelu **Paleta** nebo zadejte její číslo.
@@ -89,7 +97,7 @@ Nástroje působí na **aktivní vrstvu** (panel nástrojů nebo **Vrstva → Up
 | Výplň | F | nahradí souvislou oblast stejných hodnot |
 | Adaptivní | A | maluje a přepočítává tvary okrajů (viz níže) |
 
-S výjimkou nástroje Adaptivní jsou tyto nástroje *surové*: nikdy se nedotknou druhé vrstvy ani žádného objektu. Výběr omezuje buňky, které nástroj maluje (Adaptivní může přesto přetvořit sousedy mimo výběr a příkaz Vložit jím omezen není). Nabídka **Úpravy** obsahuje příkazy Vyjmout, Kopírovat, Vložit (na kurzoru buňky), Smazat, Vybrat vše / Zrušit výběr / Invertovat výběr; nabídka **Vrstva** obsahuje Vyplnit výběr, Nahradit hodnotu, Vymazat výběr a Převrátit výběr. Vložení, které přesahuje okraj mapy, se ořízne a oznámí, kolik buněk bylo vynecháno. Dlaždice lze vkládat v rámci jedné karty nebo mezi kartami nastavenými na stejnou hru; čísla dlaždic znamenají v obou hrách něco jiného, proto jsou jiná vložení odmítnuta.
+S výjimkou adaptivního štětce a přesunu části světa jsou nástroje pro úpravy dlaždic *surové*: nikdy se nedotknou druhé vrstvy ani žádného objektu. Výběr omezuje buňky, které nástroj maluje (Adaptivní může přesto přetvořit sousedy mimo výběr a příkaz Vložit jím omezen není). Nabídka **Úpravy** obsahuje příkazy Vyjmout, Kopírovat, Vložit (na kurzoru buňky), Smazat, Vybrat vše / Zrušit výběr / Invertovat výběr; nabídka **Vrstva** obsahuje Vyplnit výběr, Nahradit hodnotu, Vymazat výběr a Převrátit výběr. Vložení, které přesahuje okraj mapy, se ořízne a oznámí, kolik buněk bylo vynecháno. Dlaždice lze vkládat v rámci jedné karty nebo mezi kartami nastavenými na stejnou hru; čísla dlaždic znamenají v obou hrách něco jiného, proto jsou jiná vložení odmítnuta.
 
 Vrstvu lze zamknout (**Vrstva → Zamknout**) nebo zobrazit samostatně (**Izolovat aktivní vrstvu**). Před úpravou, která mění více než 64 buněk, editor ukáže, kolik buněk a bajtů a které offsety se změní.
 

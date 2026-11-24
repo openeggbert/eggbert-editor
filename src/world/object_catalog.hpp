@@ -62,6 +62,9 @@ struct ObjectTypeInfo {
     ObjectTypeStatus status = ObjectTypeStatus::unknown;
 };
 
+// Types spawned during play, kept as reference entries in the encyclopedia.
+[[nodiscard]] std::span<const ObjectTypeInfo> runtimeTypes(GameProfile profile);
+
 // Classification of a stored type under a profile. Unknown types and the
 // unknown profile yield status `unknown` with an empty name.
 [[nodiscard]] ObjectTypeInfo objectTypeInfo(GameProfile profile, std::int16_t type);

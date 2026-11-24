@@ -8,6 +8,7 @@
 #include <QApplication>
 #include <QFile>
 #include <QMenuBar>
+#include <QMenu>
 #include <QSettings>
 #include <QStandardPaths>
 #include <QTemporaryDir>
@@ -402,6 +403,88 @@ int main(int argc, char **argv) {
     CHECK(!old->cutSelection());
     CHECK(!old->document().isModified());
 
+    // An overlapping section move preserves slot identity, paths, both layers and starts.
+    auto room = blankWorld(fxRevision13);
+    auto putTile = [&](std::size_t layer, int x, int value) {
+        put16(room, fxCellOffset(layer, x, 8), value);
+    };
+    putTile(fxForegroundOffset, 8, 31);
+    putTile(fxForegroundOffset, 9, 45);
+    putTile(fxForegroundOffset, 10, 72);
+    putTile(fxRevision13.bigDecorOffset, 8, 20);
+    const auto slot = fxSlotOffset(fxRevision13, 7);
+    put16(room, slot, 1);
+    put16(room, slot + 42, 1);
+    put16(room, slot + 44, 29);
+    for (int offset : {12, 20, 28}) {
+        put32(room, slot + offset, (offset == 20 ? 12 : 8) * 64 + 2);
+        put32(room, slot + offset + 4, 8 * 64 + 4);
+    }
+    // Two overlapping records make it possible to distinguish picking from cycling.
+    std::copy_n(room.begin() + slot, 48, room.begin() + fxSlotOffset(fxRevision13, 8));
+    put32(room, 328, 8 * 64 + 2);
+    put32(room, 332, 8 * 64 + 4);
+    const auto roomPath = dir.filePath("room.blp");
+    writeWorld(roomPath, room);
+    auto *section = window.openPath(roomPath);
+    section->setProfile(GameProfile::speedyBlupi2);
+    auto *map = section->canvas();
+    map->fitCells({4,4}, {16,16});
+    section->setTool(Tool::select);
+    drag(map, {8,8}, {9,8});
+    const auto before = section->selection();
+    CHECK_EQ(before.count(), 2u);
+    const auto hits = map->hitsAt(cellCentre(map, 8, 8));
+    const auto has = [&](SectionKind kind, int value) {
+        return std::ranges::any_of(hits, [&](const auto &h) { return h.kind == kind && h.value == value; });
+    };
+    CHECK(has(SectionKind::foreground, 31) && has(SectionKind::bigDecor, 20));
+    CHECK(has(SectionKind::header, 0) && has(SectionKind::objects, 7));
+    const auto adjacent = map->hitsAt(cellCentre(map, 9, 8));
+    CHECK(std::ranges::any_of(adjacent, [](const auto &h) {
+        return h.kind == SectionKind::bigDecor && h.anchor == CellPos{8,8};
+    }));
+    emit map->customContextMenuRequested(cellCentre(map, 8, 8));
+    auto *atPoint = map->findChild<QMenu *>("worldAtPoint");
+    CHECK(atPoint != nullptr);
+    if (atPoint) {
+        for (auto *item : atPoint->actions()) {
+            if (item->text().contains("slot 7")) {
+                item->trigger();
+            }
+        }
+        CHECK(section->selectedSlot() == 7 && section->tool() == Tool::object);
+        atPoint->close();
+        drag(map, {8,8}, {8,9});
+        CHECK_EQ(section->document().view().objects()->record(7)->posStart.y, 9*64+4);
+        CHECK_EQ(section->document().view().objects()->record(8)->posStart.y, 8*64+4);
+        CHECK(section->undo());
+    }
+    section->setTool(Tool::select);
+    broadAnswer = false;
+    drag(map, {8,8}, {9,8});
+    CHECK(!section->document().isModified() && section->selection() == before);
+    broadAnswer = true;
+    drag(map, {8,8}, {9,8});
+    CHECK_EQ(fg(section,8,8), -1);
+    CHECK_EQ(fg(section,9,8), 31);
+    CHECK_EQ(fg(section,10,8), 45);
+    CHECK_EQ(big(section,9,8), 20);
+    const auto moved = *section->document().view().objects()->record(7);
+    CHECK_EQ(moved.posStart.x, 9*64+2);
+    CHECK_EQ(moved.posEnd.x, 13*64+2);
+    CHECK_EQ(moved.posCurrent.x, 9*64+2);
+    CHECK_EQ(section->document().view().header()->blupiPos(0)->x, 9*64+2);
+    CHECK(section->undo());
+    CHECK(!section->document().isModified());
+    CHECK(section->redo());
+    const auto snapshot = toVector(section->document().currentBytes());
+    section->setLayerLocked(SectionKind::bigDecor, true);
+    CHECK(!section->moveSection({9,8},{10,8}));
+    section->setLayerLocked(SectionKind::bigDecor, false);
+    CHECK(!section->moveSection({9,8},{99,8}));
+    CHECK(!section->moveSection({9,8},{97,8})); // path end would be outside
+    CHECK(snapshot == toVector(section->document().currentBytes()));
     CHECK(window.close());
     return test::finish("tools");
 }

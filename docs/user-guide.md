@@ -73,6 +73,14 @@ The groups are a way to find things, not a limit: the **Tile ID** box in the too
 
 **Help → Element Encyclopedia** lists everything the editor's catalogs know about the current world's game: every tile entry and object of the game editor's groups and every adaptive border family. Type in the search box to filter by name or group; a number finds the entries that store exactly that tile value or object type. For the chosen entry the window shows what is stored for it (tile numbers, or the object's type, channel, icon, placement and timing) and the evidence it rests on. **Select in Editor** (or a double click) chooses the entry as a click in the Palette does: a plain tile for the Pencil, a tile the game reshapes to fit its neighbours as its Adaptive brush, an object for Place, a border family for the Adaptive brush. Pictures are the ones the Palette shows: the game's own while **View → Draw with Game Artwork** is on and a game directory is chosen, numbered placeholders otherwise. The window stays open while you work and follows the current tab's game.
 
+The collection selector opens the foreground and back-layer atlases, object and player sprite sheets, runtime objects and world backdrops. Search by name or picture number within a sheet. Select a circular saw in the named collection to see its animation frames together. Select a border family to see the forms it can produce. Double-click a paintable variant for its exact tile ID, or an appearance of a disguised crate or lift to place that version. Frames marked **Frame** are visual references. The foreground atlas also exposes individual frame IDs for raw painting.
+
+## Inspecting and moving a section
+
+Right-click the map to list visible elements at the pointer, frontmost first. Select a row to target a particular object slot, player start or tile. A decoration extending into the clicked cell shows the coordinates of its anchor.
+
+Press **S**, drag to select cells, then drag from inside the selection to move it. Both tile layers move, including empty cells. Player starts and objects move if their start lies in the selection. Each object's end and current position move by the same distance, even when its path extends beyond the selection. Overlap with the original area is supported. Red cells mark conflicting terrain at the destination. Replacing occupied terrain requires confirmation. A locked layer or a move past the map edge prevents the move. **Esc** cancels the drag, **Shift** and drag starts a fresh selection, and **Undo** restores the entire edit.
+
 ## Editing tiles
 
 Tools act on the **active layer** (tool bar, or **Layer → Edit Foreground / Edit bigDecor**) and write stored tile numbers; the Adaptive tool always works on the foreground. The value -1 is an empty cell. Pick the tile in the **Palette** or type its number.
@@ -89,7 +97,7 @@ Tools act on the **active layer** (tool bar, or **Layer → Edit Foreground / Ed
 | Fill | F | replaces the connected area of equal values |
 | Adaptive | A | paints and recomputes border forms (see below) |
 
-Except for Adaptive these tools are *raw*: they never touch the other layer or any object. A selection limits the cells a tool paints (Adaptive may still re-form neighbours outside it, and Paste is not limited by it). **Edit** has Cut, Copy, Paste (at the cell cursor), Delete, Select All / None / Invert; **Layer** has Fill Selection, Replace Value, Clear Selection and Flip. A paste that reaches past the map edge is clipped and says how many cells were dropped. Tiles can be pasted within a tab, or between tabs set to the same game; tile numbers mean different things in the two games, so other pastes are refused.
+Except for Adaptive and moving a section, the tile editing tools are *raw*: they never touch the other layer or any object. A selection limits the cells a tool paints (Adaptive may still re-form neighbours outside it, and Paste is not limited by it). **Edit** has Cut, Copy, Paste (at the cell cursor), Delete, Select All / None / Invert; **Layer** has Fill Selection, Replace Value, Clear Selection and Flip. A paste that reaches past the map edge is clipped and says how many cells were dropped. Tiles can be pasted within a tab, or between tabs set to the same game; tile numbers mean different things in the two games, so other pastes are refused.
 
 A layer can be locked (**Layer → Lock**) or shown alone (**Isolate Active Layer**). Before an edit that changes more than 64 cells the editor shows how many cells and bytes, and which offsets, will change.
 

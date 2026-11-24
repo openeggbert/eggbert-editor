@@ -10,6 +10,8 @@ The 0.1.0 palette offers the saw and crusher once each, with their animation fra
 
 After 0.1.0, the object palette, object list and static map resolve the shared coloured-key placement icon (element 125) to the red, green or blue key frame for that type. Saved records keep their original values. The palette and mobile UI tests compare all three thumbnails with their expected sprite pixels.
 
+The map now offers right-click picking in visible draw order and a whole-section drag under Select. The Encyclopedia has full sprite-sheet browsing and variant galleries. Regression coverage is in `tools`, `mobile_world_ui` and `encyclopedia_ui` and includes an overlapping move, a Mobile save/reopen, all six SB2 saw pictures and placement of a chosen crate appearance. All 80 Release tests passed with both desktop sample directories enabled. The six saw frames were also checked in the gallery with original Speedy Eggbert 2 artwork. Repeat the suite with `ctest --test-dir build --output-on-failure`. A remaining manual check is to exercise these gestures with a trackpad on the macOS package.
+
 Implemented and covered by asset-free tests:
 
 - `src/world/layout.hpp`: immutable `RevisionDescriptor` entries for header revisions 1.0–1.3 (header size, layers, object count/width, contiguous section table, expected size, 1.0 write policy, rule); `headerFields` and `objectFields` tables with exact offsets and wire types; `ByteRange` and `Point`. Only the four exact `(major, minor)` pairs are recognized.

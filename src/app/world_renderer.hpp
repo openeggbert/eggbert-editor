@@ -75,6 +75,19 @@ inline constexpr int pathEndIcon = 31;
 // tiles 64, the big-decor/explosion sheet 128, everything else 60.
 [[nodiscard]] int schematicSpriteSize(std::int16_t channel);
 
+// A selectable item in the draw stack. Header entries refer to player starts.
+struct WorldHit {
+    SectionKind kind{};
+    CellPos anchor{};
+    int value = 0; // tile ID, object slot, or zero-based start index
+    friend bool operator==(const WorldHit &, const WorldHit &) = default;
+};
+
+struct WorldPick {
+    QPoint pixel;
+    std::vector<WorldHit> hits; // back to front
+};
+
 // Draws the part of the world visible in `viewport` (screen coordinates of
 // the painter). Draw order follows the engines: background, bigDecor,
 // starts, objects, foreground, lifts (with artwork), then editor overlays
@@ -82,7 +95,7 @@ inline constexpr int pathEndIcon = 31;
 // artwork lacks, a schematic placeholder is drawn. The ends of a motion path
 // are marked 1 (start) and 2 (end), as in the games' editors.
 void renderWorld(QPainter &painter, const WorldView &world, const ViewTransform &transform,
-                 const QRectF &viewport, const RenderOptions &options);
+                 const QRectF &viewport, const RenderOptions &options, WorldPick *pick = nullptr);
 
 // The complete 100 x 100 world at `scale` screen pixels per world pixel.
 [[nodiscard]] QImage renderWorldImage(const WorldView &world, double scale,

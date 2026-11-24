@@ -126,7 +126,7 @@ int schematicSpriteSize(std::int16_t channel) {
 }
 
 void renderWorld(QPainter &painter, const WorldView &world, const ViewTransform &transform,
-                 const QRectF &viewport, const RenderOptions &options) {
+                 const QRectF &viewport, const RenderOptions &options, WorldPick *pick) {
     painter.save();
     painter.setClipRect(viewport, Qt::IntersectClip);
     painter.setRenderHint(QPainter::Antialiasing, false);
@@ -198,6 +198,12 @@ void renderWorld(QPainter &painter, const WorldView &world, const ViewTransform 
     };
     // Draws one sprite at a world position with nearest-neighbour scaling;
     // false when the artwork has no such sprite.
+    WorldHit item;
+    const auto hit = [&](const QRect &bounds) {
+        if (pick && bounds.contains(pick->pixel) && (pick->hits.empty() || pick->hits.back() != item)) {
+            pick->hits.push_back(item);
+        }
+    };
     const auto drawSprite = [&](int channel, int icon, double worldX, double worldY) {
         if (art == nullptr) {
             return false;
@@ -209,6 +215,15 @@ void renderWorld(QPainter &painter, const WorldView &world, const ViewTransform 
         const auto target =
             screenRect(transform, worldX + sprite->offset.x(), worldY + sprite->offset.y(),
                        sprite->source.width(), sprite->source.height());
+        if (pick && target.contains(pick->pixel)) {
+            const auto offset = pick->pixel - target.topLeft();
+            const auto sample = sprite->source.topLeft() +
+                QPoint(int(qint64(offset.x()) * sprite->source.width() / target.width()),
+                       int(qint64(offset.y()) * sprite->source.height() / target.height()));
+            if (qAlpha(sprite->sheet->pixel(sample)) != 0) {
+                hit(target);
+            }
+        }
         // Exact pixels at full size and above. Below it, averaging: the
         // games' water and glass are fine dither patterns, which sampling
         // single pixels would turn into a coarse checkerboard.
@@ -227,6 +242,7 @@ void renderWorld(QPainter &painter, const WorldView &world, const ViewTransform 
                 if (id == layout::emptyCell) {
                     continue;
                 }
+                item = {SectionKind::bigDecor, {std::size_t(x), std::size_t(y)}, id};
                 {
                     // The plant 203 comes from the tile sheet; two groups of
                     // the second game's pictures sit a little higher.
@@ -243,6 +259,7 @@ void renderWorld(QPainter &painter, const WorldView &world, const ViewTransform 
                 }
                 const auto rect = screenRect(transform, x * cell, y * cell + bigDecorYOffset,
                                              bigDecorSize, bigDecorSize);
+                hit(rect);
                 const auto color = schematicTileColor(SectionKind::bigDecor, id);
                 painter.fillRect(rect, color);
                 if (cellScreen >= 8.0) {
@@ -260,7 +277,8 @@ void renderWorld(QPainter &painter, const WorldView &world, const ViewTransform 
 
     // Player starts, last slot first so slot 1 ends on top.
     if (header && options.showStarts) {
-        for (int index = 3; index >= 0; --index) {
+        for (int index = drawProfile == GameProfile::mobileEggbert ? 0 : 3; index >= 0; --index) {
+            item = {SectionKind::header, {}, index};
             const auto position = *header->blupiPos(index);
             // Player sheets 2, 11, 12, 13; picture 4 faces left, 0 right.
             if (drawSprite(index == 0 ? 2 : 10 + index, *header->blupiDir(index) == 2 ? 0 : 4,
@@ -268,6 +286,7 @@ void renderWorld(QPainter &painter, const WorldView &world, const ViewTransform 
                 continue;
             }
             const auto rect = screenRect(transform, position.x, position.y, 60, 60);
+            hit(rect);
             const auto color = schematicStartColor(index);
             painter.setRenderHint(QPainter::Antialiasing, cellScreen >= 16.0);
             painter.setPen(QPen(QColor(20, 20, 20), 0));
@@ -305,6 +324,7 @@ void renderWorld(QPainter &painter, const WorldView &world, const ViewTransform 
                           stillObjectIcon(drawProfile, record.type, record.channel, record.icon)};
     };
     const auto drawObjectBody = [&](std::size_t slot, const ObjectRecord &record) {
+        item = {SectionKind::objects, {}, static_cast<int>(slot)};
         const auto pose = poseOf(slot, record);
         const auto rect = objectRect(record, pose.position);
         if (!QRectF(rect).adjusted(-64, -64, 64, 64).intersects(viewport)) {
@@ -328,6 +348,7 @@ void renderWorld(QPainter &painter, const WorldView &world, const ViewTransform 
             }
             return;
         }
+        hit(rect);
         auto color = schematicObjectColor(record.type);
         color.setAlpha(150);
         painter.fillRect(rect, color);
@@ -350,6 +371,7 @@ void renderWorld(QPainter &painter, const WorldView &world, const ViewTransform 
                 if (id == layout::emptyCell) {
                     continue;
                 }
+                item = {SectionKind::foreground, {std::size_t(x), std::size_t(y)}, id};
                 const auto frame = frameOf(SectionKind::foreground, id, x, y);
                 if ((pass == Pass::early && !frame.early) ||
                     (pass == Pass::ordinary && (frame.late || frame.early)) ||
@@ -368,6 +390,7 @@ void renderWorld(QPainter &painter, const WorldView &world, const ViewTransform 
                     continue;
                 }
                 const auto rect = screenRect(transform, x * cell, y * cell, cell, cell);
+                hit(rect);
                 const auto color = schematicTileColor(SectionKind::foreground, id);
                 painter.fillRect(rect, color);
                 if (cellScreen >= 10.0) {
@@ -408,6 +431,11 @@ void renderWorld(QPainter &painter, const WorldView &world, const ViewTransform 
     }
     if (art != nullptr) {
         drawForeground(Pass::late);
+    }
+
+    if (pick) {
+        painter.restore();
+        return;
     }
 
     // Editor overlays: motion paths, object outlines and slot labels.

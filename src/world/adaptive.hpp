@@ -83,6 +83,9 @@ struct AdaptiveFamily {
 [[nodiscard]] std::span<const AdaptiveFamily> adaptiveFamilies(GameProfile profile);
 [[nodiscard]] const AdaptiveFamily *findAdaptiveFamily(GameProfile profile, std::string_view id);
 
+// All stored forms belonging to a family, including its random alternatives.
+[[nodiscard]] std::vector<std::int16_t> borderVariants(GameProfile profile, const AdaptiveFamily &family);
+
 // Bits of the adjacency mask, as the engines number them.
 inline constexpr unsigned joinBelow = 1;
 inline constexpr unsigned joinAbove = 2;

@@ -4,12 +4,15 @@
 #include "app/catalog_texts.hpp"
 #include "app/core_texts.hpp"
 
+#include <QApplication>
+#include <QMenu>
 #include <QFileInfo>
 #include <QKeyEvent>
 #include <QLabel>
 #include <QVBoxLayout>
 
 #include <algorithm>
+#include <utility>
 
 #include "world/world_stats.hpp"
 
@@ -90,10 +93,13 @@ DocumentTab::DocumentTab(std::unique_ptr<DocumentFile> file, QWidget *parent)
 
     canvas_ = new WorldCanvas(&file_->document(), this);
     layout->addWidget(canvas_, 1);
+    canvas_->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(canvas_, &QWidget::customContextMenuRequested, this, &DocumentTab::inspectAt);
     setFocusProxy(canvas_);
 
     connect(canvas_, &WorldCanvas::toolPressed, this, &DocumentTab::onToolPressed);
     connect(canvas_, &WorldCanvas::toolDragged, this, &DocumentTab::onToolDragged);
+    connect(canvas_, &WorldCanvas::releasedOutsideMap, this, &DocumentTab::cancelSectionDrag);
     connect(canvas_, &WorldCanvas::toolReleased, this, &DocumentTab::onToolReleased);
 
     connect(canvas_, &WorldCanvas::cursorCellChanged, this, [this] {
@@ -141,6 +147,7 @@ void DocumentTab::setProfile(GameProfile profile) {
     }
     // The profile only selects catalogs and previews; bytes are untouched.
     profile_ = profile;
+    placePicture_.reset();
     canvas_->setProfile(profile);
     canvas_->update();
     emit profileChanged();
@@ -148,6 +155,8 @@ void DocumentTab::setProfile(GameProfile profile) {
 
 void DocumentTab::setTool(Tool tool) {
     // Choosing a tool, even the current one, gives an armed stamp up.
+    cancelSectionDrag();
+    inspectedObjectCell_.reset();
     cancelStampPlacement();
     if (tool_ == tool) {
         return;
@@ -318,12 +327,12 @@ const CellMask *DocumentTab::limit() const {
 }
 
 bool DocumentTab::commit(EditBuilder &builder, std::size_t cellsChanged, const QString &label,
-                         std::uint64_t mergeKey) {
+                         std::uint64_t mergeKey, bool confirmOverwrite) {
     if (!builder.hasChanges()) {
         return false;
     }
     auto transaction = builder.build(label.toStdString(), mergeKey);
-    if (cellsChanged > broadEditCells && confirmBroadEdit) {
+    if ((cellsChanged > broadEditCells || confirmOverwrite) && confirmBroadEdit) {
         BroadEditPreview preview;
         preview.label = label;
         preview.cellsChanged = cellsChanged;
@@ -633,6 +642,7 @@ void DocumentTab::setSelectedSlot(std::optional<std::size_t> slot) {
     if (selectedSlot_ == slot) {
         return;
     }
+    inspectedObjectCell_.reset();
     selectedSlot_ = slot;
     canvas_->setSelectedSlot(slot);
     emit objectSelectionChanged();
@@ -642,8 +652,9 @@ const ObjectPreset *DocumentTab::placePreset() const {
     return findObjectPreset(profile_, placePresetId_.toStdString());
 }
 
-void DocumentTab::setPlacePreset(const QString &id) {
-    if (placePresetId_ != id) {
+void DocumentTab::setPlacePreset(const QString &id, std::optional<std::int16_t> picture) {
+    if (placePresetId_ != id || placePicture_ != picture) {
+        placePicture_ = picture;
         placePresetId_ = id;
         emit toolStateChanged();
     }
@@ -713,7 +724,7 @@ std::optional<std::size_t> DocumentTab::createObjectAt(CellPos cell,
                                : tr("Choose an object preset first."));
         return std::nullopt;
     }
-    ObjectRequest request{preset, cell, {}, {}};
+    ObjectRequest request{preset, cell, {}, placePicture_};
     if (preset->hasPath && pathEnd && *pathEnd != cell) {
         request.pathEnd = pathEnd;
     }
@@ -1110,6 +1121,11 @@ void DocumentTab::showStampGhost(CellPos at) {
 }
 
 void DocumentTab::keyPressEvent(QKeyEvent *event) {
+    if (event->key() == Qt::Key_Escape && movingSection_) {
+        cancelSectionDrag();
+        event->accept();
+        return;
+    }
     if (event->key() == Qt::Key_Escape && pendingStamp_) {
         cancelStampPlacement();
         event->accept();
@@ -1198,6 +1214,171 @@ bool DocumentTab::flipSelection(bool horizontally) {
     return true;
 }
 
+void DocumentTab::inspectAt(QPoint pixel) {
+    const auto cell = canvas_->transform().cellAtScreen(pixel.x(), pixel.y());
+    if (!cell) {
+        return;
+    }
+    auto *menu = new QMenu(canvas_);
+    menu->setObjectName(QStringLiteral("worldAtPoint"));
+    connect(menu, &QMenu::aboutToHide, menu, &QObject::deleteLater);
+    menu->addSection(tr("At cell (%1, %2)").arg(cell->x).arg(cell->y));
+    const auto hits = canvas_->hitsAt(pixel);
+    const auto pool = document().view().objects();
+    for (const auto &hit : hits) {
+        QString label;
+        if (hit.kind == SectionKind::objects && pool) {
+            const auto record = *pool->record(hit.value);
+            const auto info = objectTypeInfo(profile_, record.type);
+            const auto name = info.name.empty() ? tr("Object type %1").arg(record.type) : catalogText(info.name);
+            label = tr("%1 (slot %2)").arg(name).arg(hit.value);
+        } else if (hit.kind == SectionKind::header) {
+            label = tr("Player start %1").arg(hit.value + 1);
+        } else {
+            label = tr("%1 tile %2 at (%3, %4)").arg(layerDisplayName(hit.kind)).arg(hit.value)
+                        .arg(hit.anchor.x).arg(hit.anchor.y);
+        }
+        menu->addAction(label, this, [this, hit, cell] {
+            canvas_->setCursorCell(*cell);
+            if (hit.kind == SectionKind::objects) {
+                setTool(Tool::object);
+                setSelectedSlot(hit.value);
+                inspectedObjectCell_ = cell;
+            } else if (hit.kind == SectionKind::header) {
+                setActiveStart(hit.value);
+                setTool(Tool::start);
+            } else {
+                setTool(Tool::select);
+                setActiveLayer(hit.kind);
+                setTileId(hit.value);
+                canvas_->setCursorCell(hit.anchor);
+                setSelection(CellMask::fromRect({hit.anchor, hit.anchor}));
+            }
+        });
+    }
+    if (hits.empty()) {
+        menu->addAction(tr("No visible element here"))->setEnabled(false);
+    }
+    menu->popup(canvas_->mapToGlobal(pixel));
+}
+
+void DocumentTab::cancelSectionDrag() {
+    if (movingSection_) {
+        movingSection_ = false;
+        gestureStart_.reset();
+        gestureLast_.reset();
+        canvas_->setPreviewCells({});
+    }
+}
+
+DocumentTab::SectionDestination DocumentTab::sectionDestination(CellPos from, CellPos to) const {
+    SectionDestination result;
+    const auto view = document().view();
+    const int dx = static_cast<int>(to.x) - static_cast<int>(from.x);
+    const int dy = static_cast<int>(to.y) - static_cast<int>(from.y);
+    for (const auto cell : selection_.cells()) {
+        const CellPos dest{static_cast<std::size_t>(static_cast<int>(cell.x) + dx),
+                           static_cast<std::size_t>(static_cast<int>(cell.y) + dy)};
+        if (!TileLayerView::contains(dest.x, dest.y)) {
+            result.outside = true;
+            continue;
+        }
+        result.cells.set(dest);
+        if (!selection_.test(dest)) {
+            for (const auto kind : {SectionKind::foreground, SectionKind::bigDecor}) {
+                if (const auto layer = view.layer(kind)) {
+                    const auto existing = *layer->cell(dest.x, dest.y);
+                    if (existing != layout::emptyCell && existing != *layer->cell(cell.x, cell.y)) {
+                        result.overwritten.set(dest);
+                    }
+                }
+            }
+        }
+    }
+    result.objects = objectsInSelection();
+    const auto pool = view.objects();
+    for (const auto slot : result.objects) {
+        const auto record = *pool->record(slot);
+        for (const auto pos : {record.posStart, record.posEnd, record.posCurrent}) {
+            if (!cellAtWorld(static_cast<double>(pos.x) + dx * layout::cellPixels,
+                             static_cast<double>(pos.y) + dy * layout::cellPixels)) {
+                result.invalidPath = slot;
+                return result;
+            }
+        }
+    }
+    return result;
+}
+
+bool DocumentTab::moveSection(CellPos from, CellPos to) {
+    if (!requireWritable() || from == to || !selection_.test(from) ||
+        !TileLayerView::contains(to.x, to.y)) {
+        return false;
+    }
+    const auto view = document().view();
+    for (const auto kind : {SectionKind::foreground, SectionKind::bigDecor}) {
+        if (view.layer(kind) && isLayerLocked(kind)) {
+            emit statusMessage(tr("The %1 layer is locked.").arg(layerDisplayName(kind)));
+            return false;
+        }
+    }
+    const auto dest = sectionDestination(from, to);
+    if (dest.outside) {
+        emit statusMessage(tr("Part of the selection would leave the map."));
+        return false;
+    }
+    const int dx = static_cast<int>(to.x) - static_cast<int>(from.x);
+    const int dy = static_cast<int>(to.y) - static_cast<int>(from.y);
+    if (dest.invalidPath) {
+        emit statusMessage(tr("Object %1 or its path would leave the map.").arg(*dest.invalidPath));
+        return false;
+    }
+    const Point delta{dx * layout::cellPixels, dy * layout::cellPixels};
+    EditBuilder builder(document());
+    for (const auto slot : dest.objects) {
+        if (!moveObject(builder, slot, delta)) {
+            return false;
+        }
+    }
+    if (const auto header = view.header()) {
+        for (std::size_t i = 0; i < 4; ++i) {
+            const auto p = *header->blupiPos(i);
+            const auto anchor = cellAtWorld(p.x, p.y);
+            if (anchor && selection_.test(*anchor)) {
+                builder.setBlupiPos(i, {p.x + delta.x, p.y + delta.y});
+            }
+        }
+    }
+    // Read all terrain from the original view, including empty cells, so the
+    // result is independent of the drag direction and any source overlap.
+    const auto cells = selection_.cells();
+    CellMask changed;
+    for (const auto kind : {SectionKind::foreground, SectionKind::bigDecor}) {
+        if (const auto layer = view.layer(kind)) {
+            for (const auto src : cells) {
+                const CellPos target{static_cast<std::size_t>(static_cast<int>(src.x) + dx),
+                                     static_cast<std::size_t>(static_cast<int>(src.y) + dy)};
+                const auto value = *layer->cell(src.x, src.y);
+                if (!dest.cells.test(src) && value != layout::emptyCell) {
+                    builder.setCell(kind, src.x, src.y, layout::emptyCell);
+                    changed.set(src);
+                }
+                if (value != *layer->cell(target.x, target.y)) {
+                    builder.setCell(kind, target.x, target.y, value);
+                    changed.set(target);
+                }
+            }
+        }
+    }
+    const auto label = dest.overwritten.empty() ? tr("Move section")
+        : tr("Move section (overwrite %1 occupied cells)").arg(dest.overwritten.count());
+    if (builder.hasChanges() && !commit(builder, changed.count(), label, 0, !dest.overwritten.empty())) {
+        return false;
+    }
+    setSelection(dest.cells);
+    return true;
+}
+
 void DocumentTab::onToolPressed(CellPos cell) {
     if (pendingStamp_) {
         // A refused placement (an object outside the world, say) keeps the
@@ -1241,7 +1422,11 @@ void DocumentTab::onToolPressed(CellPos cell) {
         canvas_->setPreviewCells({cell});
         break;
     case Tool::select:
-        setSelection(CellMask::fromRect({cell, cell}));
+        movingSection_ = selection_.test(cell) && document().isWritable() &&
+                         !(QApplication::keyboardModifiers() & Qt::ShiftModifier);
+        if (!movingSection_) {
+            setSelection(CellMask::fromRect({cell, cell}));
+        }
         break;
     case Tool::start:
         placeStartAt(cell);
@@ -1251,6 +1436,11 @@ void DocumentTab::onToolPressed(CellPos cell) {
                            static_cast<std::int32_t>(cell.y) * layout::cellPixels + 32};
         const auto objects = document().view().objects();
         grab_ = Grab::none;
+        if (const auto picked = std::exchange(inspectedObjectCell_, std::nullopt);
+            picked == cell && selectedSlot_ && objects && !objects->record(*selectedSlot_)->isFree()) {
+            grab_ = Grab::body;
+            break;
+        }
         // The end box of the selected mover takes priority, so a path can be
         // reshaped even where other objects overlap it.
         if (selectedSlot_ && objects) {
@@ -1340,7 +1530,12 @@ void DocumentTab::onToolDragged(CellPos cell) {
         canvas_->setPreviewCells(CellMask::fromRect(rectFromCorners(*gestureStart_, cell)).cells());
         break;
     case Tool::select:
-        setSelection(CellMask::fromRect(rectFromCorners(*gestureStart_, cell)));
+        if (movingSection_) {
+            const auto target = sectionDestination(*gestureStart_, cell);
+            canvas_->setPreviewCells(target.cells.cells(), target.outside || target.invalidPath ? target.cells : target.overwritten);
+        } else {
+            setSelection(CellMask::fromRect(rectFromCorners(*gestureStart_, cell)));
+        }
         break;
     case Tool::object:
         if (grab_ != Grab::none) {
@@ -1374,6 +1569,13 @@ void DocumentTab::onToolReleased() {
         showStampGhost(stampGhostAt_); // still armed after a refused placement
     }
     if (!start || !last) {
+        return;
+    }
+    if (movingSection_) {
+        movingSection_ = false;
+        if (*start != *last) {
+            moveSection(*start, *last);
+        }
         return;
     }
     if (tool_ == Tool::line) {

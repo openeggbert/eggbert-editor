@@ -42,6 +42,10 @@ struct TileFrame {
 [[nodiscard]] TileFrame tileFrame(GameProfile profile, SectionKind layer, std::int16_t stored,
                                   std::size_t x, std::size_t y, std::uint32_t tick);
 
+// Distinct visible artwork IDs of a tile, including position-dependent phases.
+[[nodiscard]] std::vector<std::int16_t> tilePictures(GameProfile profile, SectionKind layer,
+                                                    std::int16_t stored);
+
 // Additional pictures drawn for an animated tile. The stored animation heads remain selectable.
 [[nodiscard]] bool isTileAnimationFrame(GameProfile profile, SectionKind layer, std::int16_t value);
 

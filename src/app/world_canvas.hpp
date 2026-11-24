@@ -70,6 +70,7 @@ public:
 
     // Cells and object slots marked as search or statistics results.
     void setHighlights(std::vector<CellPos> cells, std::vector<std::size_t> objectSlots);
+    [[nodiscard]] std::vector<WorldHit> hitsAt(QPoint pixel);
     void clearHighlights() { setHighlights({}, {}); }
     [[nodiscard]] const std::vector<CellPos> &highlightedCells() const { return markedCells_; }
     [[nodiscard]] const std::vector<std::size_t> &highlightedSlots() const { return markedSlots_; }
@@ -82,7 +83,7 @@ public:
     void setSelectionMask(const CellMask &mask);
     [[nodiscard]] const CellMask &selectionMask() const { return selection_; }
     // Cells a pending gesture or paste would affect.
-    void setPreviewCells(std::vector<CellPos> cells);
+    void setPreviewCells(std::vector<CellPos> cells, CellMask conflicts = {});
     [[nodiscard]] const std::vector<CellPos> &previewCells() const { return preview_; }
 
 signals:
@@ -97,6 +98,7 @@ signals:
     void toolPressed(eggbert::CellPos cell);
     void toolDragged(eggbert::CellPos cell);
     void toolReleased();
+    void releasedOutsideMap();
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -111,6 +113,7 @@ protected:
     void hideEvent(QHideEvent *event) override;
 
 private:
+    RenderOptions currentRenderOptions();
     void applyViewChange();
     void userViewChange();
     void setHovered(std::optional<CellPos> cell);
@@ -123,6 +126,7 @@ private:
     std::optional<CellPos> hovered_;
     CellMask selection_;
     std::vector<CellPos> preview_;
+    CellMask previewConflicts_;
     std::optional<CellPos> lastToolCell_;
     std::vector<CellPos> markedCells_;
     std::vector<std::size_t> markedSlots_;

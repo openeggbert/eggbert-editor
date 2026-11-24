@@ -23,6 +23,9 @@ class GameAssets;
 [[nodiscard]] QPixmap tileThumbnail(SectionKind layer, int value, const GameAssets *artwork,
                                     int size);
 
+// One atlas entry without object-type animation remapping.
+[[nodiscard]] QPixmap spriteThumbnail(int channel, int icon, const GameAssets *artwork, int size);
+
 [[nodiscard]] bool objectHasArtwork(int channel, int icon, const GameAssets *artwork);
 // Square thumbnail of an object's still picture; the placeholder
 // shows the stored type.

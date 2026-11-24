@@ -46,6 +46,9 @@ int main() {
             CHECK(!entry.facts.empty() && entry.facts.back() == '.');
             CHECK(!entry.provenance.empty());
             switch (entry.kind) {
+            case EntryKind::picture:
+                CHECK(false); // Raw atlas pictures are browsed separately.
+                break;
             case EntryKind::tile:
                 CHECK(!entry.values.empty());
                 CHECK(entry.layer == SectionKind::foreground ||

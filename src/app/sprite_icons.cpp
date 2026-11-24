@@ -96,6 +96,15 @@ QPixmap tileThumbnail(SectionKind layer, int value, const GameAssets *artwork, i
                       QString::number(value), size);
 }
 
+QPixmap spriteThumbnail(int channel, int icon, const GameAssets *artwork, int size) {
+    if (artwork) {
+        if (const auto sprite = artwork->sprite(channel, icon)) {
+            return drawSprite(*sprite, size);
+        }
+    }
+    return drawSwatch(schematicBackgroundColor(), QString::number(icon), size);
+}
+
 bool objectHasArtwork(int channel, int icon, const GameAssets *artwork) {
     return artwork != nullptr && artwork->sprite(channel, icon).has_value();
 }

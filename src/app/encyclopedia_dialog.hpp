@@ -8,6 +8,7 @@
 
 #include "world/encyclopedia.hpp"
 
+class QComboBox;
 class QLabel;
 class QLineEdit;
 class QListWidget;
@@ -42,11 +43,14 @@ public:
 signals:
     // "Select in Editor": the same choices the Palette makes.
     void tileChosen(int layer, int value);
+    void presetPictureChosen(const QString &id, int picture);
     void presetChosen(const QString &id);
     void brushChosen(const QString &id);
 
 private:
+    void rebuildEntries();
     void refill();
+    void showVariants(const EncyclopediaEntry &entry);
     void showCurrent();
     void chooseCurrent();
 
@@ -55,7 +59,10 @@ private:
     std::vector<EncyclopediaEntry> entries_;
     QLineEdit *search_ = nullptr;
     QListWidget *list_ = nullptr;
+    QComboBox *category_ = nullptr;
+    QListWidget *variants_ = nullptr;
     QLabel *details_ = nullptr;
+    QLabel *backdrop_ = nullptr;
     QLabel *count_ = nullptr;
     QPushButton *select_ = nullptr;
 };

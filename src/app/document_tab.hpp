@@ -170,7 +170,7 @@ public:
     // Preset used by the place tool; nullptr until one is chosen or when the
     // profile has no such preset.
     [[nodiscard]] const ObjectPreset *placePreset() const;
-    void setPlacePreset(const QString &id);
+    void setPlacePreset(const QString &id, std::optional<std::int16_t> picture = {});
     // True when the record is active and its type has a verified preset for
     // the chosen profile, so its fields may be edited.
     [[nodiscard]] bool canEditObject(std::size_t slot) const;
@@ -201,6 +201,8 @@ public:
     std::size_t selectValue(std::int16_t value);
 
     // Clipboard and selection commands.
+    // Dragging from inside a selection moves both layers and its anchored entities.
+    bool moveSection(CellPos from, CellPos to);
     bool copySelection();
     bool cutSelection();
     // Pastes with the patch's top-left at the cursor cell.
@@ -270,7 +272,7 @@ private:
     [[nodiscard]] const CellMask *limit() const;
     // Applies the builder's pending changes, asking first when broad.
     bool commit(EditBuilder &builder, std::size_t cellsChanged, const QString &label,
-                std::uint64_t mergeKey = 0);
+                std::uint64_t mergeKey = 0, bool confirmOverwrite = false);
     void onToolPressed(CellPos cell);
     void showStampGhost(CellPos at);
     void endStampPlacement();
@@ -289,13 +291,26 @@ private:
     bool foregroundLocked_ = false;
     bool bigDecorLocked_ = false;
     std::optional<RenderOptions> isolated_;
+    struct SectionDestination {
+        CellMask cells;
+        CellMask overwritten;
+        bool outside = false;
+        std::vector<std::size_t> objects;
+        std::optional<std::size_t> invalidPath;
+    };
+    SectionDestination sectionDestination(CellPos from, CellPos to) const;
+    void cancelSectionDrag();
+    void inspectAt(QPoint pixel);
+    bool movingSection_ = false;
     CellMask selection_;
     std::uint64_t gestureKey_ = 0;
     std::uint64_t nextGestureKey_ = 1;
     std::optional<CellPos> gestureStart_;
     std::optional<CellPos> gestureLast_;
     std::optional<std::size_t> selectedSlot_;
+    std::optional<CellPos> inspectedObjectCell_;
     QString placePresetId_;
+    std::optional<std::int16_t> placePicture_;
     std::vector<std::size_t> bookmarks_;
     QString adaptiveBrush_ = QString::fromLatin1(adaptiveTileBrush);
     std::shared_ptr<const std::vector<CustomBorderRule>> customRules_;

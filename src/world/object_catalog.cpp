@@ -217,6 +217,8 @@ constexpr ObjectTypeInfo speedyBlupi2Runtime[] = {
     {100, "Slime splash 3", "TYPE_SPLOUTCH3", ObjectTypeStatus::runtimeOnly},
 };
 
+} // namespace
+
 std::span<const ObjectTypeInfo> runtimeTypes(GameProfile profile) {
     switch (profile) {
     case GameProfile::speedyBlupi1:
@@ -229,8 +231,6 @@ std::span<const ObjectTypeInfo> runtimeTypes(GameProfile profile) {
     }
     return {};
 }
-
-} // namespace
 
 std::span<const ObjectPreset> objectPresets(GameProfile profile) {
     switch (profile) {

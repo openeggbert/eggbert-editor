@@ -74,6 +74,7 @@ public:
     // Path of the music file of a stored music number (1 and up; the games
     // play file n - 1), or an empty string. Only a path: nothing is read.
     [[nodiscard]] QString musicFile(int music) const;
+    [[nodiscard]] static int expectedSpriteCount(GameProfile profile, SpriteSheet sheet);
     [[nodiscard]] std::size_t spriteCount(SpriteSheet sheet) const;
 
 private:

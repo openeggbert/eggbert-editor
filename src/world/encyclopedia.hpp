@@ -11,7 +11,7 @@
 
 namespace eggbert {
 
-enum class EntryKind { tile, object, border };
+enum class EntryKind { tile, object, border, picture };
 
 // One thing a game's worlds can contain, described from the catalogs the
 // editor already holds. Nothing here is new knowledge: every entry repeats
@@ -39,10 +39,9 @@ struct EncyclopediaEntry {
     SectionKind layer = SectionKind::foreground;
     std::vector<std::int16_t> values;
     std::string id;
-    // Tiles the games' editors reshape to fit their neighbours: the adaptive
-    // family the first value belongs to (empty for plain tiles). Choosing
-    // such an entry selects that brush, as the Palette does.
-    std::string brush;
+    // Adaptive families for the tile cycle. Choosing the entry selects the
+    // first family, while the gallery includes forms from every family.
+    std::vector<std::string> brushes;
     // Objects only: what the thumbnail is drawn from.
     std::int16_t type = 0;
     std::int16_t channel = 0;

@@ -437,6 +437,19 @@ bool GameAssets::usable() const {
     return !sheets_[static_cast<std::size_t>(SpriteSheet::tiles)].image.isNull();
 }
 
+int GameAssets::expectedSpriteCount(GameProfile profile, SpriteSheet sheet) {
+    if (profile == GameProfile::unknown) {
+        return 0;
+    }
+    const int table = sheetSpecs[static_cast<std::size_t>(sheet)].table;
+    if (profile == GameProfile::mobileEggbert) {
+        constexpr int mobileCounts[] = {440, 290, 100, 340};
+        return mobileCounts[table];
+    }
+    return static_cast<int>(profile == GameProfile::speedyBlupi1 ? tableSpecs[table].firstGameCount
+                                                                : tableSpecs[table].secondGameCount);
+}
+
 std::size_t GameAssets::spriteCount(SpriteSheet sheet) const {
     const auto &entry = sheets_[static_cast<std::size_t>(sheet)];
     return entry.image.isNull() ? 0 : tables_[static_cast<std::size_t>(entry.table)].sprites.size();

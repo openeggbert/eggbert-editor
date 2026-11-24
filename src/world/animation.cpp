@@ -76,6 +76,24 @@ TileFrame flags(GameProfile profile, SectionKind layer, std::int16_t stored) {
 
 } // namespace
 
+std::vector<std::int16_t> tilePictures(GameProfile profile, SectionKind layer, std::int16_t stored) {
+    if (!tileFrame(profile, layer, stored, 0, 0, 0).animated) {
+        return {stored};
+    }
+    std::vector<std::int16_t> pictures;
+    // The longest sequence is the drip. No tile frame lasts more than four ticks.
+    // Both column parities matter for lightning, which skips odd ticks.
+    for (std::size_t x : {0u, 1u}) {
+        for (std::uint32_t tick = 0; tick < 4 * std::size(drip); ++tick) {
+            const auto icon = tileFrame(profile, layer, stored, x, 0, tick).icon;
+            if (icon >= 0 && std::ranges::find(pictures, icon) == pictures.end()) {
+                pictures.push_back(icon);
+            }
+        }
+    }
+    return pictures;
+}
+
 bool isTileAnimationFrame(GameProfile profile, SectionKind layer, std::int16_t value) {
     if (profile == GameProfile::unknown || value < 0 || tileFrame(profile, layer, value, 0, 0, 0).animated) {
         return false;

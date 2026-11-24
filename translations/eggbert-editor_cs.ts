@@ -2052,6 +2052,46 @@ Posuzováno pro: %1</translation>
  <context>
   <name>eggbert::DocumentTab</name>
   <message>
+   <source>At cell (%1, %2)</source>
+   <translation>Na buňce (%1, %2)</translation>
+  </message>
+  <message>
+   <source>Object type %1</source>
+   <translation>Objekt typu %1</translation>
+  </message>
+  <message>
+   <source>%1 (slot %2)</source>
+   <translation>%1 (slot %2)</translation>
+  </message>
+  <message>
+   <source>Player start %1</source>
+   <translation>Start hráče %1</translation>
+  </message>
+  <message>
+   <source>%1 tile %2 at (%3, %4)</source>
+   <translation>%1 – dlaždice %2 na (%3, %4)</translation>
+  </message>
+  <message>
+   <source>No visible element here</source>
+   <translation>Na tomto místě není žádný viditelný prvek</translation>
+  </message>
+  <message>
+   <source>Part of the selection would leave the map.</source>
+   <translation>Část výběru by se ocitla mimo mapu.</translation>
+  </message>
+  <message>
+   <source>Object %1 or its path would leave the map.</source>
+   <translation>Objekt ve slotu %1 nebo jeho dráha by přesáhly okraj mapy.</translation>
+  </message>
+  <message>
+   <source>Move section</source>
+   <translation>Přesunout část světa</translation>
+  </message>
+  <message>
+   <source>Move section (overwrite %1 occupied cells)</source>
+   <translation>Přesunout část světa (přepíše %1 obsazených buněk)</translation>
+  </message>
+  <message>
    <source>This document is read-only.</source>
    <translation>Tento dokument je jen pro čtení.</translation>
   </message>
@@ -2457,6 +2497,78 @@ Posuzováno pro: %1</translation>
  </context>
  <context>
   <name>eggbert::EncyclopediaDialog</name>
+  <message>
+   <source>Browse collection</source>
+   <translation>Procházet sbírku</translation>
+  </message>
+  <message>
+   <source>Named elements and brushes</source>
+   <translation>Pojmenované prvky a štětce</translation>
+  </message>
+  <message>
+   <source>All foreground tiles</source>
+   <translation>Všechny dlaždice popředí</translation>
+  </message>
+  <message>
+   <source>All back-layer tiles</source>
+   <translation>Všechny dlaždice zadní vrstvy</translation>
+  </message>
+  <message>
+   <source>Object sprite sheet</source>
+   <translation>Obrázky objektů</translation>
+  </message>
+  <message>
+   <source>Player 1 sprite sheet</source>
+   <translation>Obrázky hráče 1</translation>
+  </message>
+  <message>
+   <source>Player 2 sprite sheet</source>
+   <translation>Obrázky hráče 2</translation>
+  </message>
+  <message>
+   <source>Player 3 sprite sheet</source>
+   <translation>Obrázky hráče 3</translation>
+  </message>
+  <message>
+   <source>Player 4 sprite sheet</source>
+   <translation>Obrázky hráče 4</translation>
+  </message>
+  <message>
+   <source>Objects created during play</source>
+   <translation>Objekty vznikající při hraní</translation>
+  </message>
+  <message>
+   <source>World backdrops</source>
+   <translation>Pozadí světů</translation>
+  </message>
+  <message>
+   <source>Pictures and variants</source>
+   <translation>Obrázky a varianty</translation>
+  </message>
+  <message>
+   <source>Runtime object type %1.</source>
+   <translation>Typ objektu vznikajícího při hraní: %1.</translation>
+  </message>
+  <message>
+   <source>Backdrop %1</source>
+   <translation>Pozadí %1</translation>
+  </message>
+  <message>
+   <source>Sprite channel %1, picture %2.</source>
+   <translation>Grafický kanál %1, obrázek %2.</translation>
+  </message>
+  <message>
+   <source>Picture</source>
+   <translation>Obrázek</translation>
+  </message>
+  <message>
+   <source>Frame %1</source>
+   <translation>Snímek %1</translation>
+  </message>
+  <message>
+   <source>Tile %1</source>
+   <translation>Dlaždice %1</translation>
+  </message>
   <message>
    <source>Element Encyclopedia</source>
    <translation>Encyklopedie prvků</translation>
@@ -4118,8 +4230,8 @@ Spouští se v adresáři hry. Hry nemají volbu pro otevření konkrétního sv
    <translation>Výběr</translation>
   </message>
   <message>
-   <source>Select: drag a rectangle of cells; edits are then limited to it (S)</source>
-   <translation>Výběr: tažením vyberete obdélník buněk; úpravy se pak omezí na něj (S)</translation>
+   <source>Select (S): drag to select, then drag inside to move the whole section. Shift-drag starts a new selection.</source>
+   <translation>Výběr (S): prvním tahem vyberete oblast, tažením uvnitř ji přesunete. Shift a tažení zahájí nový výběr.</translation>
   </message>
   <message>
    <source>Pencil</source>

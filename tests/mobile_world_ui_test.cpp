@@ -156,6 +156,23 @@ int main(int argc, char **argv) {
         CHECK_EQ(view.objects()->activeCount(), std::size_t{2});
         CHECK_EQ(view.header()->music(), 3);
     }
+    // A section move survives text serialization, including the single start.
+    tab->setSelection(CellMask::fromRect({{1,0},{10,13}}));
+    CHECK(tab->moveSection({1,0},{12,0}));
+    CHECK(window.saveTab(tab));
+    {
+        auto savedSection = DocumentFile::load(port.worldPath);
+        CHECK(savedSection.has_value());
+        const auto world = savedSection.value()->document().view();
+        CHECK_EQ(*world.foreground()->cell(14,4), 40);
+        CHECK_EQ(*world.bigDecor()->cell(20,0), 20);
+        CHECK_EQ(world.objects()->record(1)->posEnd.x, 640 + 11*64);
+        CHECK_EQ(world.header()->blupiPos(0)->x, 66 + 11*64);
+    }
+    CHECK(tab->undo());
+    CHECK(window.saveTab(tab));
+    CHECK(readAll(port.worldPath) == original);
+    tab->selectNone();
     // Nothing of the Windows formats is offered for it.
     for (const auto *name : {"fileConvertRevision", "fileConvertGame", "editBytes",
                              "viewInspector"}) {

@@ -2020,7 +2020,7 @@ void MainWindow::createActions() {
     addTool(QStringLiteral("toolBrowse"), tr("Browse"), Tool::browse, QKeySequence(Qt::Key_H))
         ->setToolTip(tr("Browse: drag to pan, nothing is edited (H)"));
     addTool(QStringLiteral("toolSelect"), tr("Select"), Tool::select, QKeySequence(Qt::Key_S))
-        ->setToolTip(tr("Select: drag a rectangle of cells; edits are then limited to it (S)"));
+        ->setToolTip(tr("Select (S): drag to select, then drag inside to move the whole section. Shift-drag starts a new selection."));
     addTool(QStringLiteral("toolPencil"), tr("Pencil"), Tool::pencil, QKeySequence(Qt::Key_B))
         ->setToolTip(tr("Raw pencil: writes exactly the tile ID into one cell of the active "
                         "layer, with no neighbour or object effects (B)"));
@@ -3534,6 +3534,12 @@ EncyclopediaDialog *MainWindow::showEncyclopedia() {
         // The same choices the Palette makes, through the same handlers.
         connect(encyclopedia_, &EncyclopediaDialog::tileChosen, palette_,
                 &PalettePanel::tileChosen);
+        connect(encyclopedia_, &EncyclopediaDialog::presetPictureChosen, this,
+                [this](const QString &id, int picture) {
+                    if (auto *tab = currentTab(); tab && tab->document().isWritable() && choosePreset(id)) {
+                        tab->setPlacePreset(id, static_cast<std::int16_t>(picture));
+                    }
+                });
         connect(encyclopedia_, &EncyclopediaDialog::presetChosen, palette_,
                 &PalettePanel::presetChosen);
         connect(encyclopedia_, &EncyclopediaDialog::brushChosen, palette_,

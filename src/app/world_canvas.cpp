@@ -221,7 +221,8 @@ void WorldCanvas::setSelectionMask(const CellMask &mask) {
     update();
 }
 
-void WorldCanvas::setPreviewCells(std::vector<CellPos> cells) {
+void WorldCanvas::setPreviewCells(std::vector<CellPos> cells, CellMask conflicts) {
+    previewConflicts_ = std::move(conflicts);
     if (cells.empty() && preview_.empty()) {
         return;
     }
@@ -252,12 +253,7 @@ void WorldCanvas::setHovered(std::optional<CellPos> target) {
     emit hoveredCellChanged();
 }
 
-void WorldCanvas::paintEvent(QPaintEvent *) {
-    QPainter painter(this);
-    if (document_ == nullptr) {
-        painter.fillRect(rect(), schematicOutsideColor());
-        return;
-    }
+RenderOptions WorldCanvas::currentRenderOptions() {
     // On the canvas the backdrop scrolls at two thirds of the map's speed,
     // as in the games.
     auto options = options_;
@@ -270,6 +266,31 @@ void WorldCanvas::paintEvent(QPaintEvent *) {
         frame->objects = objects_.poses();
         options.animation = std::move(frame);
     }
+    return options;
+}
+
+std::vector<WorldHit> WorldCanvas::hitsAt(QPoint pixel) {
+    if (!document_ || !rect().contains(pixel)) {
+        return {};
+    }
+    auto options = currentRenderOptions();
+    options.showBackdrop = false;
+    QImage sample(1, 1, QImage::Format_ARGB32_Premultiplied);
+    QPainter painter(&sample);
+    painter.translate(-pixel);
+    WorldPick pick{pixel, {}};
+    renderWorld(painter, document_->view(), transform_, QRectF(rect()), options, &pick);
+    std::reverse(pick.hits.begin(), pick.hits.end());
+    return pick.hits;
+}
+
+void WorldCanvas::paintEvent(QPaintEvent *) {
+    QPainter painter(this);
+    if (document_ == nullptr) {
+        painter.fillRect(rect(), schematicOutsideColor());
+        return;
+    }
+    const auto options = currentRenderOptions();
     renderWorld(painter, document_->view(), transform_, QRectF(rect()), options);
 
     const auto cellRect = [this](CellPos first, CellPos last) {
@@ -311,7 +332,8 @@ void WorldCanvas::paintEvent(QPaintEvent *) {
         for (const auto &pending : preview_) {
             const auto area = cellRect(pending, pending);
             if (area.intersects(visible)) {
-                painter.fillRect(area, QColor(255, 255, 255, 90));
+                painter.fillRect(area, previewConflicts_.test(pending) ? QColor(255, 70, 35, 155)
+                                                                      : QColor(255, 255, 255, 90));
             }
         }
     }
@@ -436,6 +458,12 @@ void WorldCanvas::mouseReleaseEvent(QMouseEvent *event) {
         return;
     }
     if (toolGesture_ && event->button() == Qt::LeftButton) {
+        const auto end = transform_.cellAtScreen(event->position().x(), event->position().y());
+        if (!end || !rect().contains(event->position().toPoint())) {
+            emit releasedOutsideMap();
+        } else if (lastToolCell_ != end) {
+            emit toolDragged(*end);
+        }
         toolGesture_ = false;
         lastToolCell_.reset();
         emit toolReleased();
