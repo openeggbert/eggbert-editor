@@ -18,6 +18,8 @@ public:
     [[nodiscard]] std::int16_t minRev() const;
     [[nodiscard]] Point posDecor() const;
     [[nodiscard]] Point dimDecor() const;
+    // Scrolling axes use the full stored map. A stationary axis uses one game screen.
+    [[nodiscard]] Point playfieldPixels() const;
     [[nodiscard]] std::int16_t world() const;
     [[nodiscard]] std::int16_t music() const;
     [[nodiscard]] std::int16_t region() const;

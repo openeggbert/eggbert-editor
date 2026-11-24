@@ -64,8 +64,14 @@ void MinimapWidget::invalidate() {
 }
 
 QRectF MinimapWidget::worldArea() const {
-    const auto side = std::max(1, std::min(width(), height()) - 4);
-    return QRectF((width() - side) / 2.0, (height() - side) / 2.0, side, side);
+    if (!tab_) {
+        return {};
+    }
+    const auto size = tab_->canvas()->transform().extent;
+    const double scale = std::min(std::max(1, width() - 4) / double(size.x),
+                                  std::max(1, height() - 4) / double(size.y));
+    const QSizeF fitted(size.x * scale, size.y * scale);
+    return QRectF(QPointF((width() - fitted.width()) / 2, (height() - fitted.height()) / 2), fitted);
 }
 
 QRectF MinimapWidget::viewportRect() const {
@@ -73,7 +79,7 @@ QRectF MinimapWidget::viewportRect() const {
         return {};
     }
     const auto area = worldArea();
-    const auto scale = area.width() / layout::worldPixelWidth;
+    const auto scale = area.width() / tab_->canvas()->transform().extent.x;
     const auto visible = tab_->canvas()->visibleWorldRect();
     return QRectF(area.left() + visible.left() * scale, area.top() + visible.top() * scale,
                   visible.width() * scale, visible.height() * scale);
@@ -81,7 +87,10 @@ QRectF MinimapWidget::viewportRect() const {
 
 QPointF MinimapWidget::worldAt(const QPointF &widgetPosition) const {
     const auto area = worldArea();
-    const auto scale = layout::worldPixelWidth / area.width();
+    if (area.isEmpty()) {
+        return {};
+    }
+    const auto scale = tab_->canvas()->transform().extent.x / area.width();
     return QPointF((widgetPosition.x() - area.left()) * scale,
                    (widgetPosition.y() - area.top()) * scale);
 }
@@ -108,7 +117,8 @@ void MinimapWidget::paintEvent(QPaintEvent *) {
         options.profile = profile_;
         options.showBackdrop = false;
         ViewTransform transform;
-        transform.scale = static_cast<double>(area.width()) / layout::worldPixelWidth;
+        transform.extent = tab_->canvas()->transform().extent;
+        transform.scale = worldArea().width() / transform.extent.x;
         cache_ = QImage(area.size(), QImage::Format_ARGB32_Premultiplied);
         cache_.fill(schematicBackgroundColor());
         QPainter cachePainter(&cache_);
@@ -135,8 +145,8 @@ void MinimapWidget::panTo(const QPointF &widgetPosition) {
     }
     const auto world = worldAt(widgetPosition);
     tab_->canvas()->centerOnWorld(
-        std::clamp(world.x(), 0.0, static_cast<double>(layout::worldPixelWidth)),
-        std::clamp(world.y(), 0.0, static_cast<double>(layout::worldPixelHeight)));
+        std::clamp(world.x(), 0.0, static_cast<double>(tab_->canvas()->transform().extent.x)),
+        std::clamp(world.y(), 0.0, static_cast<double>(tab_->canvas()->transform().extent.y)));
 }
 
 void MinimapWidget::mousePressEvent(QMouseEvent *event) {

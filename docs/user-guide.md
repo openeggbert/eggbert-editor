@@ -71,6 +71,8 @@ On the Objects tab, select a crate or a lift and use the appearance list below t
 
 The groups are a way to find things, not a limit: the **Tile ID** box in the tool bar remains for typing any raw number. Player starts are placed with the Start tool.
 
+The map canvas and minimap follow the world size selected in the World tab. In pixels, Screen is 640 × 480, Wide is 6400 × 480, Tall is 640 × 6400 and Large is 6400 × 6400. Resizing the playfield preserves the stored tiles beyond its edges.
+
 ### Element Encyclopedia
 
 **Help → Element Encyclopedia** lists everything the editor's catalogs know about the current world's game: every tile entry and object of the game editor's groups and every adaptive border family. Type in the search box to filter by name or group; a number finds the entries that store exactly that tile value or object type. For the chosen entry the window shows what is stored for it (tile numbers, or the object's type, channel, icon, placement and timing) and the evidence it rests on. **Select in Editor** (or a double click) chooses the entry as a click in the Palette does: a plain tile for the Pencil, a tile the game reshapes to fit its neighbours as its Adaptive brush, an object for Place, a border family for the Adaptive brush. Pictures are the ones the Palette shows: the game's own while **View → Draw with Game Artwork** is on and a game directory is chosen, numbered placeholders otherwise. The window stays open while you work and follows the current tab's game.

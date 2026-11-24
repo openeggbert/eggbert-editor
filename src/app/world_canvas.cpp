@@ -41,6 +41,7 @@ WorldCanvas::WorldCanvas(const WorldDocument *document, QWidget *parent)
     clock_ = new QTimer(this);
     clock_->setInterval(1000 / animationTicksPerSecond);
     connect(clock_, &QTimer::timeout, this, [this] { advanceAnimation(1); });
+    setDocument(document);
 }
 
 void WorldCanvas::setAnimated(bool animated) {
@@ -110,6 +111,23 @@ void WorldCanvas::hideEvent(QHideEvent *event) {
 
 void WorldCanvas::setDocument(const WorldDocument *document) {
     document_ = document;
+    const auto header = document ? document->view().header() : std::nullopt;
+    const auto extent = header ? header->playfieldPixels() : Point{layout::worldPixelWidth, layout::worldPixelHeight};
+    if (transform_.extent != extent) {
+        transform_.extent = extent;
+        const auto previous = cursor_;
+        cursor_.x = std::min<std::size_t>(cursor_.x, transform_.columns() - 1);
+        cursor_.y = std::min<std::size_t>(cursor_.y, transform_.rows() - 1);
+        setHovered(std::nullopt);
+        if (autoFit_) {
+            fitWorld();
+        } else {
+            applyViewChange();
+        }
+        if (cursor_ != previous) {
+            emit cursorCellChanged();
+        }
+    }
     update();
 }
 
@@ -152,7 +170,7 @@ void WorldCanvas::actualPixels() {
 }
 
 void WorldCanvas::fitWorld() {
-    transform_.fit(0, 0, layout::worldPixelWidth, layout::worldPixelHeight, width(), height(), 8);
+    transform_.fit(0, 0, transform_.extent.x, transform_.extent.y, width(), height(), 8);
     autoFit_ = true;
     applyViewChange();
 }
@@ -162,9 +180,13 @@ void WorldCanvas::fitCells(CellPos topLeft, CellPos bottomRight) {
     const auto top = std::min(topLeft.y, bottomRight.y);
     const auto right = std::max(topLeft.x, bottomRight.x);
     const auto bottom = std::max(topLeft.y, bottomRight.y);
-    transform_.fit(static_cast<double>(left) * cell, static_cast<double>(top) * cell,
-                   static_cast<double>(right - left + 1) * cell,
-                   static_cast<double>(bottom - top + 1) * cell, width(), height(), 24);
+    const QRectF selected(double(left) * cell, double(top) * cell,
+                          double(right - left + 1) * cell, double(bottom - top + 1) * cell);
+    const QRectF area = selected.intersected(QRectF(0, 0, transform_.extent.x, transform_.extent.y));
+    if (area.isEmpty()) {
+        return;
+    }
+    transform_.fit(area.x(), area.y(), area.width(), area.height(), width(), height(), 24);
     userViewChange();
 }
 
@@ -185,8 +207,8 @@ QRectF WorldCanvas::visibleWorldRect() const {
 }
 
 void WorldCanvas::setCursorCell(CellPos target) {
-    target.x = std::min(target.x, layout::mapWidth - 1);
-    target.y = std::min(target.y, layout::mapHeight - 1);
+    target.x = std::min<std::size_t>(target.x, transform_.columns() - 1);
+    target.y = std::min<std::size_t>(target.y, transform_.rows() - 1);
     if (cursor_ == target) {
         return;
     }
@@ -198,8 +220,8 @@ void WorldCanvas::setCursorCell(CellPos target) {
 
 void WorldCanvas::ensureCursorVisible() {
     const auto visible = visibleWorldRect();
-    const QRectF cursorRect(static_cast<double>(cursor_.x) * cell,
-                            static_cast<double>(cursor_.y) * cell, cell, cell);
+    const QRectF cursorRect = QRectF(double(cursor_.x) * cell, double(cursor_.y) * cell, cell, cell)
+                                  .intersected(QRectF(0, 0, transform_.extent.x, transform_.extent.y));
     if (visible.contains(cursorRect)) {
         return;
     }
@@ -270,7 +292,7 @@ RenderOptions WorldCanvas::currentRenderOptions() {
 }
 
 std::vector<WorldHit> WorldCanvas::hitsAt(QPoint pixel) {
-    if (!document_ || !rect().contains(pixel)) {
+    if (!document_ || !rect().contains(pixel) || !transform_.cellAtScreen(pixel.x(), pixel.y())) {
         return {};
     }
     auto options = currentRenderOptions();
@@ -293,6 +315,9 @@ void WorldCanvas::paintEvent(QPaintEvent *) {
     const auto options = currentRenderOptions();
     renderWorld(painter, document_->view(), transform_, QRectF(rect()), options);
 
+    painter.setClipRect(QRectF(QPointF(std::floor(transform_.toScreenX(0)), std::floor(transform_.toScreenY(0))),
+                               QPointF(std::floor(transform_.toScreenX(transform_.extent.x)),
+                                       std::floor(transform_.toScreenY(transform_.extent.y)))), Qt::IntersectClip);
     const auto cellRect = [this](CellPos first, CellPos last) {
         const auto left = std::floor(transform_.toScreenX(static_cast<double>(first.x) * cell));
         const auto top = std::floor(transform_.toScreenY(static_cast<double>(first.y) * cell));
@@ -304,17 +329,15 @@ void WorldCanvas::paintEvent(QPaintEvent *) {
     };
     if (!selection_.empty()) {
         // Tint selected cells in view and outline the selection's bounds.
-        const auto first = transform_.cellAtScreen(0, 0).value_or(CellPos{0, 0});
         const auto visible = visibleWorldRect();
         const auto lastX = std::min<std::size_t>(
-            layout::mapWidth - 1,
+            transform_.columns() - 1,
             static_cast<std::size_t>(std::max(0.0, visible.right() / cell)));
         const auto lastY = std::min<std::size_t>(
-            layout::mapHeight - 1,
+            transform_.rows() - 1,
             static_cast<std::size_t>(std::max(0.0, visible.bottom() / cell)));
         const auto firstX = visible.left() > 0 ? static_cast<std::size_t>(visible.left() / cell) : 0;
         const auto firstY = visible.top() > 0 ? static_cast<std::size_t>(visible.top() / cell) : 0;
-        (void)first;
         for (std::size_t x = firstX; x <= lastX; ++x) {
             for (std::size_t y = firstY; y <= lastY; ++y) {
                 if (selection_.test({x, y})) {
@@ -509,8 +532,8 @@ void WorldCanvas::keyPressEvent(QKeyEvent *event) {
             return static_cast<std::size_t>(
                 std::clamp<long long>(moved, 0, static_cast<long long>(limit) - 1));
         };
-        setCursorCell({clampAxis(cursor_.x, dx * step, layout::mapWidth),
-                       clampAxis(cursor_.y, dy * step, layout::mapHeight)});
+        setCursorCell({clampAxis(cursor_.x, dx * step, transform_.columns()),
+                       clampAxis(cursor_.y, dy * step, transform_.rows())});
     };
     switch (event->key()) {
     case Qt::Key_Left:
@@ -529,7 +552,7 @@ void WorldCanvas::keyPressEvent(QKeyEvent *event) {
         setCursorCell({0, cursor_.y});
         break;
     case Qt::Key_End:
-        setCursorCell({layout::mapWidth - 1, cursor_.y});
+        setCursorCell({static_cast<std::size_t>(transform_.columns() - 1), cursor_.y});
         break;
     case Qt::Key_PageUp:
         moveCursor(0, -10 / step);

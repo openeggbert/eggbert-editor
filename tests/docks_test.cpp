@@ -37,7 +37,7 @@ int main(int argc, char **argv) {
     QApplication::setApplicationName("docks-test");
     QSettings().clear();
 
-    auto bytes = blankWorld(fxRevision13);
+    auto bytes = blankLargeWorld(fxRevision13);
     put16(bytes, fxCellOffset(fxForegroundOffset, 3, 70), 5);
     put16(bytes, fxCellOffset(fxForegroundOffset, 4, 70), 5);
     put16(bytes, fxCellOffset(fxForegroundOffset, 90, 2), 9);
@@ -228,6 +228,40 @@ int main(int argc, char **argv) {
     CHECK((canvas->cursorCell() == CellPos{10, 10}));
     tab->undo();
     CHECK_EQ(statistics->valueOf("Occupied cells"), QString("3"));
+
+    // Fit, picking, and the minimap follow the playable rectangle. On a fixed
+    // vertical axis only the upper 32 pixels of the eighth cell row are visible.
+    canvas->fitWorld();
+    for (const Point size : {Point{640,480}, Point{6400,480}, Point{640,6400}, Point{6400,6400}}) {
+        auto metadata = *readMetadata(tab->document().view());
+        metadata.scrollsHorizontally = size.x == 6400;
+        metadata.scrollsVertically = size.y == 6400;
+        CHECK(tab->applyMetadataEdit(metadata));
+        const auto &t = canvas->transform();
+        CHECK(t.extent == size);
+        CHECK(near(canvas->zoom(), std::min((canvas->width()-16.0)/size.x,
+                                            (canvas->height()-16.0)/size.y), 0.0001));
+        const auto area = minimap->worldArea();
+        CHECK(near(area.width()/area.height(), double(size.x)/size.y, 0.0001));
+        CHECK(t.cellAtScreen(t.toScreenX(size.x - 1), t.toScreenY(size.y - 1)).has_value());
+        CHECK(!t.cellAtScreen(t.toScreenX(size.x + 1), t.toScreenY(0)));
+        CHECK(!t.cellAtScreen(t.toScreenX(0), t.toScreenY(size.y + 1)));
+        if (size.y == 480) {
+            const QPoint outside(qRound(t.toScreenX(32)), qCeil(t.toScreenY(480)) + 2);
+            CHECK(canvas->rect().contains(outside));
+            CHECK(canvas->grab().toImage().pixelColor(outside) == schematicOutsideColor());
+            CHECK(canvas->hitsAt(outside).empty());
+        }
+        CHECK_EQ(*tab->document().view().foreground()->cell(90, 2), 9);
+    }
+    CHECK(tab->undo());
+    CHECK((canvas->transform().extent == Point{640,6400}));
+    CHECK(tab->redo());
+    CHECK((canvas->transform().extent == Point{6400,6400}));
+    // Restore the saved state before closing.
+    for (int step = 0; step < 4; ++step) {
+        CHECK(tab->undo());
+    }
 
     // Dock toggles and Reset Layout.
     auto *minimapDock = window.findChild<QDockWidget *>("minimapDock");

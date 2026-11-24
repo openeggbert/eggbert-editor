@@ -28,7 +28,7 @@ int main(int argc, char **argv) {
     QSettings().clear();
 
     QTemporaryDir dir;
-    auto bytes = blankWorld(fxRevision13);
+    auto bytes = blankLargeWorld(fxRevision13);
     put16(bytes, 224, 99); // a region no game offers, for a Doctor finding
     put16(bytes, fxCellOffset(fxForegroundOffset, 3, 70), 5);
     const auto path = dir.filePath("private-folder-name") + "-world.blp";

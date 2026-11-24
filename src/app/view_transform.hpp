@@ -31,6 +31,10 @@ struct ViewTransform {
     double scale = 0.125;
     double originX = 0.0;
     double originY = 0.0;
+    Point extent{layout::worldPixelWidth, layout::worldPixelHeight};
+
+    [[nodiscard]] int columns() const { return (extent.x + layout::cellPixels - 1) / layout::cellPixels; }
+    [[nodiscard]] int rows() const { return (extent.y + layout::cellPixels - 1) / layout::cellPixels; }
 
     [[nodiscard]] double toScreenX(double worldX) const { return (worldX - originX) * scale; }
     [[nodiscard]] double toScreenY(double worldY) const { return (worldY - originY) * scale; }
@@ -38,7 +42,12 @@ struct ViewTransform {
     [[nodiscard]] double toWorldY(double screenY) const { return screenY / scale + originY; }
 
     [[nodiscard]] std::optional<CellPos> cellAtScreen(double screenX, double screenY) const {
-        return cellAtWorld(toWorldX(screenX), toWorldY(screenY));
+        const double x = toWorldX(screenX);
+        const double y = toWorldY(screenY);
+        if (x >= extent.x || y >= extent.y) {
+            return std::nullopt;
+        }
+        return cellAtWorld(x, y);
     }
 
     // Changes the scale while the world point under the screen anchor stays
@@ -82,8 +91,8 @@ struct ViewTransform {
                 origin = std::clamp(origin, 0.0, worldSize - visible);
             }
         };
-        clampAxis(originX, layout::worldPixelWidth, viewWidth);
-        clampAxis(originY, layout::worldPixelHeight, viewHeight);
+        clampAxis(originX, extent.x, viewWidth);
+        clampAxis(originY, extent.y, viewHeight);
     }
 };
 

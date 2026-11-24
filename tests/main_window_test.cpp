@@ -72,7 +72,7 @@ int main(int argc, char **argv) {
 
     QTemporaryDir dir;
     CHECK(dir.isValid());
-    const auto input = raw(blankWorld(fxRevision13, 3));
+    const auto input = raw(blankLargeWorld(fxRevision13, 3));
     const auto path = dir.filePath("world.blp");
     writeRaw(path, input);
     const auto oldInput = raw(patternedWorld(fxRevision11));

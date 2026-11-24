@@ -14,6 +14,8 @@ The map now offers right-click picking in visible draw order and a whole-section
 
 Palette follow-up: the two enemy pilots can be placed with channels 11–13, and crates and lifts offer their tile appearances directly in the Objects tab. Tile 347 stays available as terrain, tiles 373 and 404 have distinct names, the Mobile door group ends at 439, and its runtime catalog includes the invisibility trail (58). Regression coverage is in `palette` and `encyclopedia_ui`. All 80 Release tests passed. With original artwork loaded, every stored tile on both layers and every active object type from the 59 SB1, 96 SB2 and 78 Mobile sample worlds appeared in the palette.
 
+The canvas and minimap use the playable rectangle from dimDecor, including the half-visible last row on a fixed vertical axis. Fit World, panning, pointer input and the keyboard cursor follow those bounds on open, resize, Undo and Redo. All 80 Release tests passed, including a four-size regression in `docks`. An offscreen check with game artwork also opened ClashingDream.xch as a 6400 × 480 world. The storage grid and full-grid exports retain their original dimensions.
+
 Implemented and covered by asset-free tests:
 
 - `src/world/layout.hpp`: immutable `RevisionDescriptor` entries for header revisions 1.0–1.3 (header size, layers, object count/width, contiguous section table, expected size, 1.0 write policy, rule); `headerFields` and `objectFields` tables with exact offsets and wire types; `ByteRange` and `Point`. Only the four exact `(major, minor)` pairs are recognized.

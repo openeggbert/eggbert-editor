@@ -30,7 +30,7 @@ int main(int argc, char **argv) {
     QApplication::setApplicationName("inspector-test");
     QSettings().clear();
 
-    auto bytes = blankWorld(fxRevision13, 6);
+    auto bytes = blankLargeWorld(fxRevision13, 6);
     put16(bytes, fxCellOffset(fxForegroundOffset, 3, 70), 0x1234);
     put16(bytes, 222, -3);
     putText(bytes, 376, "Name");

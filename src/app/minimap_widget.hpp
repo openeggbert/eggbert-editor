@@ -23,7 +23,7 @@ public:
     [[nodiscard]] Mode mode() const { return mode_; }
     void setMode(Mode mode);
 
-    // Square area of the widget that shows the 6400 x 6400 world.
+    // Area occupied by the current playfield, scaled without stretching.
     [[nodiscard]] QRectF worldArea() const;
     // The canvas viewport in widget coordinates (may extend past worldArea).
     [[nodiscard]] QRectF viewportRect() const;

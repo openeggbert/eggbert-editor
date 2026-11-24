@@ -247,7 +247,7 @@ void DocumentTab::notifyDocumentChanged() {
             setSelectedSlot(std::nullopt);
         }
     }
-    canvas_->update();
+    canvas_->setDocument(&document());
     emit documentChanged();
 }
 

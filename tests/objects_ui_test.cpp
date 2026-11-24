@@ -56,7 +56,7 @@ int main(int argc, char **argv) {
     QSettings().clear();
 
     QTemporaryDir dir;
-    auto bytes = blankWorld(fxRevision13);
+    auto bytes = blankLargeWorld(fxRevision13);
     // Slot 0: an object of a type unknown to both games (type 150), carrying
     // opaque fields. Slot 1: free but with stale bytes.
     const auto slot0 = fxSlotOffset(fxRevision13, 0);

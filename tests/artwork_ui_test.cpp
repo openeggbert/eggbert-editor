@@ -42,7 +42,7 @@ int main(int argc, char **argv) {
     QTemporaryDir dir;
     const auto game = makeGame(dir.filePath("game"));
     const auto digest = directoryDigest(game.root);
-    auto bytes = blankWorld(fxRevision13);
+    auto bytes = blankLargeWorld(fxRevision13);
     put16(bytes, fxCellOffset(fxForegroundOffset, 3, 70), 9);
     const auto path = dir.filePath("art.blp");
     write(path, QByteArray(reinterpret_cast<const char *>(bytes.data()),

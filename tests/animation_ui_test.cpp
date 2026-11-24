@@ -41,7 +41,7 @@ int main(int argc, char **argv) {
 
     QTemporaryDir dir;
     const auto game = makeGame(dir.filePath("game"));
-    auto bytes = blankWorld(fxRevision13);
+    auto bytes = blankLargeWorld(fxRevision13);
     put16(bytes, fxCellOffset(fxForegroundOffset, 3, 70), 68); // lava
     put16(bytes, fxCellOffset(fxForegroundOffset, 5, 70), 9);  // a plain tile
     // A fish swimming four cells to the right: no wait, 40 ticks each way.

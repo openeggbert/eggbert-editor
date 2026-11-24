@@ -103,4 +103,12 @@ inline Bytes blankWorld(const FixtureLayout &layout, std::size_t surplus = 0) {
     return bytes;
 }
 
+// For UI tests that navigate throughout the scrolling map.
+inline Bytes blankLargeWorld(const FixtureLayout &layout, std::size_t surplus = 0) {
+    auto bytes = blankWorld(layout, surplus);
+    put32(bytes, 212, 100);
+    put32(bytes, 216, 100);
+    return bytes;
+}
+
 } // namespace eggbert::test

@@ -75,7 +75,7 @@ int main(int argc, char **argv) {
     QDir(MainWindow::stampDirectory()).removeRecursively();
     QTemporaryDir dir;
 
-    auto worldA = blankWorld(fxRevision13);
+    auto worldA = blankLargeWorld(fxRevision13);
     put16(worldA, fxCellOffset(fxForegroundOffset, 10, 20), 30);
     put16(worldA, fxCellOffset(fxForegroundOffset, 11, 21), 31);
     put16(worldA, fxCellOffset(fxRevision13.bigDecorOffset, 10, 21), 20);

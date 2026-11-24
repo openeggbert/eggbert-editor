@@ -46,6 +46,12 @@ Point HeaderView::dimDecor() const {
     return pointAt(bytes_, headerField(HeaderField::dimDecor).offset);
 }
 
+Point HeaderView::playfieldPixels() const {
+    const auto scroll = dimDecor();
+    return {scroll.x == 0 ? 640 : layout::worldPixelWidth,
+            scroll.y == 0 ? 480 : layout::worldPixelHeight};
+}
+
 std::int16_t HeaderView::world() const {
     return i16At(bytes_, headerField(HeaderField::world).offset);
 }

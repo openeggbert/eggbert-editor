@@ -71,6 +71,8 @@ Na kartě **Objekty** vyber bednu nebo výtah. V seznamu pod mřížkou zvol dla
 
 Skupiny slouží k hledání, nejsou omezením: pole **ID dlaždice** na panelu nástrojů zůstává pro zadání libovolného surového čísla. Starty hráčů se umisťují nástrojem Start.
 
+Plátno a minimapa se řídí velikostí zvolenou na kartě Svět. V pixelech má jedna obrazovka 640 × 480, široký svět 6400 × 480, vysoký 640 × 6400 a velký 6400 × 6400. Při zmenšení světa zůstanou dlaždice za okrajem uložené.
+
 ### Encyklopedie prvků
 
 **Nápověda → Encyklopedie prvků** vypíše vše, co katalogy editoru vědí o hře aktuálního světa: každou položku dlaždic a každý objekt ze skupin editoru hry a každou rodinu adaptivních okrajů. Psaním do vyhledávacího pole filtrujete podle názvu nebo skupiny; číslo najde položky, které ukládají právě tuto hodnotu dlaždice nebo typ objektu. U zvolené položky okno ukazuje, co se pro ni ukládá (čísla dlaždic, nebo typ, kanál, ikonu, umístění a časování objektu), a doklad, o který se to opírá. **Vybrat v editoru** (nebo dvojklik) zvolí položku stejně jako kliknutí v Paletě: obyčejnou dlaždici pro Tužku, dlaždici, kterou hra přetváří podle sousedů, jako její Adaptivní štětec, objekt pro nástroj Umístit, rodinu okrajů pro Adaptivní štětec. Obrázky jsou ty, které ukazuje Paleta: vlastní obrázky hry, dokud je zapnuto **Zobrazení → Kreslit grafikou hry** a je zvolen adresář hry, jinak očíslované zástupné obrázky. Okno zůstává při práci otevřené a řídí se hrou aktuální karty.

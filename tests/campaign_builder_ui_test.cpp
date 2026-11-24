@@ -68,12 +68,12 @@ int main(int argc, char **argv) {
     const auto game = makeGame(dir.filePath("game"));
     const QDir data(game.root + "/DATA");
     {
-        auto first = blankWorld(fxRevision12);
+        auto first = blankLargeWorld(fxRevision12);
         put16(first, fxCellOffset(fxForegroundOffset, 20, 20), 158);
         put16(first, fxCellOffset(fxForegroundOffset, 30, 20), 183);
         put16(first, fxCellOffset(fxForegroundOffset, 40, 20), 183);
         write(data.filePath("WORLD001.BLP"), raw(first));
-        auto hub = blankWorld(fxRevision12);
+        auto hub = blankLargeWorld(fxRevision12);
         put16(hub, fxCellOffset(fxForegroundOffset, 8, 8), 174);
         write(data.filePath("WORLD010.BLP"), raw(hub));
         auto mission = blankWorld(fxRevision12);

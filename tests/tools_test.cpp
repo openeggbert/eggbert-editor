@@ -66,7 +66,7 @@ int main(int argc, char **argv) {
     QSettings().clear();
 
     QTemporaryDir dir;
-    auto bytes = blankWorld(fxRevision13);
+    auto bytes = blankLargeWorld(fxRevision13);
     // Opaque data that no tile tool may touch.
     put16(bytes, fxSlotOffset(fxRevision13, 3) + 44, 0x1234);
     put32(bytes, 4, 256);
@@ -404,7 +404,7 @@ int main(int argc, char **argv) {
     CHECK(!old->document().isModified());
 
     // An overlapping section move preserves slot identity, paths, both layers and starts.
-    auto room = blankWorld(fxRevision13);
+    auto room = blankLargeWorld(fxRevision13);
     auto putTile = [&](std::size_t layer, int x, int value) {
         put16(room, fxCellOffset(layer, x, 8), value);
     };

@@ -35,16 +35,16 @@ CellRange visibleCells(const ViewTransform &transform, const QRectF &viewport, i
     };
     CellRange range;
     range.x0 = clampCell(std::floor(transform.toWorldX(viewport.left()) / cell) - before,
-                         static_cast<int>(layout::mapWidth));
+                         transform.columns());
     range.y0 = clampCell(std::floor(transform.toWorldY(viewport.top()) / cell) - before,
-                         static_cast<int>(layout::mapHeight));
+                         transform.rows());
     range.x1 = clampCell(std::floor(transform.toWorldX(viewport.right()) / cell),
-                         static_cast<int>(layout::mapWidth));
+                         transform.columns());
     range.y1 = clampCell(std::floor(transform.toWorldY(viewport.bottom()) / cell),
-                         static_cast<int>(layout::mapHeight));
+                         transform.rows());
     if (transform.toWorldX(viewport.right()) < 0 || transform.toWorldY(viewport.bottom()) < 0 ||
-        transform.toWorldX(viewport.left()) >= layout::worldPixelWidth + before * cell ||
-        transform.toWorldY(viewport.top()) >= layout::worldPixelHeight + before * cell) {
+        transform.toWorldX(viewport.left()) >= transform.extent.x + before * cell ||
+        transform.toWorldY(viewport.top()) >= transform.extent.y + before * cell) {
         range.x1 = range.x0 - 1; // nothing visible
     }
     return range;
@@ -132,7 +132,7 @@ void renderWorld(QPainter &painter, const WorldView &world, const ViewTransform 
     painter.setRenderHint(QPainter::Antialiasing, false);
 
     const auto worldRect =
-        screenRect(transform, 0, 0, layout::worldPixelWidth, layout::worldPixelHeight);
+        screenRect(transform, 0, 0, transform.extent.x, transform.extent.y);
     const GameAssets *art =
         options.artwork && options.artwork->usable() ? options.artwork.get() : nullptr;
     if (!options.transparentBackground) {
@@ -157,9 +157,9 @@ void renderWorld(QPainter &painter, const WorldView &world, const ViewTransform 
             }
             const double left = std::max(0.0, transform.toWorldX(viewport.left()));
             const double top = std::max(0.0, transform.toWorldY(viewport.top()));
-            const double right = std::min<double>(layout::worldPixelWidth,
+            const double right = std::min<double>(transform.extent.x,
                                                   transform.toWorldX(viewport.right()) + 1);
-            const double bottom = std::min<double>(layout::worldPixelHeight,
+            const double bottom = std::min<double>(transform.extent.y,
                                                    transform.toWorldY(viewport.bottom()) + 1);
             painter.save();
             painter.setClipRect(QRectF(worldRect).intersected(viewport), Qt::IntersectClip);
@@ -180,6 +180,7 @@ void renderWorld(QPainter &painter, const WorldView &world, const ViewTransform 
             painter.restore();
         }
     }
+    painter.setClipRect(worldRect, Qt::IntersectClip);
     const double cellScreen = cell * transform.scale;
     const bool labels = options.showLabels && cellScreen >= 26.0;
 
